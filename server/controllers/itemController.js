@@ -4,7 +4,7 @@ const Item = require("../models/Item");
 // GET ALL ITEMS
 const getItems = async (req, res) => {
   try {
-    const items = await Item.find();
+    const items = await Item.find().populate("category", "name");
 
     res.status(200).json({
       success: true,

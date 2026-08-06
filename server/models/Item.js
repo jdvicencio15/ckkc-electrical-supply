@@ -17,6 +17,12 @@ const itemSchema = new mongoose.Schema(
       type: String,
       default: "active",
     },
+
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+    },
   },
   {
     timestamps: true,
