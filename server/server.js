@@ -18,6 +18,8 @@ const authRoutes = require("./routes/authRoutes");
 
 const protect = require("./middleware/authMiddleware");
 
+const itemRoutes = require("./routes/itemRoutes");
+
 
 
 // Connect to MongoDB
@@ -28,10 +30,10 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
-
+app.use("/api/items", itemRoutes);
 
 // Health Check Route
-app.get("/", (req, res) => {
+app.get("/", (req, res) => {g
   res.status(200).json({
     success: true,
     message: "MERN Starter Kit API is running 🚀",
