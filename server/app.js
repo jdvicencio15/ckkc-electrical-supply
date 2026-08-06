@@ -31,8 +31,11 @@ app.use("/api/items", itemRoutes);
 app.use("/api/categories", categoryRoutes);
 
 
-// Error Handling
+// NOT FOUND
 app.use(notFound);
+
+
+// ERROR HANDLER (LAST)
 app.use(errorMiddleware);
 
 

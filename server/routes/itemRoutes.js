@@ -1,30 +1,45 @@
 const express = require("express");
 const router = express.Router();
 
+
 const {
-  getItems,
   createItem,
+  getItems,
+  getItemById,
   updateItem,
   deleteItem,
 } = require("../controllers/itemController");
 
-const protect = require("../middleware/authMiddleware");
+
+const {
+  itemValidator,
+} = require("../validators/itemValidator");
 
 
-// GET ALL ITEMS
-router.get("/", protect, getItems);
+const validationMiddleware = require("../middleware/validationMiddleware");
 
 
-// CREATE ITEM
-router.post("/", protect, createItem);
+// CREATE
+router.post(
+  "/",
+  itemValidator,
+  validationMiddleware,
+  createItem
+);
 
 
-// UPDATE ITEM
-router.put("/:id", protect, updateItem);
+// READ
+router.get("/", getItems);
+
+router.get("/:id", getItemById);
 
 
-// DELETE ITEM
-router.delete("/:id", protect, deleteItem);
+// UPDATE
+router.put("/:id", updateItem);
+
+
+// DELETE
+router.delete("/:id", deleteItem);
 
 
 module.exports = router;

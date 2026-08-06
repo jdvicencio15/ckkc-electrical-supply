@@ -2,7 +2,7 @@ const Item = require("../models/Item");
 
 
 // GET ALL ITEMS
-const getItems = async (req, res) => {
+const getItems = async (req, res, next) => {
   try {
     const items = await Item.find().populate("category", "name");
 
@@ -12,17 +12,41 @@ const getItems = async (req, res) => {
       items,
     });
 
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
+  } catch(error){
+ next(error);
+}
+};
+
+// GET SINGLE ITEM
+const getItemById = async (req, res, next) => {
+  try {
+
+    const item = await Item.findById(req.params.id)
+      .populate("category", "name");
+
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Item not found",
+      });
+    }
+
+
+    res.status(200).json({
+      success: true,
+      item,
     });
-  }
+
+
+  } catch(error){
+ next(error);
+}
 };
 
 
 // CREATE ITEM
-const createItem = async (req, res) => {
+const createItem = async (req, res, next) => {
   try {
 
     const item = await Item.create(req.body);
@@ -32,17 +56,15 @@ const createItem = async (req, res) => {
       item,
     });
 
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  } catch(error){
+ next(error);
+}
 };
 
 
+
 // UPDATE ITEM
-const updateItem = async (req, res) => {
+const updateItem = async (req, res, next) => {
   try {
 
     const item = await Item.findByIdAndUpdate(
@@ -69,17 +91,14 @@ const updateItem = async (req, res) => {
     });
 
 
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  } catch(error){
+ next(error);
+}
 };
 
 
 // DELETE ITEM
-const deleteItem = async (req, res) => {
+const deleteItem = async (req, res, next) => {
   try {
 
     const item = await Item.findByIdAndDelete(
@@ -101,17 +120,15 @@ const deleteItem = async (req, res) => {
     });
 
 
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+  } catch(error){
+ next(error);
+}
 };
 
 
 module.exports = {
-  getItems,
+    getItems,
+  getItemById,
   createItem,
   updateItem,
   deleteItem,
