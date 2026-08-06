@@ -16,6 +16,8 @@ const PORT = process.env.PORT || 5000;
 
 const authRoutes = require("./routes/authRoutes");
 
+const protect = require("./middleware/authMiddleware");
+
 
 
 // Connect to MongoDB
@@ -35,6 +37,10 @@ app.get("/", (req, res) => {
     message: "MERN Starter Kit API is running 🚀",
   });
 });
+
+
+
+
 
 // Start Server
 app.listen(PORT, () => {
