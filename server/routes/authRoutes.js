@@ -7,6 +7,8 @@ const validationMiddleware = require("../middleware/validationMiddleware");
 const {
   registerUser,
   loginUser,
+  forgotPassword,
+  resetPassword,
 } = require("../controllers/authController");
 
 
@@ -29,6 +31,16 @@ router.post(
   loginValidator,
   validationMiddleware,
   loginUser
+);
+
+router.post(
+  "/forgot-password",
+  forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  resetPassword
 );
 
 
