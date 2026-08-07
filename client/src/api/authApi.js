@@ -19,11 +19,32 @@ const authApi = {
     return response.data;
   },
 
+  forgotPassword: async (email) => {
+  const response = await API.post(
+    "/auth/forgot-password",
+    { email }
+  );
+
+  return response.data;
+    },
+
+  resetPassword: async (data) => {
+  const response = await API.post(
+    "/auth/reset-password",
+    data
+  );
+
+  return response.data;
+    },
+
+
   getMe: async () => {
     const response = await API.get("/users/me");
 
     return response.data;
   },
 };
+
+
 
 export default authApi;

@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }) => {
 
       try {
         const response = await authService.getMe();
+          console.log("GET ME RESPONSE:", response);
 
         setToken(savedToken);
         setUser(response.user);
