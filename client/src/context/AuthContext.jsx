@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useContext,
@@ -16,37 +15,67 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser =
-      localStorage.getItem("user") ||
-      sessionStorage.getItem("user");
+    const checkAuth = async () => {
+      const savedToken =
+        localStorage.getItem("token") ||
+        sessionStorage.getItem("token");
 
-    const savedToken =
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("token");
+      if (!savedToken) {
+        setLoading(false);
+        return;
+      }
 
-    if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
-      setToken(savedToken);
-    }
+      try {
+        const response = await authService.getMe();
 
-    setLoading(false);
+        setToken(savedToken);
+        setUser(response.user);
+      } catch (error) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
+
+        setToken(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
-  const login = async (credentials) => {
-    const response = await authService.login(credentials);
+ const login = async (credentials) => {
+  const response = await authService.login(credentials);
 
-    setUser(response.user);
-    setToken(response.token);
+  setUser(response.user);
+  setToken(response.token);
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify(response.user)
-    );
+  // Clear previous auth storage
+  localStorage.removeItem("user");
+  localStorage.removeItem("token");
 
-    localStorage.setItem("token", response.token);
+  sessionStorage.removeItem("user");
+  sessionStorage.removeItem("token");
 
-    return response;
-  };
+  // Choose storage based on Remember Me
+  const storage = credentials.rememberMe
+    ? localStorage
+    : sessionStorage;
+
+  storage.setItem(
+    "user",
+    JSON.stringify(response.user)
+  );
+
+  storage.setItem("token", response.token);
+
+  return response;
+};
+
+
 
   const register = async (userData) => {
     const response = await authService.register(userData);
@@ -87,4 +116,3 @@ export const useAuth = () => {
 };
 
 export default AuthContext;
-

@@ -1,8 +1,6 @@
-
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-
 
 function Login() {
   const { login } = useAuth();
@@ -10,30 +8,31 @@ function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  console.log("Submit clicked");
+    console.log("Submit clicked");
 
-  const credentials = {
-    email,
-    password,
+    const credentials = {
+      email,
+      password,
+      rememberMe,
+    };
+
+    console.log(credentials);
+
+    try {
+      const response = await login(credentials);
+
+      console.log("Login success:", response);
+
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
   };
-
-  console.log(credentials);
-
-  try {
-    const response = await login(credentials);
-
-    console.log("Login success:", response);
-
-    navigate("/dashboard");
-
-  } catch (error) {
-    console.error("Login failed:", error);
-  }
-};
 
   return (
     <div>
@@ -60,13 +59,20 @@ function Login() {
           />
         </div>
 
-        <button type="submit">
-          Login
-        </button>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            Remember me
+          </label>
+        </div>
+
+        <button type="submit">Login</button>
       </form>
     </div>
   );
 }
-
 export default Login;
-

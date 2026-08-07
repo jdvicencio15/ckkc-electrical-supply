@@ -12,7 +12,13 @@ const authService = {
     const data = await authApi.register(userData);
 
     return data;
-  },
+    },
+
+  getMe: async () => {
+  const data = await authApi.getMe();
+  return data;
+    },
+
 };
 
 export default authService;

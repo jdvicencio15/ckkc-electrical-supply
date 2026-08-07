@@ -8,11 +8,9 @@ import NotFound from "../pages/NotFound";
 
 import ProtectedRoute from "./ProtectedRoute";
 
-
 function AppRoutes() {
   return (
     <BrowserRouter>
-
       <Routes>
 
         {/* Public Routes */}
@@ -22,17 +20,13 @@ function AppRoutes() {
 
         <Route path="/register" element={<Register />} />
 
-
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
-
           <Route
             path="/dashboard"
             element={<Dashboard />}
           />
-
         </Route>
-
 
         {/* 404 */}
         <Route
@@ -41,10 +35,8 @@ function AppRoutes() {
         />
 
       </Routes>
-
     </BrowserRouter>
   );
 }
-
 
 export default AppRoutes;

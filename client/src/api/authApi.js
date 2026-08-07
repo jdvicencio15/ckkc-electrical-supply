@@ -1,11 +1,9 @@
 import API from "./axios";
 
-console.log("AXIOS CHECK:", API);
-
 const authApi = {
   login: async (credentials) => {
     const response = await API.post(
-      "/api/auth/login",
+      "/auth/login",
       credentials
     );
 
@@ -14,9 +12,15 @@ const authApi = {
 
   register: async (userData) => {
     const response = await API.post(
-      "/api/auth/register",
+      "/auth/register",
       userData
     );
+
+    return response.data;
+  },
+
+  getMe: async () => {
+    const response = await API.get("/users/me");
 
     return response.data;
   },

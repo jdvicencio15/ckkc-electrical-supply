@@ -4,9 +4,12 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const itemRoutes = require("./routes/itemRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
+const userRoutes = require("./routes/userRoutes");
+
 
 const errorMiddleware = require("./middleware/errorMiddleware");
 const notFound = require("./middleware/notFound");
+
 
 
 const app = express();
@@ -29,6 +32,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/users", userRoutes);
 
 
 // NOT FOUND

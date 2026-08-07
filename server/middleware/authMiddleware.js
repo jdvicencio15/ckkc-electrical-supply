@@ -1,6 +1,8 @@
 const jwt = require("jsonwebtoken");
 
 const protect = (req, res, next) => {
+
+
   try {
     let token;
 
@@ -10,6 +12,8 @@ const protect = (req, res, next) => {
     ) {
       token = req.headers.authorization.split(" ")[1];
     }
+
+
 
     if (!token) {
       return res.status(401).json({
@@ -28,9 +32,11 @@ const protect = (req, res, next) => {
     next();
 
   } catch (error) {
+    console.log(error);
+
     return res.status(401).json({
-      success: false,
-      message: "Not authorized, token failed",
+      success:false,
+      message:"Not authorized, token failed",
     });
   }
 };
