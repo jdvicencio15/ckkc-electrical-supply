@@ -3,11 +3,9 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
 
-
 function Dashboard() {
   const { logout } = useAuth();
   const navigate = useNavigate();
-
 
 
 

@@ -30,24 +30,16 @@ const handleSubmit = async (e) => {
   try {
     const response = await authService.register(formData);
 
-
-
     toast.success("Account created successfully!");
 
-setTimeout(() => {
-  navigate("/login");
-}, 2000);
+    setTimeout(() => {
+      navigate("/login");
+    }, 2000);
 
   } catch (error) {
-
-
-    toast.error(
-      error.response?.data?.message || "Registration failed"
-    );
-
+    console.log("Registration error:", error);
   }
 };
-
 
   return (
     <div>

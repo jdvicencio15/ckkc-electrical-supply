@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
-
+import Button from "../components/ui/Button";
 
 function Login() {
   const { login } = useAuth();
@@ -12,11 +12,12 @@ function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
 
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log("Submit clicked");
+    setLoading(true);
 
     const credentials = {
       email,
@@ -24,80 +25,64 @@ function Login() {
       rememberMe,
     };
 
-    console.log(credentials);
-
     try {
       const response = await login(credentials);
 
-      console.log("Login success:", response);
-
       navigate("/dashboard");
     } catch (error) {
-       setError(
-    error.response?.data?.message ||
-    "Login failed"
-  );
+    } finally {
+      setLoading(false);
     }
   };
 
- return (
-  <div>
-    <h1>Login</h1>
+  return (
+    <div>
+      <h1>Login</h1>
 
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="email">Email</label>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="email">Email</label>
 
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <label htmlFor="password">Password</label>
-
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-
-
-
-      <div>
-        <label>
           <input
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
-          Remember me
-        </label>
-      </div>
+        </div>
 
-         {/* ERROR MESSAGE DITO */}
-  {error && (
-    <p className="text-red-500">
-      {error}
-    </p>
-       )}
+        <div>
+          <label htmlFor="password">Password</label>
 
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-      <button type="submit">
-        Login
-       </button>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            Remember me
+          </label>
+        </div>
 
-        <Link to="/forgot-password">
-        Forgot Password?
-       </Link>
+        {/* ERROR MESSAGE DITO */}
+        {error && <p className="text-red-500">{error}</p>}
 
-    </form>
-  </div>
-);
+        <Button type="submit" loading={loading}>
+          Login
+        </Button>
+
+        <Link to="/forgot-password">Forgot Password?</Link>
+      </form>
+    </div>
+  );
 }
 export default Login;

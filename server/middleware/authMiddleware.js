@@ -1,5 +1,7 @@
 const jwt = require("jsonwebtoken");
 
+const logger = require("../utils/logger");
+
 const protect = (req, res, next) => {
 
 
@@ -32,7 +34,8 @@ const protect = (req, res, next) => {
     next();
 
   } catch (error) {
-    console.log(error);
+
+    logger.warn("Unauthorized request");
 
     return res.status(401).json({
       success:false,

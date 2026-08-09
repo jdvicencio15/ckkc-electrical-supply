@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import authService from "../services/authService";
@@ -16,18 +17,17 @@ function ForgotPassword() {
 
     setMessage("");
     setError("");
+    setResetToken("");
     setLoading(true);
 
     try {
-    const response = await authService.forgotPassword(email);
+      const response = await authService.forgotPassword(email);
 
       setResetToken(response.resetToken);
       setMessage(response.message);
     } catch (error) {
-      setError(
-        error.response?.data?.message ||
-          "Something went wrong"
-      );
+      console.log("Forgot password error:", error);
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -39,7 +39,7 @@ function ForgotPassword() {
   };
 
   const handleContinue = () => {
-    navigate("/reset-password");
+    navigate(`/reset-password/${resetToken}`);
   };
 
   return (
@@ -48,9 +48,7 @@ function ForgotPassword() {
 
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="email">
-            Email Address
-          </label>
+          <label htmlFor="email">Email Address</label>
 
           <input
             id="email"
@@ -63,50 +61,31 @@ function ForgotPassword() {
         </div>
 
         <button type="submit" disabled={loading}>
-          {loading
-            ? "Generating..."
-            : "Send Reset Token"}
+          {loading ? "Generating..." : "Send Reset Token"}
         </button>
       </form>
 
-      {message && (
-        <p>{message}</p>
-      )}
+      {message && <p>{message}</p>}
 
-      {error && (
-        <p>{error}</p>
-      )}
+      {error && <p>{error}</p>}
 
       {resetToken && (
         <div>
           <p>Reset Token:</p>
 
-          <input
-            type="text"
-            value={resetToken}
-            readOnly
-          />
+          <input type="text" value={resetToken} readOnly />
 
-          <button
-            type="button"
-            onClick={handleCopyToken}
-          >
+          <button type="button" onClick={handleCopyToken}>
             Copy Token
           </button>
 
-          <button
-            type="button"
-            onClick={handleContinue}
-          >
+          <button type="button" onClick={handleContinue}>
             Continue to Reset Password
           </button>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => navigate("/login")}
-      >
+      <button type="button" onClick={() => navigate("/login")}>
         Back to Login
       </button>
     </div>
@@ -114,3 +93,4 @@ function ForgotPassword() {
 }
 
 export default ForgotPassword;
+

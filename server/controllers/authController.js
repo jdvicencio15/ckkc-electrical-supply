@@ -2,7 +2,7 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-
+const logger = require("../utils/logger");
 // Register User
 const registerUser = async (req, res) => {
   try {
@@ -18,6 +18,7 @@ const registerUser = async (req, res) => {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
+      logger.warn("Registration failed: email already registered");
       return res.status(400).json({
         success: false,
         message: "Email already registered",
@@ -38,6 +39,8 @@ const registerUser = async (req, res) => {
       password: hashedPassword,
     });
 
+    logger.info("Registration successful");
+
 
     res.status(201).json({
       success: true,
@@ -52,9 +55,10 @@ const registerUser = async (req, res) => {
 
 
   } catch (error) {
+    logger.error("Registration failed due to server error");
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Something went wrong. Please try again later.",
     });
   }
 };
@@ -72,6 +76,8 @@ const loginUser = async (req, res) => {
 
 
     if (!user) {
+      logger.warn("Login failed");
+
       return res.status(401).json({
         success: false,
        message:"Invalid email or password",
@@ -87,6 +93,7 @@ const loginUser = async (req, res) => {
 
 
     if (!isMatch) {
+       logger.warn("Login failed");
       return res.status(401).json({
         success: false,
         message:"Invalid email or password",
@@ -105,7 +112,7 @@ const loginUser = async (req, res) => {
         expiresIn: "7d",
       }
     );
-
+logger.info("Login successful");
 
     res.json({
       success: true,
@@ -120,10 +127,10 @@ const loginUser = async (req, res) => {
 
 
   } catch (error) {
-
+     logger.error("Login failed due to server error");
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Something went wrong. Please try again later.",
     });
 
   }
@@ -138,11 +145,12 @@ const forgotPassword = async (req, res) => {
 
     // Find user
     const user = await User.findOne({ email });
-
+    logger.info("Password reset requested");
+    // Do not reveal whether the email exists
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
+      return res.status(200).json({
+        success: true,
+        message: "If an account with that email exists, a password reset link has been sent.",
       });
     }
 
@@ -155,7 +163,6 @@ const forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
-
     // Token expiration: 15 minutes
     const resetTokenExpire = Date.now() + 15 * 60 * 1000;
 
@@ -165,15 +172,17 @@ const forgotPassword = async (req, res) => {
 
     await user.save();
 
-    res.json({
-      success: true,
-      message: "Reset token generated",
-      resetToken,
-    });
+return res.status(200).json({
+  success: true,
+  message:
+    "If an account with that email exists, a password reset link has been sent.",
+  resetToken,
+});
   } catch (error) {
+    logger.error("Password reset request failed due to server error");
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Something went wrong. Please try again later.",
     });
   }
 };
@@ -190,6 +199,7 @@ const resetPassword = async (req, res) => {
 
     // Check passwords
     if (password !== confirmPassword) {
+      logger.warn("Password reset failed");
       return res.status(400).json({
         success: false,
         message: "Passwords do not match",
@@ -211,6 +221,7 @@ const resetPassword = async (req, res) => {
     });
 
     if (!user) {
+       logger.warn("Password reset failed");
       return res.status(400).json({
         success: false,
         message: "Invalid or expired reset token",
@@ -232,15 +243,16 @@ const resetPassword = async (req, res) => {
     user.resetTokenExpire = null;
 
     await user.save();
-
+logger.info("Password reset successful");
     res.json({
       success: true,
       message: "Password reset successfully",
     });
   } catch (error) {
+      logger.error("Password reset failed due to server error");
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Something went wrong. Please try again later.",
     });
   }
 };
