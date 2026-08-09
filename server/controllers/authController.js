@@ -143,8 +143,6 @@ logger.info("Login successful");
 };
 
 
-
-// Forgot Password
 // Forgot Password
 const forgotPassword = async (req, res) => {
   try {
@@ -184,10 +182,6 @@ const forgotPassword = async (req, res) => {
     const resetUrl =
       `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
-    console.log("🔎 Reset email:", user.email);
-    console.log("👤 User found:", !!user);
-    console.log("🔗 Reset URL:", resetUrl);
-
     // Send reset email
     await sendPasswordResetEmail(
       user.email,
@@ -201,11 +195,6 @@ const forgotPassword = async (req, res) => {
     });
 
   } catch (error) {
-    console.error(
-      "PASSWORD RESET EMAIL ERROR:",
-      error
-    );
-
     logger.error(
       "Password reset request failed due to server error"
     );
