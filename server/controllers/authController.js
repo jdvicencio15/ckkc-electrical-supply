@@ -3,6 +3,12 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const logger = require("../utils/logger");
+
+const {
+  sendPasswordResetEmail,
+} = require("../utils/emailService");
+
+
 // Register User
 const registerUser = async (req, res) => {
   try {
@@ -139,18 +145,22 @@ logger.info("Login successful");
 
 
 // Forgot Password
+// Forgot Password
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
     // Find user
     const user = await User.findOne({ email });
+
     logger.info("Password reset requested");
+
     // Do not reveal whether the email exists
     if (!user) {
       return res.status(200).json({
         success: true,
-        message: "If an account with that email exists, a password reset link has been sent.",
+        message:
+          "If an account with that email exists, a password reset link has been sent.",
       });
     }
 
@@ -163,30 +173,50 @@ const forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
-    // Token expiration: 15 minutes
-    const resetTokenExpire = Date.now() + 15 * 60 * 1000;
-
-    // Save hashed token + expiration
+    // Token expires in 15 minutes
     user.resetToken = hashedToken;
-    user.resetTokenExpire = resetTokenExpire;
+    user.resetTokenExpire =
+      Date.now() + 15 * 60 * 1000;
 
     await user.save();
 
-return res.status(200).json({
-  success: true,
-  message:
-    "If an account with that email exists, a password reset link has been sent.",
-  resetToken,
-});
+    // Create reset URL
+    const resetUrl =
+      `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    console.log("🔎 Reset email:", user.email);
+    console.log("👤 User found:", !!user);
+    console.log("🔗 Reset URL:", resetUrl);
+
+    // Send reset email
+    await sendPasswordResetEmail(
+      user.email,
+      resetUrl
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "If an account with that email exists, a password reset link has been sent.",
+    });
+
   } catch (error) {
-    logger.error("Password reset request failed due to server error");
-    res.status(500).json({
+    console.error(
+      "PASSWORD RESET EMAIL ERROR:",
+      error
+    );
+
+    logger.error(
+      "Password reset request failed due to server error"
+    );
+
+    return res.status(500).json({
       success: false,
-      message: "Something went wrong. Please try again later.",
+      message:
+        "Something went wrong. Please try again later.",
     });
   }
 };
-
 
 // Reset Password
 const resetPassword = async (req, res) => {

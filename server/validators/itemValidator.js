@@ -1,20 +1,20 @@
 const { body } = require("express-validator");
 
-
 const itemValidator = [
   body("name")
+    .trim()
     .notEmpty()
     .withMessage("Item name is required"),
 
   body("description")
+    .trim()
     .notEmpty()
     .withMessage("Description is required"),
 
   body("category")
-    .notEmpty()
-    .withMessage("Category is required"),
+    .isMongoId()
+    .withMessage("Valid category is required"),
 ];
-
 
 module.exports = {
   itemValidator,

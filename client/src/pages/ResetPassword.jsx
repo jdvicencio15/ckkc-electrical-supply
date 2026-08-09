@@ -1,6 +1,6 @@
-
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+
 import authService from "../services/authService";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
@@ -8,10 +8,11 @@ import Card from "../components/ui/Card";
 
 function ResetPassword() {
   const navigate = useNavigate();
+  const { token } = useParams();
 
-  const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,12 +23,12 @@ function ResetPassword() {
     setMessage("");
     setError("");
 
+    if (loading) return;
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-
-    if (loading) return;
 
     setLoading(true);
 
@@ -46,7 +47,7 @@ function ResetPassword() {
     } catch (error) {
       setError(
         error.response?.data?.message ||
-          "Something went wrong"
+          "Something went wrong. Please try again."
       );
     } finally {
       setLoading(false);
@@ -54,25 +55,17 @@ function ResetPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <Card
-        title="Reset Password"
-        className="w-full max-w-md"
-      >
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-5"
-        >
-          <Input
-            label="Reset Token"
-            type="text"
-            name="token"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="Enter your reset token"
-            required
-          />
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <Card>
+        <h1 className="mb-2 text-2xl font-bold">
+          Reset Password
+        </h1>
 
+        <p className="mb-6 text-sm text-gray-600">
+          Enter your new password below.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="New Password"
             type="password"
@@ -88,11 +81,14 @@ function ResetPassword() {
             type="password"
             name="confirmPassword"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e) =>
+              setConfirmPassword(e.target.value)
+            }
             placeholder="Confirm your new password"
             required
             error={
-              password !== confirmPassword && confirmPassword
+              password !== confirmPassword &&
+              confirmPassword
                 ? "Passwords do not match"
                 : ""
             }
@@ -118,6 +114,17 @@ function ResetPassword() {
             Reset Password
           </Button>
         </form>
+
+        <div className="mt-5 text-center">
+          <Button
+            type="button"
+            variant="secondary"
+            fullWidth
+            onClick={() => navigate("/login")}
+          >
+            Back to Login
+          </Button>
+        </div>
       </Card>
     </div>
   );
