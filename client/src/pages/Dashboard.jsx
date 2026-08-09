@@ -1,13 +1,11 @@
-import { useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import API from "../api/axios";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
 
 function Dashboard() {
   const { logout } = useAuth();
   const navigate = useNavigate();
-
-
 
   const handleLogout = () => {
     logout();
@@ -15,15 +13,32 @@ function Dashboard() {
   };
 
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>You are authenticated.</p>
+    <div className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="mx-auto max-w-4xl">
+        <Card>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Dashboard
+              </h1>
 
-      <button onClick={handleLogout}>
-        Logout
-      </button>
+              <p className="mt-2 text-gray-600">
+                You are authenticated.
+              </p>
+            </div>
+
+            <Button
+              variant="danger"
+              onClick={handleLogout}
+            >
+              Logout
+            </Button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
 
 export default Dashboard;
+

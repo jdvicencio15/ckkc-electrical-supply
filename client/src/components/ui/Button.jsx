@@ -9,6 +9,7 @@ function Button({
   loading = false,
   className = "",
   disabled = false,
+  fullWidth = false,
 }) {
   const variants = {
     primary: "bg-blue-600 text-white hover:bg-blue-700",
@@ -17,8 +18,8 @@ function Button({
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-base",
+    sm: "px-3 py-2 text-sm",
+    md: "px-4 py-2.5 text-base",
     lg: "px-5 py-3 text-lg",
   };
 
@@ -27,12 +28,18 @@ function Button({
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
-      className={`flex items-center justify-center gap-2 rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-lg font-medium transition
+        disabled:cursor-not-allowed disabled:opacity-50
+        ${variants[variant]}
+        ${sizes[size]}
+        ${fullWidth ? "w-full" : ""}
+        ${className}
+      `}
     >
       {loading ? (
         <>
-          <Spinner size="sm" />
-          <span>Loading...</span>
+          <Spinner />
+          Loading...
         </>
       ) : (
         children

@@ -1,97 +1,116 @@
+
 import { useState } from "react";
 import authService from "../services/authService";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+import Card from "../components/ui/Card";
 
 function Register() {
-
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
-    password: ""
+    password: "",
   });
 
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+    if (loading) return;
 
-  try {
-    const response = await authService.register(formData);
+    setLoading(true);
 
-    toast.success("Account created successfully!");
+    try {
+      await authService.register(formData);
 
-    setTimeout(() => {
-      navigate("/login");
-    }, 2000);
+      toast.success("Account created successfully!");
 
-  } catch (error) {
-    console.log("Registration error:", error);
-  }
-};
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
+    } catch (error) {
+
+
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <Card
+        title="Create Account"
+        className="w-full max-w-md"
+      >
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5"
+        >
+          <Input
+            label="First Name"
+            type="text"
+            name="firstName"
+            value={formData.firstName}
+            onChange={handleChange}
+            placeholder="Enter your first name"
+            required
+          />
 
-      <h1>Register</h1>
+          <Input
+            label="Last Name"
+            type="text"
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleChange}
+            placeholder="Enter your last name"
+            required
+          />
 
-      <form onSubmit={handleSubmit}>
+          <Input
+            label="Email"
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="Enter your email"
+            required
+          />
 
-        <input
-          type="text"
-          name="firstName"
-          placeholder="First Name"
-          value={formData.firstName}
-          onChange={handleChange}
-        />
+          <Input
+            label="Password"
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Create a password"
+            required
+          />
 
-
-        <input
-          type="text"
-          name="lastName"
-          placeholder="Last Name"
-          value={formData.lastName}
-          onChange={handleChange}
-        />
-
-
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-        />
-
-
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={handleChange}
-        />
-
-
-        <button type="submit">
-          Register
-        </button>
-
-      </form>
-
+          <Button
+            type="submit"
+            loading={loading}
+            fullWidth
+          >
+            Register
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }
 
 export default Register;
+
