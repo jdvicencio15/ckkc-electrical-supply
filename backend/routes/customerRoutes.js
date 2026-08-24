@@ -2,55 +2,57 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  createItem,
-  getItems,
-  getItemById,
-  updateItem,
-  deleteItem,
-} = require("../controllers/itemController");
+  createCustomer,
+  getCustomers,
+  getCustomerById,
+  updateCustomer,
+  deleteCustomer,
+} = require("../controllers/customerController");
+
+const protect = require("../middleware/authMiddleware");
 
 const {
-  itemValidator,
-} = require("../validators/itemValidator");
+  customerValidator,
+} = require("../validators/customerValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
 
-const protect = require("../middleware/authMiddleware");
 
 // CREATE
 router.post(
   "/",
   protect,
-  itemValidator,
+  customerValidator,
   validationMiddleware,
-  createItem
+  createCustomer
 );
 
-// READ
+// READ ALL
 router.get(
   "/",
   protect,
-  getItems
+  getCustomers
 );
 
+// READ SINGLE
 router.get(
   "/:id",
   protect,
-  getItemById
+  getCustomerById
 );
 
 // UPDATE
 router.put(
   "/:id",
   protect,
-  updateItem
+  updateCustomer
 );
 
 // DELETE
 router.delete(
   "/:id",
   protect,
-  deleteItem
+  deleteCustomer
 );
 
 module.exports = router;

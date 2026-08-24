@@ -1,0 +1,41 @@
+const express = require("express");
+const router = express.Router();
+
+const {
+  createExpense,
+  getExpenses,
+  getExpenseById,
+  updateExpense,
+  deleteExpense,
+} = require("../controllers/expenseController");
+
+const protect = require("../middleware/authMiddleware");
+
+const {
+  expenseValidator,
+} = require("../validators/expenseValidator");
+
+const validationMiddleware = require("../middleware/validationMiddleware");
+
+// CREATE
+router.post(
+  "/",
+  protect,
+  expenseValidator,
+  validationMiddleware,
+  createExpense
+);
+
+// READ ALL
+router.get("/", protect, getExpenses);
+
+// READ SINGLE
+router.get("/:id", protect, getExpenseById);
+
+// UPDATE
+router.put("/:id", protect, updateExpense);
+
+// DELETE
+router.delete("/:id", protect, deleteExpense);
+
+module.exports = router;
