@@ -1,6 +1,38 @@
 const InventoryMovement = require("../models/InventoryMovement");
-
 const Product = require("../models/Product");
+
+// RECALCULATE PRODUCT STOCK
+const recalculateProductStock = async (productId) => {
+  const movements = await InventoryMovement.find({
+    productId,
+  }).sort({
+    date: 1,
+    createdAt: 1,
+  });
+
+  let stock = 0;
+
+  for (const movement of movements) {
+    if (movement.type === "IN") {
+      stock += movement.quantity;
+    }
+
+    if (movement.type === "OUT") {
+      stock -= movement.quantity;
+    }
+
+    if (movement.type === "ADJUSTMENT") {
+      stock = movement.quantity;
+    }
+  }
+
+  // Prevent negative stock from being saved
+  stock = Math.max(stock, 0);
+
+  await Product.findByIdAndUpdate(productId, {
+    currentStock: stock,
+  });
+};
 
 // GET ALL INVENTORY MOVEMENTS
 const getInventoryMovements = async (req, res, next) => {
@@ -103,14 +135,8 @@ const createInventoryMovement = async (req, res, next) => {
     const populatedMovement = await InventoryMovement.findById(
       movement._id
     )
-      .populate(
-        "productId",
-        "sku name unit currentStock"
-      )
-      .populate(
-        "createdBy",
-        "firstName lastName"
-      );
+      .populate("productId", "sku name unit currentStock")
+      .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
       success: true,
@@ -120,19 +146,11 @@ const createInventoryMovement = async (req, res, next) => {
     next(error);
   }
 };
+
 // UPDATE INVENTORY MOVEMENT
 const updateInventoryMovement = async (req, res, next) => {
   try {
-    const movement = await InventoryMovement.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    )
-      .populate("productId", "sku name unit currentStock")
-      .populate("createdBy", "firstName lastName");
+    const movement = await InventoryMovement.findById(req.params.id);
 
     if (!movement) {
       return res.status(404).json({
@@ -141,9 +159,32 @@ const updateInventoryMovement = async (req, res, next) => {
       });
     }
 
+    const oldProductId = movement.productId.toString();
+
+    // Update only provided fields
+    Object.assign(movement, req.body);
+
+    await movement.save();
+
+    const newProductId = movement.productId.toString();
+
+    // Recalculate new product stock
+    await recalculateProductStock(movement.productId);
+
+    // If productId was changed, also recalculate the old product
+    if (oldProductId !== newProductId) {
+      await recalculateProductStock(oldProductId);
+    }
+
+    const populatedMovement = await InventoryMovement.findById(
+      movement._id
+    )
+      .populate("productId", "sku name unit currentStock")
+      .populate("createdBy", "firstName lastName");
+
     res.status(200).json({
       success: true,
-      movement,
+      movement: populatedMovement,
     });
   } catch (error) {
     next(error);
@@ -153,9 +194,7 @@ const updateInventoryMovement = async (req, res, next) => {
 // DELETE INVENTORY MOVEMENT
 const deleteInventoryMovement = async (req, res, next) => {
   try {
-    const movement = await InventoryMovement.findByIdAndDelete(
-      req.params.id
-    );
+    const movement = await InventoryMovement.findById(req.params.id);
 
     if (!movement) {
       return res.status(404).json({
@@ -163,6 +202,13 @@ const deleteInventoryMovement = async (req, res, next) => {
         message: "Inventory movement not found",
       });
     }
+
+    const productId = movement.productId;
+
+    await movement.deleteOne();
+
+    // Recalculate stock after deleting the movement
+    await recalculateProductStock(productId);
 
     res.status(200).json({
       success: true,

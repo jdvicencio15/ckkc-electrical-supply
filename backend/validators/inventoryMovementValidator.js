@@ -13,13 +13,13 @@ const inventoryMovementValidator = [
     .isIn(["IN", "OUT", "ADJUSTMENT"])
     .withMessage("Invalid inventory movement type"),
 
-  body("quantity")
-    .notEmpty()
-    .withMessage("Quantity is required")
-    .isFloat({ min: 0 })
-    .withMessage(
-      "Quantity must be a valid number greater than or equal to 0"
-    ),
+body("quantity")
+  .notEmpty()
+  .withMessage("Quantity is required")
+  .isFloat({ min: 0.01 })
+  .withMessage(
+    "Quantity must be a valid number greater than or equal to 0.01"
+  ),
 
   body("unitCost")
     .optional()

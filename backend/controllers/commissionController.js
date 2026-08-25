@@ -92,17 +92,7 @@ const createCommission = async (req, res, next) => {
 // UPDATE COMMISSION
 const updateCommission = async (req, res, next) => {
   try {
-    const commission = await Commission.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    )
-      .populate("clientPOId", "poNumber totalAmount")
-      .populate("saleId", "salesNumber totalAmount")
-      .populate("createdBy", "firstName lastName");
+    const commission = await Commission.findById(req.params.id);
 
     if (!commission) {
       return res.status(404).json({
@@ -111,9 +101,55 @@ const updateCommission = async (req, res, next) => {
       });
     }
 
+    const {
+      clientPOId,
+      saleId,
+      rate,
+      baseAmount,
+    } = req.body;
+
+    // Update only provided fields
+    if (clientPOId !== undefined) {
+      commission.clientPOId = clientPOId;
+    }
+
+    if (saleId !== undefined) {
+      commission.saleId = saleId;
+    }
+
+    if (rate !== undefined) {
+      commission.rate = rate;
+    }
+
+    if (baseAmount !== undefined) {
+      commission.baseAmount = baseAmount;
+    }
+
+    // Always recalculate commission amount
+    commission.commissionAmount =
+      commission.baseAmount *
+      (commission.rate / 100);
+
+    await commission.save();
+
+    const populatedCommission =
+      await Commission.findById(commission._id)
+        .populate(
+          "clientPOId",
+          "poNumber totalAmount"
+        )
+        .populate(
+          "saleId",
+          "salesNumber totalAmount"
+        )
+        .populate(
+          "createdBy",
+          "firstName lastName"
+        );
+
     res.status(200).json({
       success: true,
-      commission,
+      commission: populatedCommission,
     });
   } catch (error) {
     next(error);

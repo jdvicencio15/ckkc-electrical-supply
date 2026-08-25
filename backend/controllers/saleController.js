@@ -135,12 +135,39 @@ const updateSale = async (req, res, next) => {
       saleDate,
       status,
       items,
-      directExpenses = 0,
-      commission = 0,
+      directExpenses,
+      commission,
     } = req.body;
 
-    // Recalculate if items are provided
-    if (items) {
+    // Update basic fields
+    if (customerId !== undefined) {
+      sale.customerId = customerId;
+    }
+
+    if (clientPOId !== undefined) {
+      sale.clientPOId = clientPOId;
+    }
+
+    if (saleDate !== undefined) {
+      sale.saleDate = saleDate;
+    }
+
+    if (status !== undefined) {
+      sale.status = status;
+    }
+
+    // Update expenses only when explicitly provided
+    if (directExpenses !== undefined) {
+      sale.directExpenses = directExpenses;
+    }
+
+    // Update commission only when explicitly provided
+    if (commission !== undefined) {
+      sale.commission = commission;
+    }
+
+    // Recalculate item totals when items are provided
+    if (items !== undefined) {
       const calculatedItems = items.map((item) => {
         const profit =
           (item.unitPrice - item.unitCost) * item.quantity;
@@ -163,45 +190,22 @@ const updateSale = async (req, res, next) => {
         0
       );
 
-      const totalAmount =
-        subtotal + directExpenses + commission;
-
-      const totalProfit =
-        subtotal -
-        totalCost -
-        directExpenses -
-        commission;
-
       sale.items = calculatedItems;
       sale.subtotal = subtotal;
       sale.totalCost = totalCost;
-      sale.totalAmount = totalAmount;
-      sale.totalProfit = totalProfit;
     }
 
-    if (customerId !== undefined) {
-      sale.customerId = customerId;
-    }
+    // Always calculate totals using the CURRENT sale values
+    sale.totalAmount =
+      sale.subtotal +
+      sale.directExpenses +
+      sale.commission;
 
-    if (clientPOId !== undefined) {
-      sale.clientPOId = clientPOId;
-    }
-
-    if (saleDate !== undefined) {
-      sale.saleDate = saleDate;
-    }
-
-    if (status !== undefined) {
-      sale.status = status;
-    }
-
-    if (directExpenses !== undefined) {
-      sale.directExpenses = directExpenses;
-    }
-
-    if (commission !== undefined) {
-      sale.commission = commission;
-    }
+    sale.totalProfit =
+      sale.subtotal -
+      sale.totalCost -
+      sale.directExpenses -
+      sale.commission;
 
     sale.updatedBy = req.user._id;
 
