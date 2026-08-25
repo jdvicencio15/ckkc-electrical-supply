@@ -107,10 +107,42 @@ const createClientPO = async (req, res, next) => {
 // UPDATE CLIENT PO
 const updateClientPO = async (req, res, next) => {
   try {
+    const { items } = req.body;
+
+    // Validate that all referenced products exist
+    const productIds = items.map((item) => item.productId);
+
+    const existingProducts = await Product.find({
+      _id: { $in: productIds },
+    }).select("_id");
+
+    const existingProductIds = new Set(
+      existingProducts.map((product) => product._id.toString())
+    );
+
+    const missingProduct = productIds.find(
+      (productId) => !existingProductIds.has(productId.toString())
+    );
+
+    if (missingProduct) {
+      return res.status(400).json({
+        success: false,
+        message: `Product not found: ${missingProduct}`,
+      });
+    }
+
+    // Recompute totalAmount on the backend
+    const totalAmount = items.reduce(
+      (total, item) =>
+        total + item.quantity * item.agreedUnitPrice,
+      0
+    );
+
     const clientPO = await ClientPO.findByIdAndUpdate(
       req.params.id,
       {
         ...req.body,
+        totalAmount,
         updatedBy: req.user._id,
       },
       {
