@@ -1,5 +1,22 @@
 const Purchase = require("../models/Purchase");
 
+const calculatePurchaseTotals = (items) => {
+  const calculatedItems = items.map((item) => ({
+    ...item,
+    totalCost: item.quantity * item.actualUnitCost,
+  }));
+
+  const totalAmount = calculatedItems.reduce(
+    (total, item) => total + item.totalCost,
+    0
+  );
+
+  return {
+    calculatedItems,
+    totalAmount,
+  };
+};
+
 // GET ALL PURCHASES
 const getPurchases = async (req, res, next) => {
   try {
@@ -52,12 +69,26 @@ const getPurchaseById = async (req, res, next) => {
 // CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
+    const {
+      items,
+      ...purchaseData
+    } = req.body;
+
+    const {
+      calculatedItems,
+      totalAmount,
+    } = calculatePurchaseTotals(items);
+
     const purchase = await Purchase.create({
-      ...req.body,
+      ...purchaseData,
+      items: calculatedItems,
+      totalAmount,
       createdBy: req.user._id,
     });
 
-    const populatedPurchase = await Purchase.findById(purchase._id)
+    const populatedPurchase = await Purchase.findById(
+      purchase._id
+    )
       .populate("supplierId", "supplierCode name")
       .populate("supplierPOId", "poNumber")
       .populate("relatedClientPOId", "poNumber")
@@ -76,23 +107,7 @@ const createPurchase = async (req, res, next) => {
 // UPDATE PURCHASE
 const updatePurchase = async (req, res, next) => {
   try {
-    const purchase = await Purchase.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        updatedBy: req.user._id,
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    )
-      .populate("supplierId", "supplierCode name")
-      .populate("supplierPOId", "poNumber")
-      .populate("relatedClientPOId", "poNumber")
-      .populate("items.productId", "sku name unit")
-      .populate("createdBy", "firstName lastName")
-      .populate("updatedBy", "firstName lastName");
+    const purchase = await Purchase.findById(req.params.id);
 
     if (!purchase) {
       return res.status(404).json({
@@ -101,9 +116,57 @@ const updatePurchase = async (req, res, next) => {
       });
     }
 
+    const {
+      supplierId,
+      supplierPOId,
+      relatedClientPOId,
+      purchaseDate,
+      items,
+    } = req.body;
+
+    if (supplierId !== undefined) {
+      purchase.supplierId = supplierId;
+    }
+
+    if (supplierPOId !== undefined) {
+      purchase.supplierPOId = supplierPOId;
+    }
+
+    if (relatedClientPOId !== undefined) {
+      purchase.relatedClientPOId = relatedClientPOId;
+    }
+
+    if (purchaseDate !== undefined) {
+      purchase.purchaseDate = purchaseDate;
+    }
+
+    if (items !== undefined) {
+      const {
+        calculatedItems,
+        totalAmount,
+      } = calculatePurchaseTotals(items);
+
+      purchase.items = calculatedItems;
+      purchase.totalAmount = totalAmount;
+    }
+
+    purchase.updatedBy = req.user._id;
+
+    await purchase.save();
+
+    const populatedPurchase = await Purchase.findById(
+      purchase._id
+    )
+      .populate("supplierId", "supplierCode name")
+      .populate("supplierPOId", "poNumber")
+      .populate("relatedClientPOId", "poNumber")
+      .populate("items.productId", "sku name unit")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName");
+
     res.status(200).json({
       success: true,
-      purchase,
+      purchase: populatedPurchase,
     });
   } catch (error) {
     next(error);

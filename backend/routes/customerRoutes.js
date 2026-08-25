@@ -10,6 +10,7 @@ const {
 } = require("../controllers/customerController");
 
 const protect = require("../middleware/authMiddleware");
+const authorize = require("../middleware/authorize");
 
 const {
   customerValidator,
@@ -22,6 +23,7 @@ const validationMiddleware = require("../middleware/validationMiddleware");
 router.post(
   "/",
   protect,
+  authorize("owner", "admin", "sales"),
   customerValidator,
   validationMiddleware,
   createCustomer
@@ -31,6 +33,7 @@ router.post(
 router.get(
   "/",
   protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
   getCustomers
 );
 
@@ -38,6 +41,7 @@ router.get(
 router.get(
   "/:id",
   protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
   getCustomerById
 );
 
@@ -45,6 +49,7 @@ router.get(
 router.put(
   "/:id",
   protect,
+  authorize("owner", "admin", "sales"),
   updateCustomer
 );
 
@@ -52,6 +57,7 @@ router.put(
 router.delete(
   "/:id",
   protect,
+  authorize("owner", "admin", "sales"),
   deleteCustomer
 );
 

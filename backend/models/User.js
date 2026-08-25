@@ -27,10 +27,11 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
-    role: {
-      type: String,
-      default: "user",
-    },
+ role: {
+  type: String,
+  enum: ["owner", "admin", "sales", "purchasing", "accounting"],
+  default: "sales",
+},
 
     resetToken: {
       type: String,

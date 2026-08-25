@@ -9,6 +9,8 @@ const {
   deleteSupplierPO,
 } = require("../controllers/supplierPOController");
 
+const authorize = require("../middleware/authorize");
+
 const protect = require("../middleware/authMiddleware");
 
 const {
@@ -21,21 +23,42 @@ const validationMiddleware = require("../middleware/validationMiddleware");
 router.post(
   "/",
   protect,
+  authorize("owner", "admin", "purchasing"),
   supplierPOValidator,
   validationMiddleware,
   createSupplierPO
 );
 
 // READ ALL
-router.get("/", protect, getSupplierPOs);
+router.get(
+  "/",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getSupplierPOs
+);
 
 // READ SINGLE
-router.get("/:id", protect, getSupplierPOById);
+router.get(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getSupplierPOById
+);
 
 // UPDATE
-router.put("/:id", protect, updateSupplierPO);
+router.put(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  updateSupplierPO
+);
 
 // DELETE
-router.delete("/:id", protect, deleteSupplierPO);
+router.delete(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  deleteSupplierPO
+);
 
 module.exports = router;

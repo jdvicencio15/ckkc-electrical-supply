@@ -15,11 +15,14 @@ const {
 
 const validationMiddleware = require("../middleware/validationMiddleware");
 const protect = require("../middleware/authMiddleware");
+const authorize = require("../middleware/authorize");
+
 
 // CREATE PRODUCT
 router.post(
   "/",
   protect,
+  authorize("owner", "admin", "purchasing"),
   productValidator,
   validationMiddleware,
   createProduct
@@ -29,6 +32,7 @@ router.post(
 router.get(
   "/",
   protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
   getProducts
 );
 
@@ -36,6 +40,7 @@ router.get(
 router.get(
   "/:id",
   protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
   getProductById
 );
 
@@ -43,6 +48,7 @@ router.get(
 router.put(
   "/:id",
   protect,
+  authorize("owner", "admin", "purchasing"),
   productValidator,
   validationMiddleware,
   updateProduct
@@ -52,6 +58,7 @@ router.put(
 router.delete(
   "/:id",
   protect,
+  authorize("owner", "admin", "purchasing"),
   deleteProduct
 );
 

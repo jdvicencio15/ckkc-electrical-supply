@@ -10,6 +10,7 @@ const {
 } = require("../controllers/commissionController");
 
 const protect = require("../middleware/authMiddleware");
+const authorize = require("../middleware/authorize");
 
 const {
   commissionValidator,
@@ -21,21 +22,42 @@ const validationMiddleware = require("../middleware/validationMiddleware");
 router.post(
   "/",
   protect,
+  authorize("owner", "admin", "accounting"),
   commissionValidator,
   validationMiddleware,
   createCommission
 );
 
 // READ ALL
-router.get("/", protect, getCommissions);
+router.get(
+  "/",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getCommissions
+);
 
 // READ SINGLE
-router.get("/:id", protect, getCommissionById);
+router.get(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getCommissionById
+);
 
 // UPDATE
-router.put("/:id", protect, updateCommission);
+router.put(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "accounting"),
+  updateCommission
+);
 
 // DELETE
-router.delete("/:id", protect, deleteCommission);
+router.delete(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "accounting"),
+  deleteCommission
+);
 
 module.exports = router;

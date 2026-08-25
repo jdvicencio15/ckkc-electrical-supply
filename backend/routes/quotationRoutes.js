@@ -9,6 +9,8 @@ const {
   deleteQuotation,
 } = require("../controllers/quotationController");
 
+const authorize = require("../middleware/authorize");
+
 const protect = require("../middleware/authMiddleware");
 
 const {
@@ -21,23 +23,42 @@ const validationMiddleware = require("../middleware/validationMiddleware");
 router.post(
   "/",
   protect,
+  authorize("owner", "admin", "sales"),
   quotationValidator,
   validationMiddleware,
   createQuotation
 );
 
-
-
 // READ ALL
-router.get("/", protect, getQuotations);
+router.get(
+  "/",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getQuotations
+);
 
 // READ SINGLE
-router.get("/:id", protect, getQuotationById);
+router.get(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getQuotationById
+);
 
 // UPDATE
-router.put("/:id", protect, updateQuotation);
+router.put(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "sales"),
+  updateQuotation
+);
 
 // DELETE
-router.delete("/:id", protect, deleteQuotation);
+router.delete(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "sales"),
+  deleteQuotation
+);
 
 module.exports = router;

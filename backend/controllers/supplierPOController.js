@@ -1,5 +1,15 @@
 const SupplierPO = require("../models/SupplierPO");
 
+const calculateSupplierPOTotal = (items) => {
+  const totalAmount = items.reduce(
+    (total, item) =>
+      total + item.quantity * item.expectedUnitCost,
+    0
+  );
+
+  return totalAmount;
+};
+
 // GET ALL SUPPLIER POS
 const getSupplierPOs = async (req, res, next) => {
   try {
@@ -49,8 +59,18 @@ const getSupplierPOById = async (req, res, next) => {
 // CREATE SUPPLIER PO
 const createSupplierPO = async (req, res, next) => {
   try {
+    const {
+      items,
+      ...supplierPOData
+    } = req.body;
+
+    const totalAmount =
+      calculateSupplierPOTotal(items);
+
     const supplierPO = await SupplierPO.create({
-      ...req.body,
+      ...supplierPOData,
+      items,
+      totalAmount,
       createdBy: req.user._id,
     });
 
@@ -66,17 +86,8 @@ const createSupplierPO = async (req, res, next) => {
 // UPDATE SUPPLIER PO
 const updateSupplierPO = async (req, res, next) => {
   try {
-    const supplierPO = await SupplierPO.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        updatedBy: req.user._id,
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const supplierPO =
+      await SupplierPO.findById(req.params.id);
 
     if (!supplierPO) {
       return res.status(404).json({
@@ -84,6 +95,41 @@ const updateSupplierPO = async (req, res, next) => {
         message: "Supplier PO not found",
       });
     }
+
+    const {
+      supplierId,
+      supplierPODate,
+      status,
+      relatedClientPOId,
+      items,
+    } = req.body;
+
+    if (supplierId !== undefined) {
+      supplierPO.supplierId = supplierId;
+    }
+
+    if (supplierPODate !== undefined) {
+      supplierPO.supplierPODate = supplierPODate;
+    }
+
+    if (status !== undefined) {
+      supplierPO.status = status;
+    }
+
+    if (relatedClientPOId !== undefined) {
+      supplierPO.relatedClientPOId =
+        relatedClientPOId;
+    }
+
+    if (items !== undefined) {
+      supplierPO.items = items;
+      supplierPO.totalAmount =
+        calculateSupplierPOTotal(items);
+    }
+
+    supplierPO.updatedBy = req.user._id;
+
+    await supplierPO.save();
 
     res.status(200).json({
       success: true,
@@ -93,7 +139,6 @@ const updateSupplierPO = async (req, res, next) => {
     next(error);
   }
 };
-
 // DELETE SUPPLIER PO
 const deleteSupplierPO = async (req, res, next) => {
   try {

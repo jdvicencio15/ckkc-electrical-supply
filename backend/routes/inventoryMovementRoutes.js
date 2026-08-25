@@ -10,6 +10,7 @@ const {
 } = require("../controllers/inventoryMovementController");
 
 const protect = require("../middleware/authMiddleware");
+const authorize = require("../middleware/authorize");
 
 const {
   inventoryMovementValidator,
@@ -21,21 +22,42 @@ const validationMiddleware = require("../middleware/validationMiddleware");
 router.post(
   "/",
   protect,
+  authorize("owner", "admin", "purchasing"),
   inventoryMovementValidator,
   validationMiddleware,
   createInventoryMovement
 );
 
 // READ ALL
-router.get("/", protect, getInventoryMovements);
+router.get(
+  "/",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getInventoryMovements
+);
 
 // READ SINGLE
-router.get("/:id", protect, getInventoryMovementById);
+router.get(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getInventoryMovementById
+);
 
 // UPDATE
-router.put("/:id", protect, updateInventoryMovement);
+router.put(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  updateInventoryMovement
+);
 
 // DELETE
-router.delete("/:id", protect, deleteInventoryMovement);
+router.delete(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  deleteInventoryMovement
+);
 
 module.exports = router;

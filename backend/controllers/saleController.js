@@ -40,6 +40,8 @@ const getSaleById = async (req, res, next) => {
       });
     }
 
+
+
     res.status(200).json({
       success: true,
       sale,
@@ -128,6 +130,14 @@ const updateSale = async (req, res, next) => {
         message: "Sale not found",
       });
     }
+
+    if (sale.status === "released") {
+  return res.status(400).json({
+    success: false,
+    message: "Released sale cannot be modified",
+  });
+    }
+
 
     const {
       customerId,
@@ -232,6 +242,13 @@ const deleteSale = async (req, res, next) => {
       });
     }
 
+      if (sale.status === "released") {
+      return res.status(400).json({
+        success: false,
+        message: "Released sale cannot be deleted",
+      });
+    }
+
     await sale.deleteOne();
 
     res.status(200).json({
@@ -264,6 +281,7 @@ const releaseSale = async (req, res, next) => {
 
     if (sale.status === "released") {
       await session.abortTransaction();
+
 
       return res.status(400).json({
         success: false,

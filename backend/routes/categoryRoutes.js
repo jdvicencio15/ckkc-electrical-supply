@@ -6,12 +6,24 @@ const {
   createCategory,
 } = require("../controllers/categoryController");
 
+const authorize = require("../middleware/authorize");
+
 const protect = require("../middleware/authMiddleware");
 
 
-router.get("/", protect, getCategories);
+router.get(
+  "/",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getCategories
+);
 
-router.post("/", protect, createCategory);
+router.post(
+  "/",
+  protect,
+  authorize("owner", "admin"),
+  createCategory
+);
 
 
 module.exports = router;

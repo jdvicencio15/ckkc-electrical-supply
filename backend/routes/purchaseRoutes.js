@@ -9,6 +9,8 @@ const {
   deletePurchase,
 } = require("../controllers/purchaseController");
 
+const authorize = require("../middleware/authorize");
+
 const protect = require("../middleware/authMiddleware");
 
 const {
@@ -21,21 +23,42 @@ const validationMiddleware = require("../middleware/validationMiddleware");
 router.post(
   "/",
   protect,
+  authorize("owner", "admin", "purchasing"),
   purchaseValidator,
   validationMiddleware,
   createPurchase
 );
 
 // READ ALL
-router.get("/", protect, getPurchases);
+router.get(
+  "/",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getPurchases
+);
 
 // READ SINGLE
-router.get("/:id", protect, getPurchaseById);
+router.get(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "sales", "purchasing", "accounting"),
+  getPurchaseById
+);
 
 // UPDATE
-router.put("/:id", protect, updatePurchase);
+router.put(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  updatePurchase
+);
 
 // DELETE
-router.delete("/:id", protect, deletePurchase);
+router.delete(
+  "/:id",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  deletePurchase
+);
 
 module.exports = router;

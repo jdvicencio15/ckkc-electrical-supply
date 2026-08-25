@@ -1,5 +1,39 @@
 const Quotation = require("../models/Quotation");
 
+
+const calculateQuotationTotals = ({
+  items,
+  laborCost = 0,
+  otherDirectCosts = 0,
+}) => {
+  const calculatedItems = items.map((item) => {
+    const markup =
+      item.quotedUnitPrice - item.supplierCostAtQuotation;
+
+    return {
+      ...item,
+      markup,
+    };
+  });
+
+  const subtotal = calculatedItems.reduce(
+    (total, item) =>
+      total + item.quantity * item.quotedUnitPrice,
+    0
+  );
+
+  const total =
+    subtotal +
+    laborCost +
+    otherDirectCosts;
+
+  return {
+    calculatedItems,
+    subtotal,
+    total,
+  };
+};
+
 // GET ALL QUOTATIONS
 const getQuotations = async (req, res, next) => {
   try {
@@ -48,15 +82,41 @@ const getQuotationById = async (req, res, next) => {
 // CREATE QUOTATION
 const createQuotation = async (req, res, next) => {
   try {
+    const {
+      items,
+      laborCost = 0,
+      otherDirectCosts = 0,
+      ...quotationData
+    } = req.body;
+
+    const {
+      calculatedItems,
+      subtotal,
+      total,
+    } = calculateQuotationTotals({
+      items,
+      laborCost,
+      otherDirectCosts,
+    });
+
     const quotation = await Quotation.create({
-      ...req.body,
+      ...quotationData,
+      items: calculatedItems,
+      laborCost,
+      otherDirectCosts,
+      subtotal,
+      total,
       createdBy: req.user._id,
     });
 
-    const populatedQuotation = await Quotation.findById(quotation._id)
-      .populate("customerId", "customerCode name")
-      .populate("createdBy", "firstName lastName email")
-      .populate("items.productId", "sku name");
+    const populatedQuotation =
+      await Quotation.findById(quotation._id)
+        .populate("customerId", "customerCode name")
+        .populate(
+          "createdBy",
+          "firstName lastName email"
+        )
+        .populate("items.productId", "sku name");
 
     res.status(201).json({
       success: true,
@@ -70,21 +130,8 @@ const createQuotation = async (req, res, next) => {
 // UPDATE QUOTATION
 const updateQuotation = async (req, res, next) => {
   try {
-    const quotation = await Quotation.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        updatedBy: req.user._id,
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    )
-      .populate("customerId", "customerCode name")
-      .populate("createdBy", "firstName lastName email")
-      .populate("updatedBy", "firstName lastName email")
-      .populate("items.productId", "sku name");
+    const quotation =
+      await Quotation.findById(req.params.id);
 
     if (!quotation) {
       return res.status(404).json({
@@ -93,9 +140,83 @@ const updateQuotation = async (req, res, next) => {
       });
     }
 
+    const {
+      quotationNumber,
+      customerId,
+      quotationDate,
+      status,
+      items,
+      laborCost,
+      otherDirectCosts,
+    } = req.body;
+
+    if (quotationNumber !== undefined) {
+      quotation.quotationNumber =
+        quotationNumber;
+    }
+
+    if (customerId !== undefined) {
+      quotation.customerId = customerId;
+    }
+
+    if (quotationDate !== undefined) {
+      quotation.quotationDate =
+        quotationDate;
+    }
+
+    if (status !== undefined) {
+      quotation.status = status;
+    }
+
+    if (items !== undefined) {
+      quotation.items = items;
+    }
+
+    if (laborCost !== undefined) {
+      quotation.laborCost = laborCost;
+    }
+
+    if (otherDirectCosts !== undefined) {
+      quotation.otherDirectCosts =
+        otherDirectCosts;
+    }
+
+    const {
+      calculatedItems,
+      subtotal,
+      total,
+    } = calculateQuotationTotals({
+      items:
+        quotation.items,
+      laborCost:
+        quotation.laborCost,
+      otherDirectCosts:
+        quotation.otherDirectCosts,
+    });
+
+    quotation.items = calculatedItems;
+    quotation.subtotal = subtotal;
+    quotation.total = total;
+    quotation.updatedBy = req.user._id;
+
+    await quotation.save();
+
+    const populatedQuotation =
+      await Quotation.findById(quotation._id)
+        .populate("customerId", "customerCode name")
+        .populate(
+          "createdBy",
+          "firstName lastName email"
+        )
+        .populate(
+          "updatedBy",
+          "firstName lastName email"
+        )
+        .populate("items.productId", "sku name");
+
     res.status(200).json({
       success: true,
-      quotation,
+      quotation: populatedQuotation,
     });
   } catch (error) {
     next(error);
