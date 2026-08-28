@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
+
 const InventoryMovement = require("../models/InventoryMovement");
 const Product = require("../models/Product");
+const Purchase = require("../models/Purchase");
 
 // RECALCULATE PRODUCT STOCK
 const recalculateProductStock = async (productId, session) => {
@@ -84,6 +86,7 @@ const getInventoryMovementById = async (req, res, next) => {
   }
 };
 
+// VALIDATE MOVEMENT / REFERENCE TYPE
 const validateMovementReference = (type, referenceType) => {
   const validCombinations = {
     IN: ["PURCHASE"],
@@ -93,7 +96,6 @@ const validateMovementReference = (type, referenceType) => {
 
   return validCombinations[type]?.includes(referenceType);
 };
-
 
 // CREATE INVENTORY MOVEMENT
 const createInventoryMovement = async (req, res, next) => {
@@ -119,8 +121,37 @@ const createInventoryMovement = async (req, res, next) => {
 
       return res.status(400).json({
         success: false,
-        message: "Invalid inventory movement and reference type combination",
+        message:
+          "Invalid inventory movement and reference type combination",
       });
+    }
+
+    // Sale-generated OUT movements must only be created
+    // by the Sale release process
+    if (type === "OUT" && referenceType === "SALE") {
+      await session.abortTransaction();
+
+      return res.status(403).json({
+        success: false,
+        message:
+          "Sale-generated inventory movements can only be created when releasing a sale",
+      });
+    }
+
+    // Validate Purchase reference
+    if (type === "IN" && referenceType === "PURCHASE") {
+      const purchase = await Purchase.findById(referenceId).session(
+        session
+      );
+
+      if (!purchase) {
+        await session.abortTransaction();
+
+        return res.status(404).json({
+          success: false,
+          message: "Purchase not found",
+        });
+      }
     }
 
     const product = await Product.findById(productId).session(session);
@@ -221,7 +252,8 @@ const updateInventoryMovement = async (req, res, next) => {
 
       return res.status(403).json({
         success: false,
-        message: "Sale-generated inventory movements cannot be modified",
+        message:
+          "Sale-generated inventory movements cannot be modified",
       });
     }
 
@@ -251,6 +283,11 @@ const updateInventoryMovement = async (req, res, next) => {
         ? referenceType
         : movement.referenceType;
 
+    const nextReferenceId =
+      referenceId !== undefined
+        ? referenceId
+        : movement.referenceId;
+
     // Validate resulting movement/reference combination
     if (
       !validateMovementReference(
@@ -265,6 +302,40 @@ const updateInventoryMovement = async (req, res, next) => {
         message:
           "Invalid inventory movement and reference type combination",
       });
+    }
+
+    // SALE movements cannot be converted into manually managed
+    // inventory movements
+    if (
+      nextType === "OUT" &&
+      nextReferenceType === "SALE"
+    ) {
+      await session.abortTransaction();
+
+      return res.status(403).json({
+        success: false,
+        message:
+          "Sale-generated inventory movements cannot be created or modified manually",
+      });
+    }
+
+    // Validate Purchase reference
+    if (
+      nextType === "IN" &&
+      nextReferenceType === "PURCHASE"
+    ) {
+      const purchase = await Purchase.findById(
+        nextReferenceId
+      ).session(session);
+
+      if (!purchase) {
+        await session.abortTransaction();
+
+        return res.status(404).json({
+          success: false,
+          message: "Purchase not found",
+        });
+      }
     }
 
     const oldProductId =
@@ -282,10 +353,7 @@ const updateInventoryMovement = async (req, res, next) => {
     }
 
     movement.referenceType = nextReferenceType;
-
-    if (referenceId !== undefined) {
-      movement.referenceId = referenceId;
-    }
+    movement.referenceId = nextReferenceId;
 
     if (date !== undefined) {
       movement.date = date;
@@ -300,17 +368,17 @@ const updateInventoryMovement = async (req, res, next) => {
     const newProductId =
       movement.productId.toString();
 
-   await recalculateProductStock(
-  movement.productId,
-  session
-);
+    await recalculateProductStock(
+      movement.productId,
+      session
+    );
 
-if (oldProductId !== newProductId) {
-  await recalculateProductStock(
-    oldProductId,
-    session
-  );
-}
+    if (oldProductId !== newProductId) {
+      await recalculateProductStock(
+        oldProductId,
+        session
+      );
+    }
 
     await session.commitTransaction();
 
@@ -365,7 +433,8 @@ const deleteInventoryMovement = async (req, res, next) => {
 
       return res.status(403).json({
         success: false,
-        message: "Sale-generated inventory movements cannot be deleted",
+        message:
+          "Sale-generated inventory movements cannot be deleted",
       });
     }
 
@@ -373,10 +442,10 @@ const deleteInventoryMovement = async (req, res, next) => {
 
     await movement.deleteOne({ session });
 
-await recalculateProductStock(
-  productId,
-  session
-);
+    await recalculateProductStock(
+      productId,
+      session
+    );
 
     await session.commitTransaction();
 

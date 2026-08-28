@@ -4,6 +4,14 @@ const Product = require("../models/Product");
 const InventoryMovement = require("../models/InventoryMovement");
 
 
+const Customer = require("../models/Customer");
+const ClientPO = require("../models/ClientPO");
+
+const {
+  checkReferenceExists,
+  checkReferencesExist,
+} = require("../utils/referenceValidator");
+
 
 // GET ALL SALES
 const getSales = async (req, res, next) => {
@@ -64,6 +72,25 @@ const createSale = async (req, res, next) => {
       directExpenses = 0,
       commission = 0,
     } = req.body;
+
+    await checkReferenceExists(
+  Customer,
+  customerId,
+  "Customer"
+);
+
+await checkReferenceExists(
+  ClientPO,
+  clientPOId,
+  "Client PO"
+);
+
+await checkReferencesExist(
+  Product,
+  items.map((item) => item.productId),
+  "Product"
+    );
+
 
     // Calculate item totals
     const calculatedItems = items.map((item) => {
@@ -148,6 +175,31 @@ const updateSale = async (req, res, next) => {
       directExpenses,
       commission,
     } = req.body;
+
+    // CHECK UPDATED REFERENCES
+if (customerId !== undefined) {
+  await checkReferenceExists(
+    Customer,
+    customerId,
+    "Customer"
+  );
+}
+
+if (clientPOId !== undefined) {
+  await checkReferenceExists(
+    ClientPO,
+    clientPOId,
+    "Client PO"
+  );
+}
+
+if (items !== undefined) {
+  await checkReferencesExist(
+    Product,
+    items.map((item) => item.productId),
+    "Product"
+  );
+}
 
     // Update basic fields
     if (customerId !== undefined) {

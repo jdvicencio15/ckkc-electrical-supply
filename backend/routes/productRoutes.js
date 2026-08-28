@@ -11,6 +11,7 @@ const {
 
 const {
   productValidator,
+  productUpdateValidator,
 } = require("../validators/productValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -49,7 +50,7 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "purchasing"),
-  productValidator,
+  productUpdateValidator,
   validationMiddleware,
   updateProduct
 );

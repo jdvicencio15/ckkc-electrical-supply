@@ -14,11 +14,11 @@ const saleItemSchema = new mongoose.Schema(
       trim: true,
     },
 
-    quantity: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
+quantity: {
+  type: Number,
+  required: true,
+  min: 0.01,
+},
 
     unitPrice: {
       type: Number,

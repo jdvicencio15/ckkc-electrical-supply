@@ -61,7 +61,17 @@ const registerUser = async (req, res) => {
 
 
   } catch (error) {
+    if (error.code === 11000) {
+      logger.warn("Registration failed: email already registered");
+
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
+
     logger.error("Registration failed due to server error");
+
     res.status(500).json({
       success: false,
       message: "Something went wrong. Please try again later.",

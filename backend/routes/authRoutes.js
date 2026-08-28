@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -14,9 +15,9 @@ const {
 const {
   registerValidator,
   loginValidator,
+  forgotPasswordValidator,
+  resetPasswordValidator,
 } = require("../validators/authValidator");
-
-
 
 // REGISTER
 router.post(
@@ -41,18 +42,22 @@ router.post(
 
 
 // FORGOT PASSWORD
+
 router.post(
   "/forgot-password",
   authLimiter,
+  forgotPasswordValidator,
+  validationMiddleware,
   forgotPassword
 );
 
-
-
 // RESET PASSWORD
+
 router.post(
   "/reset-password",
   authLimiter,
+  resetPasswordValidator,
+  validationMiddleware,
   resetPassword
 );
 

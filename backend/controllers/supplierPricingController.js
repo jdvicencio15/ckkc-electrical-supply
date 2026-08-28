@@ -1,5 +1,12 @@
 const SupplierPricing = require("../models/SupplierPricing");
 
+const Supplier = require("../models/Supplier");
+const Product = require("../models/Product");
+
+const {
+  checkReferenceExists,
+} = require("../utils/referenceValidator");
+
 // GET ALL SUPPLIER PRICING
 const getSupplierPricings = async (req, res, next) => {
   try {
@@ -44,13 +51,39 @@ const getSupplierPricingById = async (req, res, next) => {
 // CREATE SUPPLIER PRICING
 const createSupplierPricing = async (req, res, next) => {
   try {
-    const supplierPricing = await SupplierPricing.create(req.body);
+    const {
+      supplierId,
+      productId,
+    } = req.body;
 
-    const populatedPricing = await SupplierPricing.findById(
-      supplierPricing._id
-    )
-      .populate("supplierId", "supplierCode name")
-      .populate("productId", "sku name");
+    await checkReferenceExists(
+      Supplier,
+      supplierId,
+      "Supplier"
+    );
+
+    await checkReferenceExists(
+      Product,
+      productId,
+      "Product"
+    );
+
+    const supplierPricing = await SupplierPricing.create(
+      req.body
+    );
+
+    const populatedPricing =
+      await SupplierPricing.findById(
+        supplierPricing._id
+      )
+        .populate(
+          "supplierId",
+          "supplierCode name"
+        )
+        .populate(
+          "productId",
+          "sku name"
+        );
 
     res.status(201).json({
       success: true,
@@ -60,7 +93,6 @@ const createSupplierPricing = async (req, res, next) => {
     next(error);
   }
 };
-
 // UPDATE SUPPLIER PRICING
 const updateSupplierPricing = async (req, res, next) => {
   try {

@@ -1,5 +1,14 @@
 const Quotation = require("../models/Quotation");
 
+const Customer = require("../models/Customer");
+const Product = require("../models/Product");
+
+const {
+  checkReferenceExists,
+  checkReferencesExist,
+} = require("../utils/referenceValidator");
+
+
 
 const calculateQuotationTotals = ({
   items,
@@ -8,7 +17,8 @@ const calculateQuotationTotals = ({
 }) => {
   const calculatedItems = items.map((item) => {
     const markup =
-      item.quotedUnitPrice - item.supplierCostAtQuotation;
+      item.quotedUnitPrice -
+      item.supplierCostAtQuotation;
 
     return {
       ...item,
@@ -84,10 +94,23 @@ const createQuotation = async (req, res, next) => {
   try {
     const {
       items,
+      customerId,
       laborCost = 0,
       otherDirectCosts = 0,
       ...quotationData
     } = req.body;
+
+    await checkReferenceExists(
+      Customer,
+      customerId,
+      "Customer"
+    );
+
+    await checkReferencesExist(
+      Product,
+      items.map((item) => item.productId),
+      "Product"
+    );
 
     const {
       calculatedItems,
@@ -101,6 +124,7 @@ const createQuotation = async (req, res, next) => {
 
     const quotation = await Quotation.create({
       ...quotationData,
+      customerId,
       items: calculatedItems,
       laborCost,
       otherDirectCosts,
@@ -150,13 +174,29 @@ const updateQuotation = async (req, res, next) => {
       otherDirectCosts,
     } = req.body;
 
+    if (customerId !== undefined) {
+      await checkReferenceExists(
+        Customer,
+        customerId,
+        "Customer"
+      );
+
+      quotation.customerId = customerId;
+    }
+
+    if (items !== undefined) {
+      await checkReferencesExist(
+        Product,
+        items.map((item) => item.productId),
+        "Product"
+      );
+
+      quotation.items = items;
+    }
+
     if (quotationNumber !== undefined) {
       quotation.quotationNumber =
         quotationNumber;
-    }
-
-    if (customerId !== undefined) {
-      quotation.customerId = customerId;
     }
 
     if (quotationDate !== undefined) {
@@ -168,10 +208,6 @@ const updateQuotation = async (req, res, next) => {
       quotation.status = status;
     }
 
-    if (items !== undefined) {
-      quotation.items = items;
-    }
-
     if (laborCost !== undefined) {
       quotation.laborCost = laborCost;
     }
@@ -181,15 +217,14 @@ const updateQuotation = async (req, res, next) => {
         otherDirectCosts;
     }
 
+
     const {
       calculatedItems,
       subtotal,
       total,
     } = calculateQuotationTotals({
-      items:
-        quotation.items,
-      laborCost:
-        quotation.laborCost,
+      items: quotation.items,
+      laborCost: quotation.laborCost,
       otherDirectCosts:
         quotation.otherDirectCosts,
     });

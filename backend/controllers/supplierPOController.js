@@ -1,4 +1,15 @@
+
+
 const SupplierPO = require("../models/SupplierPO");
+
+const Supplier = require("../models/Supplier");
+const ClientPO = require("../models/ClientPO");
+const Product = require("../models/Product");
+
+const {
+  checkReferenceExists,
+  checkReferencesExist,
+} = require("../utils/referenceValidator");
 
 const calculateSupplierPOTotal = (items) => {
   const totalAmount = items.reduce(
@@ -61,14 +72,36 @@ const createSupplierPO = async (req, res, next) => {
   try {
     const {
       items,
+      supplierId,
+      relatedClientPOId,
       ...supplierPOData
     } = req.body;
+
+    await checkReferenceExists(
+      Supplier,
+      supplierId,
+      "Supplier"
+    );
+
+    await checkReferenceExists(
+      ClientPO,
+      relatedClientPOId,
+      "Client PO"
+    );
+
+    await checkReferencesExist(
+      Product,
+      items.map((item) => item.productId),
+      "Product"
+    );
 
     const totalAmount =
       calculateSupplierPOTotal(items);
 
     const supplierPO = await SupplierPO.create({
       ...supplierPOData,
+      supplierId,
+      relatedClientPOId,
       items,
       totalAmount,
       createdBy: req.user._id,
@@ -96,13 +129,43 @@ const updateSupplierPO = async (req, res, next) => {
       });
     }
 
-    const {
-      supplierId,
-      supplierPODate,
-      status,
-      relatedClientPOId,
-      items,
-    } = req.body;
+ const {
+  poNumber,
+  supplierId,
+  supplierPODate,
+  status,
+  relatedClientPOId,
+  items,
+} = req.body;
+
+    // CHECK UPDATED REFERENCES
+if (supplierId !== undefined) {
+  await checkReferenceExists(
+    Supplier,
+    supplierId,
+    "Supplier"
+  );
+}
+
+if (relatedClientPOId !== undefined) {
+  await checkReferenceExists(
+    ClientPO,
+    relatedClientPOId,
+    "Client PO"
+  );
+}
+
+if (items !== undefined) {
+  await checkReferencesExist(
+    Product,
+    items.map((item) => item.productId),
+    "Product"
+  );
+    }
+
+    if (poNumber !== undefined) {
+  supplierPO.poNumber = poNumber;
+}
 
     if (supplierId !== undefined) {
       supplierPO.supplierId = supplierId;
@@ -139,6 +202,8 @@ const updateSupplierPO = async (req, res, next) => {
     next(error);
   }
 };
+
+
 // DELETE SUPPLIER PO
 const deleteSupplierPO = async (req, res, next) => {
   try {

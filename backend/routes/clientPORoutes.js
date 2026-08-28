@@ -15,6 +15,7 @@ const protect = require("../middleware/authMiddleware");
 
 const {
   clientPOValidator,
+  clientPOUpdateValidator,
 } = require("../validators/clientPOValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -50,6 +51,8 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "sales"),
+  clientPOUpdateValidator,
+  validationMiddleware,
   updateClientPO
 );
 

@@ -15,6 +15,7 @@ const protect = require("../middleware/authMiddleware");
 
 const {
   supplierPOValidator,
+  supplierPOUpdateValidator,
 } = require("../validators/supplierPOValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -50,8 +51,11 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "purchasing"),
+  supplierPOUpdateValidator,
+  validationMiddleware,
   updateSupplierPO
 );
+
 
 // DELETE
 router.delete(

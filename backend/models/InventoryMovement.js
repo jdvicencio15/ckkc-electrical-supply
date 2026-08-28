@@ -14,11 +14,11 @@ const inventoryMovementSchema = new mongoose.Schema(
       required: true,
     },
 
-    quantity: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
+  quantity: {
+  type: Number,
+  required: true,
+  min: 0.01,
+},
 
     unitCost: {
       type: Number,

@@ -6,6 +6,11 @@ const {
   createCategory,
 } = require("../controllers/categoryController");
 
+const { categoryValidator } = require("../validators/categoryValidator");
+
+const validationMiddleware = require("../middleware/validationMiddleware");
+
+
 const authorize = require("../middleware/authorize");
 
 const protect = require("../middleware/authMiddleware");
@@ -22,8 +27,9 @@ router.post(
   "/",
   protect,
   authorize("owner", "admin"),
+  categoryValidator,
+  validationMiddleware,
   createCategory
 );
-
 
 module.exports = router;

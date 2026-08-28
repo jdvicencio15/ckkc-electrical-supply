@@ -39,7 +39,25 @@ const getCustomerById = async (req, res, next) => {
 // CREATE CUSTOMER
 const createCustomer = async (req, res, next) => {
   try {
-    const customer = await Customer.create(req.body);
+    const {
+      customerCode,
+      name,
+      contactPerson,
+      email,
+      phone,
+      address,
+      status,
+    } = req.body;
+
+    const customer = await Customer.create({
+      customerCode,
+      name,
+      contactPerson,
+      email,
+      phone,
+      address,
+      status,
+    });
 
     res.status(201).json({
       success: true,
@@ -53,14 +71,7 @@ const createCustomer = async (req, res, next) => {
 // UPDATE CUSTOMER
 const updateCustomer = async (req, res, next) => {
   try {
-    const customer = await Customer.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const customer = await Customer.findById(req.params.id);
 
     if (!customer) {
       return res.status(404).json({
@@ -68,6 +79,46 @@ const updateCustomer = async (req, res, next) => {
         message: "Customer not found",
       });
     }
+
+    const {
+      customerCode,
+      name,
+      contactPerson,
+      email,
+      phone,
+      address,
+      status,
+    } = req.body;
+
+    if (customerCode !== undefined) {
+      customer.customerCode = customerCode;
+    }
+
+    if (name !== undefined) {
+      customer.name = name;
+    }
+
+    if (contactPerson !== undefined) {
+      customer.contactPerson = contactPerson;
+    }
+
+    if (email !== undefined) {
+      customer.email = email;
+    }
+
+    if (phone !== undefined) {
+      customer.phone = phone;
+    }
+
+    if (address !== undefined) {
+      customer.address = address;
+    }
+
+    if (status !== undefined) {
+      customer.status = status;
+    }
+
+    await customer.save();
 
     res.status(200).json({
       success: true,

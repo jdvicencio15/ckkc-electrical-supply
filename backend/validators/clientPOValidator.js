@@ -63,6 +63,80 @@ body("items.*.quantity")
 
 ];
 
+const clientPOUpdateValidator = [
+  body("poNumber")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("PO number cannot be empty")
+    .isLength({ max: 50 })
+    .withMessage(
+      "PO number must not exceed 50 characters"
+    ),
+
+  body("customerId")
+    .optional()
+    .notEmpty()
+    .withMessage("Customer cannot be empty")
+    .isMongoId()
+    .withMessage("Valid customer ID is required"),
+
+  body("quotationId")
+    .optional()
+    .isMongoId()
+    .withMessage("Valid quotation ID is required"),
+
+  body("poDate")
+    .optional()
+    .isISO8601()
+    .withMessage("PO date must be a valid date"),
+
+  body("status")
+    .optional()
+    .isIn([
+      "draft",
+      "received",
+      "processing",
+      "fulfilled",
+      "cancelled",
+    ])
+    .withMessage("Invalid client PO status"),
+
+  body("items")
+    .optional()
+    .isArray({ min: 1 })
+    .withMessage(
+      "Client PO must contain at least one item"
+    ),
+
+  body("items.*.productId")
+    .optional()
+    .isMongoId()
+    .withMessage("Valid product ID is required"),
+
+  body("items.*.description")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Item description is required"),
+
+  body("items.*.quantity")
+    .optional()
+    .isFloat({ min: 0.01 })
+    .withMessage(
+      "Quantity must be greater than 0"
+    ),
+
+  body("items.*.agreedUnitPrice")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage(
+      "Agreed unit price must be a valid number greater than or equal to 0"
+    ),
+];
+
+
 module.exports = {
   clientPOValidator,
+  clientPOUpdateValidator,
 };

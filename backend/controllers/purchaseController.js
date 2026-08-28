@@ -1,5 +1,18 @@
 const Purchase = require("../models/Purchase");
 
+const Supplier = require("../models/Supplier");
+const SupplierPO = require("../models/SupplierPO");
+const ClientPO = require("../models/ClientPO");
+const Product = require("../models/Product");
+
+const {
+  checkReferenceExists,
+  checkReferencesExist,
+} = require("../utils/referenceValidator");
+
+
+
+
 const calculatePurchaseTotals = (items) => {
   const calculatedItems = items.map((item) => ({
     ...item,
@@ -69,10 +82,37 @@ const getPurchaseById = async (req, res, next) => {
 // CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
-    const {
-      items,
-      ...purchaseData
-    } = req.body;
+  const {
+  items,
+  supplierId,
+  supplierPOId,
+  relatedClientPOId,
+  ...purchaseData
+} = req.body;
+
+    await checkReferenceExists(
+  Supplier,
+  supplierId,
+  "Supplier"
+);
+
+await checkReferenceExists(
+  SupplierPO,
+  supplierPOId,
+  "Supplier PO"
+);
+
+await checkReferenceExists(
+  ClientPO,
+  relatedClientPOId,
+  "Client PO"
+);
+
+await checkReferencesExist(
+  Product,
+  items.map((item) => item.productId),
+  "Product"
+    );
 
     const {
       calculatedItems,
@@ -81,9 +121,12 @@ const createPurchase = async (req, res, next) => {
 
     const purchase = await Purchase.create({
       ...purchaseData,
-      items: calculatedItems,
-      totalAmount,
-      createdBy: req.user._id,
+  supplierId,
+  supplierPOId,
+  relatedClientPOId,
+  items: calculatedItems,
+  totalAmount,
+  createdBy: req.user._id,
     });
 
     const populatedPurchase = await Purchase.findById(
@@ -117,12 +160,50 @@ const updatePurchase = async (req, res, next) => {
     }
 
     const {
+      purchaseNumber,
       supplierId,
       supplierPOId,
       relatedClientPOId,
       purchaseDate,
       items,
     } = req.body;
+
+    // CHECK UPDATED REFERENCES
+    if (supplierId !== undefined) {
+      await checkReferenceExists(
+        Supplier,
+        supplierId,
+        "Supplier"
+      );
+    }
+
+    if (supplierPOId !== undefined) {
+      await checkReferenceExists(
+        SupplierPO,
+        supplierPOId,
+        "Supplier PO"
+      );
+    }
+
+    if (relatedClientPOId !== undefined) {
+      await checkReferenceExists(
+        ClientPO,
+        relatedClientPOId,
+        "Client PO"
+      );
+    }
+
+    if (items !== undefined) {
+      await checkReferencesExist(
+        Product,
+        items.map((item) => item.productId),
+        "Product"
+      );
+    }
+
+    if (purchaseNumber !== undefined) {
+      purchase.purchaseNumber = purchaseNumber;
+    }
 
     if (supplierId !== undefined) {
       purchase.supplierId = supplierId;

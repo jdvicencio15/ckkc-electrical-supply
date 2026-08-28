@@ -10,12 +10,14 @@ const {
   releaseSale,
 } = require("../controllers/saleController");
 
+
 const authorize = require("../middleware/authorize");
 
 const protect = require("../middleware/authMiddleware");
 
 const {
   saleValidator,
+  saleUpdateValidator,
 } = require("../validators/saleValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -59,6 +61,8 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "sales"),
+  saleUpdateValidator,
+  validationMiddleware,
   updateSale
 );
 

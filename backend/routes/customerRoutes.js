@@ -14,6 +14,7 @@ const authorize = require("../middleware/authorize");
 
 const {
   customerValidator,
+  customerUpdateValidator,
 } = require("../validators/customerValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -50,6 +51,8 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "sales"),
+  customerUpdateValidator,
+  validationMiddleware,
   updateCustomer
 );
 

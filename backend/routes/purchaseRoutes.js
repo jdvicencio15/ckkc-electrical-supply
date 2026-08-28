@@ -15,6 +15,7 @@ const protect = require("../middleware/authMiddleware");
 
 const {
   purchaseValidator,
+  purchaseUpdateValidator,
 } = require("../validators/purchaseValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -50,6 +51,8 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "purchasing"),
+  purchaseUpdateValidator,
+  validationMiddleware,
   updatePurchase
 );
 

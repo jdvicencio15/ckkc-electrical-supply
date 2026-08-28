@@ -14,6 +14,7 @@ const authorize = require("../middleware/authorize");
 
 const {
   inventoryMovementValidator,
+  inventoryMovementUpdateValidator,
 } = require("../validators/inventoryMovementValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -49,8 +50,12 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "purchasing"),
+  inventoryMovementUpdateValidator,
+  validationMiddleware,
   updateInventoryMovement
 );
+
+
 
 // DELETE
 router.delete(

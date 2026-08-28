@@ -14,6 +14,7 @@ const authorize = require("../middleware/authorize");
 
 const {
   expenseValidator,
+  expenseUpdateValidator,
 } = require("../validators/expenseValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -49,6 +50,8 @@ router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "accounting"),
+  expenseUpdateValidator,
+  validationMiddleware,
   updateExpense
 );
 

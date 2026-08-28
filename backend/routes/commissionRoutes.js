@@ -6,6 +6,7 @@ const {
   getCommissions,
   getCommissionById,
   updateCommission,
+  updateCommissionRate,
   deleteCommission,
 } = require("../controllers/commissionController");
 
@@ -14,6 +15,8 @@ const authorize = require("../middleware/authorize");
 
 const {
   commissionValidator,
+  commissionUpdateValidator,
+  commissionRateValidator,
 } = require("../validators/commissionValidator");
 
 const validationMiddleware = require("../middleware/validationMiddleware");
@@ -44,11 +47,24 @@ router.get(
   getCommissionById
 );
 
+// UPDATE COMMISSION RATE
+router.patch(
+  "/:id/rate",
+  protect,
+  authorize("owner", "admin"),
+  commissionRateValidator,
+  validationMiddleware,
+  updateCommissionRate
+);
+
+
 // UPDATE
 router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "accounting"),
+  commissionUpdateValidator,
+  validationMiddleware,
   updateCommission
 );
 
