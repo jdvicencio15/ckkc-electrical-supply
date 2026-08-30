@@ -10,22 +10,20 @@ import ResetPassword from "../pages/ResetPassword";
 
 import ProtectedRoute from "./ProtectedRoute";
 import MainLayout from "../components/layout/MainLayout";
+import PublicLayout from "../components/layout/PublicLayout";
 
 function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<MainLayout />}>
 
-          {/* Public Routes */}
+        {/* Public Routes */}
+        <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
 
           <Route path="/login" element={<Login />} />
 
-          <Route
-            path="/register"
-            element={<Register />}
-          />
+          <Route path="/register" element={<Register />} />
 
           <Route
             path="/forgot-password"
@@ -36,22 +34,24 @@ function AppRoutes() {
             path="/reset-password/:token"
             element={<ResetPassword />}
           />
+        </Route>
 
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
+        {/* Protected Application Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<MainLayout />}>
             <Route
               path="/dashboard"
               element={<Dashboard />}
             />
           </Route>
-
-          {/* 404 */}
-          <Route
-            path="*"
-            element={<NotFound />}
-          />
-
         </Route>
+
+        {/* 404 */}
+        <Route
+          path="*"
+          element={<NotFound />}
+        />
+
       </Routes>
     </BrowserRouter>
   );
