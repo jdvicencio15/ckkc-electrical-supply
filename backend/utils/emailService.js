@@ -13,7 +13,7 @@ const sendPasswordResetEmail = async (email, resetUrl) => {
   logger.info(`Sending password reset email to ${email}`);
 
   const info = await transporter.sendMail({
-    from: `"Bigasan Pautang System" <${process.env.EMAIL_USER}>`,
+    from: `"${process.env.APP_NAME}" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: "Password Reset Request",
 

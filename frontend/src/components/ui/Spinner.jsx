@@ -10,7 +10,7 @@ function Spinner({
 
   return (
     <div
-      className={`animate-spin rounded-full border-4 border-gray-200 border-t-blue-600 ${sizes[size]} ${className}`}
+      className={`animate-spin rounded-full border-4 border-slate-200 border-t-green-600 dark:border-slate-700 dark:border-t-green-400 ${sizes[size]} ${className}`}
       role="status"
       aria-label="Loading"
     />

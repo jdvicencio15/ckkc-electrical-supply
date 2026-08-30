@@ -4,7 +4,7 @@ import Header from "./Header";
 
 function MainLayout() {
   return (
-    <div className="min-h-screen bg-gray-100">
+   <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <Sidebar />
 
       <div className="ml-64">

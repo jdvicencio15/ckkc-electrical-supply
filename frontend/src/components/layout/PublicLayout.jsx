@@ -4,7 +4,7 @@ import Footer from "./Footer";
 
 function PublicLayout() {
   return (
-    <div className="min-h-screen bg-gray-100">
+   <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <Navbar />
 
       <main className="mx-auto w-full max-w-7xl px-4 py-8">

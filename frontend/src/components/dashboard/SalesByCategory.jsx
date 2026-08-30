@@ -27,13 +27,13 @@ function SalesByCategory() {
   ];
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-5">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-slate-900">
           Sales by Category
         </h2>
 
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-slate-500">
           Sales distribution by category
         </p>
       </div>
@@ -42,18 +42,18 @@ function SalesByCategory() {
         {categories.map((category) => (
           <div key={category.id}>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-slate-700">
                 {category.name}
               </span>
 
-              <span className="text-sm font-semibold text-gray-900">
+              <span className="text-sm font-semibold text-slate-900">
                 {category.sales}
               </span>
             </div>
 
-            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-2 overflow-hidden rounded-full bg-green-50">
               <div
-                className="h-full rounded-full bg-gray-900"
+                className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400"
                 style={{
                   width: `${category.percentage}%`,
                 }}

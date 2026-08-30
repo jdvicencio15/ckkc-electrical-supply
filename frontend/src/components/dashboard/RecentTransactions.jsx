@@ -23,22 +23,36 @@ function RecentTransactions() {
     },
   ];
 
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-5">
-        <h2 className="text-lg font-semibold text-gray-900">
-          Recent Transactions
-        </h2>
+  const statusStyles = {
+    Completed: "bg-green-50 text-green-700",
+    Pending: "bg-amber-50 text-amber-700",
+  };
 
-        <p className="mt-1 text-sm text-gray-500">
-          Latest sales activity
-        </p>
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Recent Transactions
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Latest sales activity
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="shrink-0 text-xs font-semibold text-green-600 transition hover:text-green-700"
+        >
+          View All
+        </button>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] text-left">
           <thead>
-            <tr className="border-b border-gray-200 text-xs uppercase text-gray-500">
+            <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
               <th className="pb-3 font-medium">
                 Reference
               </th>
@@ -61,22 +75,27 @@ function RecentTransactions() {
             {transactions.map((transaction) => (
               <tr
                 key={transaction.id}
-                className="border-b border-gray-100 last:border-0"
+                className="border-b border-slate-100 last:border-0"
               >
-                <td className="py-4 text-sm font-medium text-gray-900">
+                <td className="py-4 text-sm font-medium text-slate-900">
                   {transaction.reference}
                 </td>
 
-                <td className="py-4 text-sm text-gray-600">
+                <td className="py-4 text-sm text-slate-600">
                   {transaction.customer}
                 </td>
 
-                <td className="py-4 text-sm font-medium text-gray-900">
+                <td className="py-4 text-sm font-medium text-slate-900">
                   {transaction.amount}
                 </td>
 
                 <td className="py-4 text-right">
-                  <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                      statusStyles[transaction.status] ||
+                      "bg-slate-100 text-slate-700"
+                    }`}
+                  >
                     {transaction.status}
                   </span>
                 </td>
