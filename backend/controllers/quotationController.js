@@ -16,15 +16,56 @@ const calculateQuotationTotals = ({
   otherDirectCosts = 0,
 }) => {
   const calculatedItems = items.map((item) => {
+    const quantity = Number(item.quantity);
+    const supplierCost = Number(
+      item.supplierCostAtQuotation
+    );
+    const quotedUnitPrice = Number(
+      item.quotedUnitPrice
+    );
+
+    if (
+      !Number.isFinite(quantity) ||
+      !Number.isFinite(supplierCost) ||
+      !Number.isFinite(quotedUnitPrice)
+    ) {
+      const error = new Error(
+        "Quotation item contains invalid numeric values"
+      );
+
+      error.statusCode = 400;
+
+      throw error;
+    }
+
     const markup =
-      item.quotedUnitPrice -
-      item.supplierCostAtQuotation;
+      quotedUnitPrice - supplierCost;
 
     return {
-      ...item,
+      ...item.toObject?.() ?? item,
+      quantity,
+      supplierCostAtQuotation: supplierCost,
+      quotedUnitPrice,
       markup,
     };
   });
+
+  const safeLaborCost = Number(laborCost);
+  const safeOtherDirectCosts =
+    Number(otherDirectCosts);
+
+  if (
+    !Number.isFinite(safeLaborCost) ||
+    !Number.isFinite(safeOtherDirectCosts)
+  ) {
+    const error = new Error(
+      "Labor cost and other direct costs must be valid numbers"
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
 
   const subtotal = calculatedItems.reduce(
     (total, item) =>
@@ -34,8 +75,8 @@ const calculateQuotationTotals = ({
 
   const total =
     subtotal +
-    laborCost +
-    otherDirectCosts;
+    safeLaborCost +
+    safeOtherDirectCosts;
 
   return {
     calculatedItems,
