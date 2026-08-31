@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import authService from "../services/authService";
@@ -38,9 +37,19 @@ function ForgotPassword() {
   };
 
   return (
-    <div>
-      <Card>
-        <form onSubmit={handleSubmit}>
+    <div className="w-full max-w-md">
+      <Card className="w-full">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            Forgot your password?
+          </h1>
+
+          <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-slate-400">
+            Enter your email address and we'll help you reset your password.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           <Input
             label="Email Address"
             type="email"
@@ -61,26 +70,25 @@ function ForgotPassword() {
         </form>
 
         {message && (
-          <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          <p className="mt-4 rounded-lg border border-green-100 bg-green-50 p-3 text-sm text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-400">
             {message}
           </p>
         )}
 
         {error && (
-          <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          <p className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
             {error}
           </p>
         )}
 
-        <div className="mt-5 text-center">
-          <Button
+        <div className="mt-6 border-t border-gray-100 pt-6 text-center dark:border-slate-800">
+          <button
             type="button"
-            variant="secondary"
-            fullWidth
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/")}
+            className="text-sm font-semibold text-green-600 transition-colors hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
           >
-            Back to Login
-          </Button>
+            Back to Sign In
+          </button>
         </div>
       </Card>
     </div>
@@ -88,4 +96,3 @@ function ForgotPassword() {
 }
 
 export default ForgotPassword;
-

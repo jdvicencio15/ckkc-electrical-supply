@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import dashboardService from "../services/dashboardService";
 
 import {
   FaMoneyBillWave,
@@ -19,6 +20,64 @@ function Dashboard() {
   const { user } = useAuth();
 
   const [selectedMonth, setSelectedMonth] = useState("2026-08");
+
+  const [sales, setSales] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [products, setProducts] = useState([]);
+
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+      const response = await dashboardService.getSales();
+      const productResponse = await dashboardService.getProducts();
+
+      setSales(response.sales || []);
+      setProducts(productResponse.products || []);
+      } catch (error) {
+        console.error("Failed to load dashboard sales:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, []);
+
+  const selectedSales = sales.filter((sale) => {
+    if (!sale.saleDate) return false;
+
+    return sale.saleDate.startsWith(selectedMonth);
+  });
+
+  const totalSales = selectedSales.reduce(
+    (total, sale) => total + (sale.totalAmount || 0),
+    0,
+  );
+
+  const totalOrders = selectedSales.length;
+
+  const grossProfit = selectedSales.reduce(
+    (total, sale) => total + (sale.totalProfit || 0),
+    0,
+  );
+
+ const activeProducts = products.filter(
+  (product) => product.status === "active",
+);
+
+const totalProducts = activeProducts.length;
+
+const lowStockProducts = products.filter(
+  (product) =>
+    product.status === "active" &&
+    product.currentStock <= product.minimumStock,
+);
+
+
+
+
 
   return (
     <div className="space-y-6">
@@ -50,28 +109,42 @@ function Dashboard() {
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Sales"
-          value="₱0.00"
+          value={
+            loading
+              ? "Loading..."
+              : `₱${totalSales.toLocaleString("en-PH", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`
+          }
           icon={FaMoneyBillWave}
           description="This month"
         />
 
         <StatCard
           title="Total Orders"
-          value="0"
+          value={loading ? "..." : totalOrders}
           icon={FaShoppingCart}
           description="This month"
         />
 
         <StatCard
           title="Gross Profit"
-          value="₱0.00"
+          value={
+            loading
+              ? "Loading..."
+              : `₱${grossProfit.toLocaleString("en-PH", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`
+          }
           icon={FaChartLine}
           description="This month"
         />
 
         <StatCard
           title="Total Products"
-          value="0"
+          value={loading ? "..." : totalProducts}
           icon={FaBox}
           description="Currently active"
         />
@@ -80,10 +153,10 @@ function Dashboard() {
       {/* Sales Overview + Low Stock */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SalesOverview />
+       <SalesOverview sales={sales} />
         </div>
 
-        <LowStockAlerts />
+       <LowStockAlerts products={lowStockProducts} />
       </div>
 
       {/* Sales by Category + Recent Transactions */}

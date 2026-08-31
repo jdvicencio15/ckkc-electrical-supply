@@ -47,7 +47,7 @@ function Home() {
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link to="/login" className="sm:flex-1">
+              <Link to="/" className="sm:flex-1">
                 <Button fullWidth>
                   Login
                 </Button>

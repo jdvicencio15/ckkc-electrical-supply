@@ -1,0 +1,173 @@
+function Payments() {
+  return (
+    <div className="space-y-6">
+
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            Payments
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Track and manage customer and supplier payments.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
+        >
+          + Record Payment
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Total Payments
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            ₱0.00
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Customer Payments
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-green-600">
+            ₱0.00
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Supplier Payments
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-blue-600">
+            ₱0.00
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Pending
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-amber-500">
+            ₱0.00
+          </p>
+        </div>
+
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row dark:border-slate-800 dark:bg-slate-900">
+
+        <input
+          type="search"
+          placeholder="Search payments..."
+          className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        />
+
+        <select
+          className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        >
+          <option>All Payment Types</option>
+          <option>Customer Payment</option>
+          <option>Supplier Payment</option>
+        </select>
+
+        <select
+          className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        >
+          <option>All Methods</option>
+          <option>Cash</option>
+          <option>Bank Transfer</option>
+          <option>GCash</option>
+          <option>Check</option>
+        </select>
+
+        <input
+          type="date"
+          className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+        />
+
+      </div>
+
+      {/* Payments Table */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+              <tr>
+                <th className="px-6 py-3 font-semibold">
+                  Payment No.
+                </th>
+
+                <th className="px-6 py-3 font-semibold">
+                  Reference
+                </th>
+
+                <th className="px-6 py-3 font-semibold">
+                  Type
+                </th>
+
+                <th className="px-6 py-3 font-semibold">
+                  Amount
+                </th>
+
+                <th className="px-6 py-3 font-semibold">
+                  Method
+                </th>
+
+                <th className="px-6 py-3 font-semibold">
+                  Status
+                </th>
+
+                <th className="px-6 py-3 font-semibold">
+                  Date
+                </th>
+
+                <th className="px-6 py-3 text-right font-semibold">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr>
+                <td
+                  colSpan="8"
+                  className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
+                >
+                  No payments found.
+                </td>
+              </tr>
+            </tbody>
+
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-slate-200 px-6 py-3 dark:border-slate-800">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Showing 0 payments
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+export default Payments;

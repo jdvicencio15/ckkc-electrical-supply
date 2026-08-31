@@ -42,7 +42,7 @@ function Navbar() {
             </>
           ) : (
             <>
-              <Link to="/login">
+              <Link to="/">
                 <Button
                   variant="secondary"
                   size="sm"

@@ -42,7 +42,7 @@ function ResetPassword() {
       setMessage(response.message);
 
       setTimeout(() => {
-        navigate("/login");
+        navigate("/");
       }, 2000);
     } catch (error) {
       setError(
@@ -55,17 +55,19 @@ function ResetPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card>
-        <h1 className="mb-2 text-2xl font-bold">
-          Reset Password
-        </h1>
+    <div className="w-full max-w-md">
+      <Card className="w-full">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            Reset your password
+          </h1>
 
-        <p className="mb-6 text-sm text-gray-600">
-          Enter your new password below.
-        </p>
+          <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-slate-400">
+            Enter your new password below.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <Input
             label="New Password"
             type="password"
@@ -95,13 +97,13 @@ function ResetPassword() {
           />
 
           {message && (
-            <p className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+            <p className="rounded-lg border border-green-100 bg-green-50 p-3 text-sm text-green-700 dark:border-green-900/40 dark:bg-green-950/30 dark:text-green-400">
               {message}
             </p>
           )}
 
           {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            <p className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
               {error}
             </p>
           )}
@@ -115,15 +117,14 @@ function ResetPassword() {
           </Button>
         </form>
 
-        <div className="mt-5 text-center">
-          <Button
+        <div className="mt-6 border-t border-gray-100 pt-6 text-center dark:border-slate-800">
+          <button
             type="button"
-            variant="secondary"
-            fullWidth
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/")}
+            className="text-sm font-semibold text-green-600 transition-colors hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
           >
-            Back to Login
-          </Button>
+            Back to Sign In
+          </button>
         </div>
       </Card>
     </div>
@@ -131,4 +132,3 @@ function ResetPassword() {
 }
 
 export default ResetPassword;
-
