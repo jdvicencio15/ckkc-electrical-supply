@@ -3,7 +3,6 @@ const Sale = require("../models/Sale");
 const Product = require("../models/Product");
 const InventoryMovement = require("../models/InventoryMovement");
 
-
 const Customer = require("../models/Customer");
 const ClientPO = require("../models/ClientPO");
 
@@ -11,7 +10,6 @@ const {
   checkReferenceExists,
   checkReferencesExist,
 } = require("../utils/referenceValidator");
-
 
 // GET ALL SALES
 const getSales = async (req, res, next) => {
@@ -48,8 +46,6 @@ const getSaleById = async (req, res, next) => {
       });
     }
 
-
-
     res.status(200).json({
       success: true,
       sale,
@@ -73,29 +69,19 @@ const createSale = async (req, res, next) => {
       commission = 0,
     } = req.body;
 
-    await checkReferenceExists(
-  Customer,
-  customerId,
-  "Customer"
-);
+    await checkReferenceExists(Customer, customerId, "Customer");
 
-await checkReferenceExists(
-  ClientPO,
-  clientPOId,
-  "Client PO"
-);
+    await checkReferenceExists(ClientPO, clientPOId, "Client PO");
 
-await checkReferencesExist(
-  Product,
-  items.map((item) => item.productId),
-  "Product"
+    await checkReferencesExist(
+      Product,
+      items.map((item) => item.productId),
+      "Product",
     );
-
 
     // Calculate item totals
     const calculatedItems = items.map((item) => {
-      const profit =
-        (item.unitPrice - item.unitCost) * item.quantity;
+      const profit = (item.unitPrice - item.unitCost) * item.quantity;
 
       return {
         ...item,
@@ -105,21 +91,18 @@ await checkReferencesExist(
 
     // Calculate totals
     const subtotal = calculatedItems.reduce(
-      (total, item) =>
-        total + item.quantity * item.unitPrice,
-      0
+      (total, item) => total + item.quantity * item.unitPrice,
+      0,
     );
 
     const totalCost = calculatedItems.reduce(
-      (total, item) =>
-        total + item.quantity * item.unitCost,
-      0
+      (total, item) => total + item.quantity * item.unitCost,
+      0,
     );
 
     const totalAmount = subtotal + directExpenses + commission;
 
-    const totalProfit =
-      subtotal - totalCost - directExpenses - commission;
+    const totalProfit = subtotal - totalCost - directExpenses - commission;
 
     const sale = await Sale.create({
       salesNumber,
@@ -159,12 +142,11 @@ const updateSale = async (req, res, next) => {
     }
 
     if (sale.status === "released") {
-  return res.status(400).json({
-    success: false,
-    message: "Released sale cannot be modified",
-  });
+      return res.status(400).json({
+        success: false,
+        message: "Released sale cannot be modified",
+      });
     }
-
 
     const {
       customerId,
@@ -177,29 +159,21 @@ const updateSale = async (req, res, next) => {
     } = req.body;
 
     // CHECK UPDATED REFERENCES
-if (customerId !== undefined) {
-  await checkReferenceExists(
-    Customer,
-    customerId,
-    "Customer"
-  );
-}
+    if (customerId !== undefined) {
+      await checkReferenceExists(Customer, customerId, "Customer");
+    }
 
-if (clientPOId !== undefined) {
-  await checkReferenceExists(
-    ClientPO,
-    clientPOId,
-    "Client PO"
-  );
-}
+    if (clientPOId !== undefined) {
+      await checkReferenceExists(ClientPO, clientPOId, "Client PO");
+    }
 
-if (items !== undefined) {
-  await checkReferencesExist(
-    Product,
-    items.map((item) => item.productId),
-    "Product"
-  );
-}
+    if (items !== undefined) {
+      await checkReferencesExist(
+        Product,
+        items.map((item) => item.productId),
+        "Product",
+      );
+    }
 
     // Update basic fields
     if (customerId !== undefined) {
@@ -231,8 +205,7 @@ if (items !== undefined) {
     // Recalculate item totals when items are provided
     if (items !== undefined) {
       const calculatedItems = items.map((item) => {
-        const profit =
-          (item.unitPrice - item.unitCost) * item.quantity;
+        const profit = (item.unitPrice - item.unitCost) * item.quantity;
 
         return {
           ...item,
@@ -241,15 +214,13 @@ if (items !== undefined) {
       });
 
       const subtotal = calculatedItems.reduce(
-        (total, item) =>
-          total + item.quantity * item.unitPrice,
-        0
+        (total, item) => total + item.quantity * item.unitPrice,
+        0,
       );
 
       const totalCost = calculatedItems.reduce(
-        (total, item) =>
-          total + item.quantity * item.unitCost,
-        0
+        (total, item) => total + item.quantity * item.unitCost,
+        0,
       );
 
       sale.items = calculatedItems;
@@ -258,16 +229,10 @@ if (items !== undefined) {
     }
 
     // Always calculate totals using the CURRENT sale values
-    sale.totalAmount =
-      sale.subtotal +
-      sale.directExpenses +
-      sale.commission;
+    sale.totalAmount = sale.subtotal + sale.directExpenses + sale.commission;
 
     sale.totalProfit =
-      sale.subtotal -
-      sale.totalCost -
-      sale.directExpenses -
-      sale.commission;
+      sale.subtotal - sale.totalCost - sale.directExpenses - sale.commission;
 
     sale.updatedBy = req.user._id;
 
@@ -294,7 +259,7 @@ const deleteSale = async (req, res, next) => {
       });
     }
 
-      if (sale.status === "released") {
+    if (sale.status === "released") {
       return res.status(400).json({
         success: false,
         message: "Released sale cannot be deleted",
@@ -311,7 +276,6 @@ const deleteSale = async (req, res, next) => {
     next(error);
   }
 };
-
 
 // RELEASE SALE
 const releaseSale = async (req, res, next) => {
@@ -334,7 +298,6 @@ const releaseSale = async (req, res, next) => {
     if (sale.status === "released") {
       await session.abortTransaction();
 
-
       return res.status(400).json({
         success: false,
         message: "Sale is already released",
@@ -352,9 +315,7 @@ const releaseSale = async (req, res, next) => {
 
     // CHECK STOCK FIRST
     for (const item of sale.items) {
-      const product = await Product.findById(item.productId).session(
-        session
-      );
+      const product = await Product.findById(item.productId).session(session);
 
       if (!product) {
         await session.abortTransaction();
@@ -377,9 +338,7 @@ const releaseSale = async (req, res, next) => {
 
     // DEDUCT STOCK + CREATE INVENTORY MOVEMENTS
     for (const item of sale.items) {
-      const product = await Product.findById(item.productId).session(
-        session
-      );
+      const product = await Product.findById(item.productId).session(session);
 
       product.currentStock -= item.quantity;
 
@@ -399,7 +358,7 @@ const releaseSale = async (req, res, next) => {
             createdBy: req.user._id,
           },
         ],
-        { session }
+        { session },
       );
     }
 
@@ -429,7 +388,6 @@ const releaseSale = async (req, res, next) => {
     session.endSession();
   }
 };
-
 
 module.exports = {
   getSales,

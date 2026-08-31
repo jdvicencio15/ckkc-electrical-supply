@@ -10,7 +10,6 @@ const {
   releaseSale,
 } = require("../controllers/saleController");
 
-
 const authorize = require("../middleware/authorize");
 
 const protect = require("../middleware/authMiddleware");
@@ -29,7 +28,7 @@ router.post(
   authorize("owner", "admin", "sales"),
   saleValidator,
   validationMiddleware,
-  createSale
+  createSale,
 );
 
 // READ ALL
@@ -37,7 +36,7 @@ router.get(
   "/",
   protect,
   authorize("owner", "admin", "sales", "purchasing", "accounting"),
-  getSales
+  getSales,
 );
 
 // RELEASE SALE
@@ -45,7 +44,7 @@ router.post(
   "/:id/release",
   protect,
   authorize("owner", "admin", "sales"),
-  releaseSale
+  releaseSale,
 );
 
 // READ SINGLE
@@ -53,7 +52,7 @@ router.get(
   "/:id",
   protect,
   authorize("owner", "admin", "sales", "purchasing", "accounting"),
-  getSaleById
+  getSaleById,
 );
 
 // UPDATE
@@ -63,7 +62,7 @@ router.put(
   authorize("owner", "admin", "sales"),
   saleUpdateValidator,
   validationMiddleware,
-  updateSale
+  updateSale,
 );
 
 // DELETE
@@ -71,6 +70,6 @@ router.delete(
   "/:id",
   protect,
   authorize("owner", "admin", "sales"),
-  deleteSale
+  deleteSale,
 );
 module.exports = router;

@@ -1,9 +1,13 @@
+
+const mongoose = require("mongoose");
+
 const Purchase = require("../models/Purchase");
 
 const Supplier = require("../models/Supplier");
 const SupplierPO = require("../models/SupplierPO");
 const ClientPO = require("../models/ClientPO");
 const Product = require("../models/Product");
+const InventoryMovement = require("../models/InventoryMovement");
 
 const {
   checkReferenceExists,
@@ -275,10 +279,114 @@ const deletePurchase = async (req, res, next) => {
   }
 };
 
+
+// RECEIVE PURCHASE
+const receivePurchase = async (req, res, next) => {
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    const purchase = await Purchase.findById(req.params.id).session(session);
+
+    if (!purchase) {
+      await session.abortTransaction();
+
+      return res.status(404).json({
+        success: false,
+        message: "Purchase not found",
+      });
+    }
+
+    if (purchase.status === "received") {
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        message: "Purchase is already received",
+      });
+    }
+
+    if (purchase.status === "cancelled") {
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        message: "Cancelled purchase cannot be received",
+      });
+    }
+
+    // UPDATE STOCK + CREATE INVENTORY MOVEMENTS
+    for (const item of purchase.items) {
+      const product = await Product.findById(item.productId).session(session);
+
+      if (!product) {
+        await session.abortTransaction();
+
+        return res.status(404).json({
+          success: false,
+          message: `Product not found: ${item.productId}`,
+        });
+      }
+
+      product.currentStock += item.quantity;
+
+      await product.save({ session });
+
+      await InventoryMovement.create(
+        [
+          {
+            productId: item.productId,
+            type: "IN",
+            quantity: item.quantity,
+            unitCost: item.actualUnitCost,
+            referenceType: "PURCHASE",
+            referenceId: purchase._id,
+            date: purchase.purchaseDate,
+            notes: `Received ${item.quantity} ${product.unit} of ${product.name}`,
+            createdBy: req.user._id,
+          },
+        ],
+        { session },
+      );
+    }
+
+    // MARK PURCHASE AS RECEIVED
+    purchase.status = "received";
+    purchase.updatedBy = req.user._id;
+
+    await purchase.save({ session });
+
+    await session.commitTransaction();
+
+    const populatedPurchase = await Purchase.findById(purchase._id)
+      .populate("supplierId", "supplierCode name")
+      .populate("supplierPOId", "poNumber")
+      .populate("relatedClientPOId", "poNumber")
+      .populate("items.productId", "sku name unit")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName");
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase received successfully",
+      purchase: populatedPurchase,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+
+    next(error);
+  } finally {
+    session.endSession();
+  }
+};
+
 module.exports = {
   getPurchases,
   getPurchaseById,
   createPurchase,
   updatePurchase,
   deletePurchase,
+  receivePurchase,
+
 };

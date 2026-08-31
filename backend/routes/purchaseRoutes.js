@@ -7,6 +7,7 @@ const {
   getPurchaseById,
   updatePurchase,
   deletePurchase,
+  receivePurchase,
 } = require("../controllers/purchaseController");
 
 const authorize = require("../middleware/authorize");
@@ -38,6 +39,14 @@ router.get(
   getPurchases
 );
 
+// RECEIVE PURCHASE
+router.post(
+  "/:id/receive",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  receivePurchase
+);
+
 // READ SINGLE
 router.get(
   "/:id",
@@ -63,5 +72,8 @@ router.delete(
   authorize("owner", "admin", "purchasing"),
   deletePurchase
 );
+
+
+
 
 module.exports = router;

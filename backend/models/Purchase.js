@@ -60,6 +60,13 @@ const purchaseSchema = new mongoose.Schema(
       default: Date.now,
     },
 
+    status: {
+  type: String,
+  enum: ["draft", "received", "cancelled"],
+  default: "draft",
+    },
+    
+
     items: {
       type: [purchaseItemSchema],
       required: true,
