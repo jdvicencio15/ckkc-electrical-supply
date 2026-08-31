@@ -1,31 +1,17 @@
-function RecentTransactions() {
-  const transactions = [
-    {
-      id: 1,
-      reference: "SALE-0001",
-      customer: "Walk-in Customer",
-      amount: "₱0.00",
-      status: "Completed",
-    },
-    {
-      id: 2,
-      reference: "SALE-0002",
-      customer: "Sample Customer",
-      amount: "₱0.00",
-      status: "Pending",
-    },
-    {
-      id: 3,
-      reference: "SALE-0003",
-      customer: "Sample Customer",
-      amount: "₱0.00",
-      status: "Completed",
-    },
-  ];
+import { useNavigate } from "react-router-dom";
+
+function RecentTransactions({ sales }) {
+  const navigate = useNavigate();
+
+  const transactions = sales
+    .slice()
+    .sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate))
+    .slice(0, 5);
 
   const statusStyles = {
-    Completed: "bg-green-50 text-green-700",
-    Pending: "bg-amber-50 text-amber-700",
+    released: "bg-green-50 text-green-700",
+    pending: "bg-amber-50 text-amber-700",
+    cancelled: "bg-red-50 text-red-700",
   };
 
   return (
@@ -36,13 +22,12 @@ function RecentTransactions() {
             Recent Transactions
           </h2>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Latest sales activity
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Latest sales activity</p>
         </div>
 
         <button
           type="button"
+          onClick={() => navigate("/sales")}
           className="shrink-0 text-xs font-semibold text-green-600 transition hover:text-green-700"
         >
           View All
@@ -53,54 +38,61 @@ function RecentTransactions() {
         <table className="w-full min-w-[600px] text-left">
           <thead>
             <tr className="border-b border-slate-200 text-xs uppercase text-slate-500">
-              <th className="pb-3 font-medium">
-                Reference
-              </th>
+              <th className="pb-3 font-medium">Reference</th>
 
-              <th className="pb-3 font-medium">
-                Customer
-              </th>
+              <th className="pb-3 font-medium">Customer</th>
 
-              <th className="pb-3 font-medium">
-                Amount
-              </th>
+              <th className="pb-3 font-medium">Amount</th>
 
-              <th className="pb-3 text-right font-medium">
-                Status
-              </th>
+              <th className="pb-3 text-right font-medium">Status</th>
             </tr>
           </thead>
 
           <tbody>
-            {transactions.map((transaction) => (
-              <tr
-                key={transaction.id}
-                className="border-b border-slate-100 last:border-0"
-              >
-                <td className="py-4 text-sm font-medium text-slate-900">
-                  {transaction.reference}
-                </td>
+            {transactions.length > 0 ? (
+              transactions.map((transaction) => (
+                <tr
+                  key={transaction._id}
+                  className="border-b border-slate-100 last:border-0"
+                >
+                  <td className="py-4 text-sm font-medium text-slate-900">
+                    {transaction.salesNumber}
+                  </td>
 
-                <td className="py-4 text-sm text-slate-600">
-                  {transaction.customer}
-                </td>
+                  <td className="py-4 text-sm text-slate-600">
+                    {transaction.customerId?.name || "Unknown Customer"}
+                  </td>
 
-                <td className="py-4 text-sm font-medium text-slate-900">
-                  {transaction.amount}
-                </td>
+                  <td className="py-4 text-sm font-medium text-slate-900">
+                    ₱
+                    {(transaction.totalAmount || 0).toLocaleString("en-PH", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
 
-                <td className="py-4 text-right">
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                      statusStyles[transaction.status] ||
-                      "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {transaction.status}
-                  </span>
+                  <td className="py-4 text-right">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                        statusStyles[transaction.status] ||
+                        "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {transaction.status}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan="4"
+                  className="py-8 text-center text-sm text-slate-500"
+                >
+                  No transactions found for this month.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
