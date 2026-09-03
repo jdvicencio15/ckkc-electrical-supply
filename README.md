@@ -1,28 +1,64 @@
-# MERN Starter Kit 🚀
+# CKKC Electrical Supply Management System ⚡
 
-A reusable **MERN Stack starter kit** for building full-stack web applications faster.
+A full-stack **MERN-based Electrical Supply Management System** designed to manage products, inventory, customers, suppliers, purchasing, sales, and business operations.
 
-This starter kit provides a clean and scalable foundation with:
+The system was built as a real-world business application with a focus on:
 
-* JWT authentication
-* Protected routes
-* CRUD architecture
-* MongoDB relationships
+* Secure authentication and authorization
+* Role-based access control
+* Product and inventory management
+* Customer management
+* Supplier and purchasing workflows
+* Sales and stock release workflows
+* Inventory movement tracking
 * Request validation
 * Centralized error handling
 * Security hardening
-* Rate limiting
-* Reusable React UI components
-* Authentication pages and flows
-* Responsive UI foundation
+* Reusable frontend architecture
+* Responsive UI
+* Maintainable API → Service → Page → Component architecture
 
-The goal is simple:
-
-> **Clone the starter kit, replace the business logic, and start building the actual application.**
+The project started as a backend-focused MERN application and evolved into a complete business management system with transactional inventory logic and a React-based frontend.
 
 ---
 
-# Tech Stack
+# ⚡ Project Overview
+
+CKKC Electrical Supply is designed for an electrical supply business that needs to manage products, stock levels, customers, purchasing, and sales from a centralized system.
+
+The application separates **master data**, **transactions**, and **inventory movements** to maintain a clear and reliable business workflow.
+
+### Core Business Flow
+
+```text
+Products
+   │
+   ├── Product Information
+   ├── Category
+   └── Inventory Levels
+          │
+          ├── Purchase Received
+          │       ↓
+          │    Stock IN
+          │
+          └── Sale Released
+                  ↓
+               Stock OUT
+```
+
+Manual stock corrections are handled separately through inventory adjustments.
+
+```text
+Manage Stock
+     ↓
+ADJUSTMENT
+     ↓
+Update Current Stock
+```
+
+---
+
+# 🛠️ Tech Stack
 
 ## Backend
 
@@ -31,7 +67,7 @@ The goal is simple:
 * MongoDB
 * Mongoose
 * JWT Authentication
-* bcrypt Password Hashing
+* bcrypt
 * Express Validator
 * Helmet
 * Express Rate Limit
@@ -39,48 +75,99 @@ The goal is simple:
 ## Frontend
 
 * React
+* Vite
 * React Router
 * Tailwind CSS
 * Axios
-* React Hot Toast
+* React Icons
+
+## Database
+
+* MongoDB Atlas
+* Mongoose ODM
+* MongoDB transactions
+* Population / document relationships
+* Database indexes
 
 ---
 
-# Features
+# ✨ Features
 
 ## 🔐 Authentication
 
-* User Registration
-* User Login
-* JWT Authentication
-* Remember Me
-* Protected Routes
+The application includes a complete authentication foundation:
+
+* User registration
+* User login
+* JWT authentication
+* Protected API routes
+* Protected frontend routes
 * Logout
-* Forgot Password
-* Reset Password
-* Password Hashing with bcrypt
+* Password hashing with bcrypt
+* Forgot Password flow
+* Reset Password flow
 * Authentication Context
 
-> **Development Note:**
-> The current Forgot Password implementation returns the reset token directly in the API response for local development and testing.
-> Before production, this should be replaced with an email-based password reset flow.
+### Development Password Reset
+
+During local development, the Forgot Password flow returns the reset token directly in the API response for testing.
+
+This is intentionally a development-only implementation.
+
+Before production deployment, this should be replaced with an email-based password reset system.
 
 ---
 
-# 🛡️ Security
+# 👥 Role-Based Access Control
 
-The starter kit includes several security hardening measures:
+The backend implements role-based authorization to control access to different business operations.
 
-* Rate Limiting
-* Brute-force Protection
-* Account Enumeration Protection
-* Helmet Security Headers
-* Request Validation
-* Centralized Error Handling
-* JWT Authentication
-* Password Hashing
-* Security Logging
-* Dependency Vulnerability Auditing
+Example roles include:
+
+* Owner
+* Admin
+* Sales
+* Purchasing
+* Accounting
+
+Routes use authorization middleware to determine whether the authenticated user has permission to perform a specific action.
+
+Example:
+
+```text
+Authentication
+      ↓
+JWT Verification
+      ↓
+Authorization
+      ↓
+Controller
+```
+
+This prevents authenticated users from automatically gaining access to every business operation.
+
+---
+
+# 🛡️ Security Hardening
+
+Security was treated as part of the application's architecture rather than an afterthought.
+
+Implemented security measures include:
+
+* JWT authentication
+* Password hashing
+* Protected routes
+* Role-based authorization
+* Request validation
+* Rate limiting
+* Brute-force protection
+* Account enumeration protection
+* Helmet security headers
+* Centralized error handling
+* Security logging
+* Dependency vulnerability auditing
+* Reference validation
+* Validation middleware
 
 Dependency audit:
 
@@ -88,196 +175,344 @@ Dependency audit:
 npm audit
 ```
 
-Current audit status:
+The backend was also regression-tested after security hardening to ensure that the security changes did not break existing business functionality.
+
+---
+
+# 📦 Product Management
+
+The Products module manages the application's product master data.
+
+### Product Information
+
+* SKU
+* Product name
+* Description
+* Category
+* Unit
+* Minimum stock / reorder level
+* Current stock
+* Status
+
+### Product CRUD
 
 ```text
-found 0 vulnerabilities
+GET     /api/products
+POST    /api/products
+GET     /api/products/:id
+PUT     /api/products/:id
+DELETE  /api/products/:id
+```
+
+### Important Business Rule
+
+`currentStock` is **not manually editable through Product CRUD**.
+
+Inventory quantity is controlled through inventory movement transactions.
+
+This prevents product master-data updates from bypassing inventory logic.
+
+---
+
+# 📊 Inventory Management
+
+The Inventory module monitors current product stock levels.
+
+### Inventory Dashboard
+
+The inventory page provides:
+
+* Total Products
+* In Stock
+* Low Stock
+* Out of Stock
+
+### Inventory Filters
+
+Users can filter inventory by:
+
+* Product search
+* SKU
+* Product name
+* Description
+* Category
+* Stock status
+
+### Stock Status Logic
+
+```text
+Current Stock = 0
+        ↓
+Out of Stock
+
+Current Stock <= Minimum Stock
+        ↓
+Low Stock
+
+Current Stock > Minimum Stock
+        ↓
+In Stock
+```
+
+### Manage Stock
+
+Manual stock corrections are handled through an inventory adjustment workflow.
+
+```text
+Manage Stock
+     ↓
+Enter New Stock
+     ↓
+Create ADJUSTMENT Movement
+     ↓
+Recalculate Stock
+     ↓
+Update Product.currentStock
+```
+
+Successful adjustments display a Toast notification to provide immediate feedback to the user.
+
+---
+
+# 🔄 Inventory Movement System
+
+Inventory movements provide the transaction layer responsible for changing stock.
+
+Supported movement types:
+
+```text
+IN
+OUT
+ADJUSTMENT
+```
+
+Movement references:
+
+```text
+PURCHASE
+SALE
+ADJUSTMENT
+```
+
+Valid combinations are intentionally restricted:
+
+```text
+IN          → PURCHASE
+OUT         → SALE
+ADJUSTMENT  → ADJUSTMENT
+```
+
+This prevents invalid combinations such as manually creating a SALE stock-out without an actual Sale transaction.
+
+---
+
+# 🧮 Stock Calculation
+
+Current stock is derived from inventory movements.
+
+The backend recalculates stock based on movement history:
+
+```text
+IN
+  +
+OUT
+  -
+ADJUSTMENT
+  =
+Current Stock
+```
+
+Adjustments establish the corrected stock quantity.
+
+Stock updates are performed transactionally to help maintain data consistency between:
+
+```text
+Inventory Movement
+        +
+Product.currentStock
 ```
 
 ---
 
-# 🎨 Reusable UI Components
+# 👤 Customer Management
 
-The frontend includes reusable UI components:
+The Customer module manages customer master data and customer-related sales statistics.
 
-```text
-client/src/components/ui/
+### Customer Information
 
-├── Button.jsx
-├── Card.jsx
-├── Input.jsx
-├── Modal.jsx
-├── Select.jsx
-└── Spinner.jsx
-```
-
-### Button
-
-Supports:
-
-* Variants
-* Sizes
-* Loading state
-* Disabled state
-* Full-width mode
-
-Example:
-
-```jsx
-<Button
-  type="submit"
-  loading={loading}
-  fullWidth
->
-  Login
-</Button>
-```
-
-### Input
-
-Supports:
-
-* Labels
-* Input types
-* Placeholders
-* Disabled state
-* Error messages
-* Reusable styling
-
-### Select
-
-Reusable dropdown component for forms and filters.
-
-### Card
-
-Reusable container component for page sections and content.
-
-### Modal
-
-Reusable modal/dialog component.
-
-### Spinner
-
-Reusable loading indicator used by loading states.
-
----
-
-# 📄 Frontend Pages
-
-Current starter pages:
-
-```text
-client/src/pages/
-
-├── Home.jsx
-├── Login.jsx
-├── Register.jsx
-├── ForgotPassword.jsx
-├── ResetPassword.jsx
-├── Dashboard.jsx
-└── NotFound.jsx
-```
-
-## Home
-
-Displays different content depending on authentication state.
-
-Authenticated users can:
-
-* Access Dashboard
-* Logout
-
-Unauthenticated users can:
-
-* Login
-* Register
-
-## Login
-
-Includes:
-
+* Customer Code
+* Customer Name
+* Contact Person
 * Email
-* Password
-* Remember Me
-* Loading state
-* Error handling
-* Forgot Password link
+* Phone
+* Address
+* Status
 
-## Register
+### Customer CRUD
 
-Includes:
+```text
+GET     /api/customers
+POST    /api/customers
+GET     /api/customers/:id
+PUT     /api/customers/:id
+DELETE  /api/customers/:id
+```
 
-* First Name
-* Last Name
-* Email
-* Password
-* Loading state
-* Success notification
+### Customer Statistics
 
-## Forgot Password
+Customer statistics are calculated dynamically from Sales data.
 
-Includes:
+The system displays:
 
-* Email input
-* Loading state
-* Development reset token display
-* Copy token
-* Continue to Reset Password
+* Total Orders
+* Total Purchases
 
-## Reset Password
+Cancelled sales are excluded from these calculations.
 
-Includes:
-
-* Reset token
-* New password
-* Confirm password
-* Password matching validation
-* Loading state
-* Success/error handling
-
-## Dashboard
-
-Example protected page used to demonstrate authentication and protected routes.
-
-## Not Found
-
-Reusable 404 page with navigation back to Home.
+This avoids storing duplicated derived statistics inside the Customer document.
 
 ---
 
-# 🏗️ Backend Architecture
+# 🏭 Supplier Management
 
-The backend follows a modular architecture:
+The Supplier module is designed to manage supplier information and support the purchasing workflow.
+
+Planned/implemented supplier functionality includes:
+
+* Supplier master data
+* Supplier contact information
+* Supplier status
+* Supplier purchasing relationship
+
+The Supplier module follows the same architecture used by the Product and Customer modules.
+
+---
+
+# 🧾 Purchasing
+
+Purchasing is responsible for recording inventory acquisitions from suppliers.
+
+Purchase records contain:
+
+* Purchase Number
+* Supplier
+* Purchase Date
+* Purchase Status
+* Items
+* Quantity
+* Actual Unit Cost
+* Total Cost
+
+Purchase statuses:
 
 ```text
-server
+draft
+received
+cancelled
+```
+
+When a purchase is received, the corresponding inventory movement is:
+
+```text
+Purchase Received
+       ↓
+IN / PURCHASE
+       ↓
+Increase Stock
+```
+
+---
+
+# 🛒 Sales
+
+Sales records represent customer transactions.
+
+Sale records contain:
+
+* Sales Number
+* Customer
+* Sale Date
+* Items
+* Quantity
+* Unit Price
+* Unit Cost
+* Profit
+* Subtotal
+* Direct Expenses
+* Commission
+* Total Amount
+* Total Cost
+* Total Profit
+
+Sale statuses include:
+
+```text
+draft
+completed
+released
+cancelled
+```
+
+When a sale is released:
+
+```text
+Sale Released
+      ↓
+OUT / SALE
+      ↓
+Inventory Deduction
+```
+
+Released sales are protected from modification or deletion to preserve inventory transaction integrity.
+
+---
+
+# 🧱 Backend Architecture
+
+The backend follows a modular layered architecture.
+
+```text
+backend/
+
+├── config/
 │
-├── config
-│   └── db.js
+├── controllers/
 │
-├── controllers
+├── middleware/
 │
-├── middleware
-│   ├── authMiddleware.js
-│   ├── errorMiddleware.js
-│   ├── notFound.js
-│   └── validationMiddleware.js
+├── models/
 │
-├── models
+├── routes/
 │
-├── routes
+├── validators/
 │
-├── validators
-│
-├── utils
+├── utils/
 │
 ├── app.js
 └── server.js
 ```
 
+The application separates:
+
+```text
+Routes
+   ↓
+Validation
+   ↓
+Middleware
+   ↓
+Controller
+   ↓
+Model
+   ↓
+MongoDB
+```
+
+This keeps business logic organized and easier to maintain.
+
 ---
 
-# Backend Request Flow
+# 🔄 Backend Request Flow
 
 Normal request:
 
@@ -285,6 +520,10 @@ Normal request:
 Client
    ↓
 Route
+   ↓
+Authentication
+   ↓
+Authorization
    ↓
 Validation
    ↓
@@ -302,122 +541,226 @@ Controller
    ↓
 next(error)
    ↓
-Error Middleware
+Centralized Error Middleware
    ↓
 JSON Error Response
 ```
 
 ---
 
-# CRUD Architecture
+# 🎨 Frontend Architecture
 
-The starter kit includes an example CRUD architecture using Items and Categories.
-
-## Items
+The frontend follows a reusable layered structure:
 
 ```text
-GET    /api/items
-POST   /api/items
-GET    /api/items/:id
-PUT    /api/items/:id
-DELETE /api/items/:id
-```
-
-Features:
-
-* Create Item
-* Read Items
-* Read Single Item
-* Update Item
-* Delete Item
-* Category Relationship
-* MongoDB `populate()`
-
-## Categories
-
-```text
-GET  /api/categories
-POST /api/categories
+API
+ ↓
+Service
+ ↓
+Page
+ ↓
+Component
 ```
 
 Example:
 
-```json
-{
-  "name": "Food"
-}
+```text
+customerApi.js
+      ↓
+customerService.js
+      ↓
+Customers.jsx
+      ↓
+CustomerForm.jsx
 ```
 
-The Category module serves as a reference for MongoDB relationships.
+This separation keeps API communication independent from page-level UI logic.
 
 ---
 
-# Authentication API
+# 🧩 Reusable UI Patterns
 
-## Register
+The application uses reusable UI patterns for:
+
+* Forms
+* Modals
+* Toast notifications
+* Loading states
+* Error states
+* Tables
+* Filters
+* Status badges
+* Responsive layouts
+
+### Toast Notifications
+
+Data-changing operations provide user feedback through Toast notifications.
+
+Examples:
 
 ```text
-POST /api/auth/register
+Customer created successfully.
+Customer updated successfully.
+Customer deleted successfully.
+
+Stock adjusted successfully.
+
+Product created successfully.
+Product updated successfully.
+Product deleted successfully.
 ```
-
-Example request:
-
-```json
-{
-  "firstName": "Darren",
-  "lastName": "Test",
-  "email": "test@example.com",
-  "password": "password123"
-}
-```
-
-## Login
-
-```text
-POST /api/auth/login
-```
-
-The login system returns an authentication token used for protected API requests.
 
 ---
 
-# Installation
+# 📱 Responsive UI
+
+The frontend is built using Tailwind CSS and supports responsive layouts for different screen sizes.
+
+Major UI areas include:
+
+* Dashboard
+* Tables
+* Forms
+* Filters
+* Modals
+* Navigation
+* Authentication pages
+
+Dark mode is also supported throughout the application.
+
+---
+
+# 🗄️ Database Relationships
+
+The system uses MongoDB document references to connect business entities.
+
+Examples:
+
+```text
+Product
+   ↓
+Category
+
+Sale
+   ↓
+Customer
+
+Purchase
+   ↓
+Supplier
+
+InventoryMovement
+   ↓
+Product
+```
+
+Mongoose `populate()` is used where related information needs to be returned with the primary document.
+
+---
+
+# 🔒 Data Integrity Rules
+
+Several business rules were implemented to protect the integrity of the system.
+
+### Product Stock
+
+Product CRUD cannot directly modify `currentStock`.
+
+### Inventory
+
+Stock changes must occur through inventory movements.
+
+### Inventory Movement
+
+Invalid movement/reference combinations are rejected.
+
+### Sales
+
+Released sales cannot be modified or deleted.
+
+### Customers
+
+Customer statistics are derived from sales instead of being manually maintained.
+
+### Validation
+
+Invalid IDs, missing required fields, invalid enum values, invalid quantities, and invalid business references are rejected by backend validation.
+
+---
+
+# 🧪 Testing & Regression
+
+The application was tested incrementally throughout development.
+
+Testing included:
+
+* Authentication testing
+* Authorization testing
+* CRUD testing
+* Validation testing
+* Duplicate record testing
+* Invalid input testing
+* Inventory stock calculations
+* Stock status testing
+* Customer statistics
+* Search and filtering
+* Toast notifications
+* API error handling
+* Security regression testing
+
+Example inventory states tested:
+
+```text
+0 / 20
+→ Out of Stock
+
+15 / 20
+→ Low Stock
+
+30 / 20
+→ In Stock
+```
+
+Customer testing included:
+
+```text
+Create customer          ✅
+Duplicate code           ✅
+Required fields          ✅
+Invalid email            ✅
+Search                   ✅
+Status filter            ✅
+Update                   ✅
+Delete                   ✅
+Success Toast            ✅
+```
+
+---
+
+# 🚀 Installation
 
 ## 1. Clone Repository
 
 ```bash
-git clone your-repository-url
+git clone <repository-url>
 ```
 
 Enter the project:
 
 ```bash
-cd mern-starter-kit
+cd CKKC-ELECTRICAL-SUPPLY
 ```
 
 ---
 
-# 2. Install Backend Dependencies
+# 2. Backend Setup
 
 ```bash
-cd server
+cd backend
 npm install
 ```
 
----
-
-# 3. Install Frontend Dependencies
-
-```bash
-cd ../client
-npm install
-```
-
----
-
-# 4. Environment Setup
-
-Create a `.env` file inside the `server` folder.
+Create a `.env` file inside the backend directory.
 
 Example:
 
@@ -427,29 +770,34 @@ MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_secret_key
 ```
 
-Never commit the real `.env` file to Git.
+Never commit the real `.env` file.
 
 Use `.env.example` as the template for required environment variables.
 
 ---
 
-# Running the Application
+# 3. Frontend Setup
+
+Open another terminal:
+
+```bash
+cd frontend
+npm install
+```
+
+---
+
+# ▶️ Running the Application
 
 ## Backend
 
-From the `server` folder:
+From the `backend` folder:
 
 ```bash
 npm run dev
 ```
 
-Production/start command:
-
-```bash
-npm start
-```
-
-Server:
+The backend runs on:
 
 ```text
 http://localhost:5000
@@ -457,7 +805,7 @@ http://localhost:5000
 
 ## Frontend
 
-From the `client` folder:
+From the `frontend` folder:
 
 ```bash
 npm run dev
@@ -471,144 +819,175 @@ http://localhost:5173
 
 ---
 
-# Production Build
+# 🏗️ Production Build
 
-To create the frontend production build:
+Create the frontend production build:
 
 ```bash
-cd client
+cd frontend
 npm run build
 ```
 
-The build output is generated inside:
+The production build will be generated inside:
 
 ```text
-client/dist
+frontend/dist
 ```
 
 ---
 
-# Security Audit
+# 🔍 Security Audit
 
-Run dependency vulnerability checks from the appropriate project folder:
+Run dependency vulnerability checks:
 
 ```bash
 npm audit
 ```
 
-The starter kit should be checked regularly for dependency vulnerabilities before deployment.
+Dependencies should be reviewed and updated regularly before production deployment.
 
 ---
 
-# Git Workflow
+# 📈 Development Approach
 
-The starter kit is designed to act as a reusable project foundation.
+The project was developed incrementally rather than building every feature at once.
 
-Recommended workflow for a new application:
-
-```text
-MERN Starter Kit
-       ↓
-Clone Repository
-       ↓
-Rename Project
-       ↓
-Create New GitHub Repository
-       ↓
-Replace Business Logic
-       ↓
-Build Application
-       ↓
-Deploy
-```
-
-Example:
+The general development process was:
 
 ```text
-mern-starter-kit
-       ↓
-bigasan-pautang-system
-       ↓
-grocery-pos-system
-       ↓
-inventory-system
-       ↓
-other client projects
+Business Requirement
+        ↓
+Database Model
+        ↓
+Validator
+        ↓
+Controller
+        ↓
+Route
+        ↓
+API
+        ↓
+Service
+        ↓
+React Page
+        ↓
+Reusable Component
+        ↓
+Integration
+        ↓
+Testing
+        ↓
+Finalize
 ```
 
-The original starter kit should remain as the reusable master template.
+This approach helped isolate problems and allowed each module to be tested before moving to the next one.
 
 ---
 
-# Project Purpose
+# 🗺️ Project Progress
 
-This project serves as a reusable foundation for future MERN applications and client projects.
-
-Instead of repeatedly starting from:
+Current completed areas include:
 
 ```text
-React setup
-Express setup
-MongoDB setup
-Authentication
-JWT
-Validation
-Error handling
-Security
-Reusable UI
-```
+Project Architecture       ✅
+MongoDB                     ✅
+Mongoose                    ✅
 
-the developer can start from this foundation and focus on the actual business requirements.
+Authentication              ✅
+JWT                         ✅
+Password Hashing            ✅
+Protected Routes            ✅
+RBAC                        ✅
 
----
+Request Validation          ✅
+Centralized Errors          ✅
+Rate Limiting               ✅
+Security Headers            ✅
+Security Logging            ✅
+Dependency Audit             ✅
 
-# Current Status
+Products                    ✅
+Inventory                   ✅
+Customers                   ✅
 
-```text
-Architecture              ✅
-MongoDB                   ✅
-Mongoose                  ✅
-Authentication            ✅
-JWT                       ✅
-Password Hashing          ✅
-Protected Routes          ✅
-Request Validation        ✅
-CRUD Architecture         ✅
-MongoDB Relationships     ✅
-Centralized Errors        ✅
-Rate Limiting             ✅
-Security Headers          ✅
-Security Logging          ✅
-Dependency Audit          ✅
-Reusable UI               ✅
-Responsive UI Foundation ✅
-Loading States            ✅
-Frontend Build            ✅
-Server Startup            ✅
-MongoDB Connection        ✅
+Purchasing                  🚧
+Sales                       🚧
+Suppliers                   🚧
+
+Frontend Architecture       ✅
+Reusable Components         ✅
+Dark Mode                   ✅
+Responsive UI               ✅
+Toast Notifications         ✅
+
+Deployment                  ⏳
 ```
 
 ---
 
-# Future Enhancements
+# 🎯 Future Improvements
 
-Possible future improvements:
+Planned improvements include:
 
+* Complete Supplier module
+* Complete Purchasing frontend workflow
+* Complete Sales frontend workflow
+* Inventory movement history
+* Advanced dashboard analytics
 * Email-based password reset
-* Refresh token authentication
-* Role-based access control expansion
-* File upload support
-* Advanced dashboard layouts
 * Automated testing
 * CI/CD pipeline
-* Production deployment templates
-
-These features can be added when a specific project requires them.
+* Production deployment
+* Additional reporting features
 
 ---
 
-# Built With ❤️
+# 💡 Project Goals
 
-Built as a reusable MERN foundation for future applications and client projects.
+The main goals of CKKC Electrical Supply are:
 
-**MERN Starter Kit 🚀**
+1. Build a realistic full-stack business application.
+2. Apply secure MERN development practices.
+3. Implement real inventory transaction logic.
+4. Practice scalable backend architecture.
+5. Build reusable React frontend patterns.
+6. Apply role-based access control.
+7. Develop a system that can eventually be used in a real business environment.
+
+---
+
+# 📚 What This Project Demonstrates
+
+This project demonstrates practical experience with:
+
+* Full-stack MERN development
+* REST API development
+* MongoDB data modeling
+* Mongoose relationships
+* JWT authentication
+* RBAC
+* Backend validation
+* Security hardening
+* Rate limiting
+* Error handling
+* Inventory transaction logic
+* CRUD operations
+* React state management
+* React forms
+* API/service separation
+* Tailwind CSS
+* Responsive UI
+* Dark mode
+* Git/GitHub workflow
+* Regression testing
+* Business process modeling
+
+---
+
+# ❤️ Built With MERN
+
+CKKC Electrical Supply was built as a real-world full-stack application to demonstrate how a MERN stack system can be designed around actual business requirements rather than only simple CRUD examples.
+
+**CKKC Electrical Supply ⚡**
+
+A practical MERN business management system focused on **security, maintainability, data integrity, and real-world workflows.**
