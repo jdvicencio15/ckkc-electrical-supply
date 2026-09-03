@@ -1,14 +1,57 @@
 const Customer = require("../models/Customer");
 
+const Sale = require("../models/Sale");
+
 // GET ALL CUSTOMERS
 const getCustomers = async (req, res, next) => {
   try {
     const customers = await Customer.find().sort({ name: 1 });
 
+    const customerStats = await Sale.aggregate([
+      {
+        $match: {
+          status: {
+            $ne: "cancelled",
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$customerId",
+          totalOrders: {
+            $sum: 1,
+          },
+          totalPurchases: {
+            $sum: "$totalAmount",
+          },
+        },
+      },
+    ]);
+
+    const statsMap = new Map(
+      customerStats.map((stat) => [
+        stat._id.toString(),
+        {
+          totalOrders: stat.totalOrders,
+          totalPurchases: stat.totalPurchases,
+        },
+      ])
+    );
+
+    const customersWithStats = customers.map((customer) => {
+      const stats = statsMap.get(customer._id.toString());
+
+      return {
+        ...customer.toObject(),
+        totalOrders: stats?.totalOrders || 0,
+        totalPurchases: stats?.totalPurchases || 0,
+      };
+    });
+
     res.status(200).json({
       success: true,
-      count: customers.length,
-      customers,
+      count: customersWithStats.length,
+      customers: customersWithStats,
     });
   } catch (error) {
     next(error);

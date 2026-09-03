@@ -32,10 +32,12 @@ const inventoryMovementSchema = new mongoose.Schema(
       required: true,
     },
 
-    referenceId: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-    },
+ referenceId: {
+  type: mongoose.Schema.Types.ObjectId,
+  required: function () {
+    return this.referenceType !== "ADJUSTMENT";
+  },
+},
 
     date: {
       type: Date,

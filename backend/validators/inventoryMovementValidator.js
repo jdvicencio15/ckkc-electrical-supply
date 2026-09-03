@@ -34,11 +34,12 @@ const inventoryMovementValidator = [
     .isIn(["PURCHASE", "SALE", "ADJUSTMENT"])
     .withMessage("Invalid inventory reference type"),
 
-  body("referenceId")
-    .notEmpty()
-    .withMessage("Reference ID is required")
-    .isMongoId()
-    .withMessage("Valid reference ID is required"),
+body("referenceId")
+  .if((value, { req }) => req.body.referenceType !== "ADJUSTMENT")
+  .notEmpty()
+  .withMessage("Reference ID is required")
+  .isMongoId()
+  .withMessage("Valid reference ID is required"),
 
   body("date")
     .optional()

@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const InventoryMovement = require("../models/InventoryMovement");
@@ -154,6 +155,7 @@ const createInventoryMovement = async (req, res, next) => {
       }
     }
 
+    // Find product
     const product = await Product.findById(productId).session(session);
 
     if (!product) {
@@ -189,20 +191,26 @@ const createInventoryMovement = async (req, res, next) => {
 
     await product.save({ session });
 
+    // Build movement data
+    const movementData = {
+      productId,
+      type,
+      quantity,
+      unitCost,
+      referenceType,
+      date,
+      notes,
+      createdBy: req.user._id,
+    };
+
+    // referenceId is required for PURCHASE and SALE,
+    // but optional for ADJUSTMENT
+    if (referenceId) {
+      movementData.referenceId = referenceId;
+    }
+
     const [movement] = await InventoryMovement.create(
-      [
-        {
-          productId,
-          type,
-          quantity,
-          unitCost,
-          referenceType,
-          referenceId,
-          date,
-          notes,
-          createdBy: req.user._id,
-        },
-      ],
+      [movementData],
       { session }
     );
 
@@ -353,7 +361,16 @@ const updateInventoryMovement = async (req, res, next) => {
     }
 
     movement.referenceType = nextReferenceType;
-    movement.referenceId = nextReferenceId;
+
+    // Only set referenceId when provided.
+    // Adjustment movements may not have one.
+    if (referenceId !== undefined) {
+      movement.referenceId = referenceId;
+    } else if (nextReferenceType !== "ADJUSTMENT") {
+      movement.referenceId = nextReferenceId;
+    } else {
+      movement.referenceId = undefined;
+    }
 
     if (date !== undefined) {
       movement.date = date;
@@ -468,3 +485,4 @@ module.exports = {
   updateInventoryMovement,
   deleteInventoryMovement,
 };
+
