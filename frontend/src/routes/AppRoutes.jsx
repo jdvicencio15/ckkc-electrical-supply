@@ -27,6 +27,7 @@ import Quotations from "../pages/Quotations";
 import Invoices from "../pages/Invoices";
 import Payments from "../pages/Payments";
 import Accounting from "../pages/Accounting";
+import ChartOfAccounts from "../pages/accounting/ChartOfAccounts";
 import Reports from "../pages/Reports";
 import Users from "../pages/Users";
 import RolesPermissions from "../pages/RolesPermissions";
@@ -75,6 +76,11 @@ function AppRoutes() {
 
             <Route path="/accounting" element={<Accounting />} />
 
+            <Route
+  path="/accounting/chart-of-accounts"
+  element={<ChartOfAccounts />}
+/>
+
             <Route path="/reports" element={<Reports />} />
 
             <Route path="/users" element={<Users />} />
@@ -87,9 +93,6 @@ function AppRoutes() {
 
             <Route path="/contact-support" element={<ContactSupport />} />
 
-            <Route path="/profile-settings" element={<ProfileSettings />} />
-
-            <Route path="/contact-support" element={<ContactSupport />} />
           </Route>
         </Route>
         {/* 404 */}

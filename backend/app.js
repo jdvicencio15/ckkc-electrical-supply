@@ -15,9 +15,12 @@ const clientPORoutes = require("./routes/clientPORoutes");
 const supplierPORoutes = require("./routes/supplierPORoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const saleRoutes = require("./routes/saleRoutes");
+const invoiceRoutes = require("./routes/invoiceRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const commissionRoutes = require("./routes/commissionRoutes");
 const inventoryMovementRoutes = require("./routes/inventoryMovementRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const accountingRoutes = require("./routes/accountingRoutes");
 
 
 const errorMiddleware = require("./middleware/errorMiddleware");
@@ -54,10 +57,12 @@ app.use("/api/client-pos", clientPORoutes);
 app.use("/api/supplier-pos", supplierPORoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/sales", saleRoutes);
+app.use("/api/invoices", invoiceRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/commissions", commissionRoutes);
 app.use("/api/inventory-movements", inventoryMovementRoutes);
-
+app.use("/api/accounting", accountingRoutes);
 
 // NOT FOUND
 app.use(notFound);
