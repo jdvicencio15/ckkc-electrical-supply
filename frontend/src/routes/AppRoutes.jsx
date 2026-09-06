@@ -28,6 +28,15 @@ import Invoices from "../pages/Invoices";
 import Payments from "../pages/Payments";
 import Accounting from "../pages/Accounting";
 import ChartOfAccounts from "../pages/accounting/ChartOfAccounts";
+import JournalEntries from "../pages/accounting/JournalEntries";
+import GeneralLedger from "../pages/accounting/GeneralLedger";
+import TrialBalance from "../pages/accounting/TrialBalance";
+
+import SalesReport from "../pages/reports/SalesReport";
+import PurchaseReport from "../pages/reports/PurchaseReport";
+import InventoryReport from "../pages/reports/InventoryReport";
+import ExpenseReport from "../pages/reports/ExpenseReport";
+
 import Reports from "../pages/Reports";
 import Users from "../pages/Users";
 import RolesPermissions from "../pages/RolesPermissions";
@@ -77,11 +86,34 @@ function AppRoutes() {
             <Route path="/accounting" element={<Accounting />} />
 
             <Route
-  path="/accounting/chart-of-accounts"
-  element={<ChartOfAccounts />}
-/>
+              path="/accounting/chart-of-accounts"
+              element={<ChartOfAccounts />}
+            />
+
+            <Route
+              path="/accounting/journal-entries"
+              element={<JournalEntries />}
+            />
+
+            <Route
+              path="/accounting/general-ledger"
+              element={<GeneralLedger />}
+            />
+
+            <Route
+              path="/accounting/trial-balance"
+              element={<TrialBalance />}
+            />
 
             <Route path="/reports" element={<Reports />} />
+
+            <Route path="/reports/sales" element={<SalesReport />} />
+
+            <Route path="/reports/purchases" element={<PurchaseReport />} />
+
+            <Route path="/reports/inventory" element={<InventoryReport />} />
+
+            <Route path="/reports/expenses" element={<ExpenseReport />} />
 
             <Route path="/users" element={<Users />} />
 
@@ -92,7 +124,6 @@ function AppRoutes() {
             <Route path="/profile-settings" element={<ProfileSettings />} />
 
             <Route path="/contact-support" element={<ContactSupport />} />
-
           </Route>
         </Route>
         {/* 404 */}

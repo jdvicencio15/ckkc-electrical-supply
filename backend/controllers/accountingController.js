@@ -271,7 +271,7 @@ if (activeChildren) {
     message: "Cannot deactivate an account with active child accounts",
   });
     }
-    
+
     // Don't physically delete accounts.
     account.isActive = false;
     account.updatedBy = req.user._id;
@@ -593,21 +593,13 @@ const getGeneralLedger = async (req, res, next) => {
   try {
     const { accountId, startDate, endDate } = req.query;
 
-    const match = {};
+    /*
+    |--------------------------------------------------------------------------
+    | Validate account
+    |--------------------------------------------------------------------------
+    */
 
-    if (startDate || endDate) {
-      match.date = {};
-
-      if (startDate) {
-        match.date.$gte = new Date(startDate);
-      }
-
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        match.date.$lte = end;
-      }
-    }
+    let selectedAccount = null;
 
     if (accountId) {
       if (!mongoose.Types.ObjectId.isValid(accountId)) {
@@ -616,9 +608,207 @@ const getGeneralLedger = async (req, res, next) => {
           message: "Invalid account ID",
         });
       }
+
+      selectedAccount = await ChartOfAccount.findById(
+        accountId
+      ).select(
+        "_id accountCode accountName accountType isActive"
+      );
+
+      if (!selectedAccount) {
+        return res.status(404).json({
+          success: false,
+          message: "Account not found",
+        });
+      }
     }
 
-    const journalEntries = await JournalEntry.find(match)
+    /*
+    |--------------------------------------------------------------------------
+    | Build Date Filters
+    |--------------------------------------------------------------------------
+    */
+
+    const periodMatch = {};
+
+    if (startDate || endDate) {
+      periodMatch.date = {};
+
+      if (startDate) {
+        const start = new Date(startDate);
+
+        if (Number.isNaN(start.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid start date",
+          });
+        }
+
+        start.setHours(0, 0, 0, 0);
+
+        periodMatch.date.$gte = start;
+      }
+
+      if (endDate) {
+        const end = new Date(endDate);
+
+        if (Number.isNaN(end.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid end date",
+          });
+        }
+
+        end.setHours(23, 59, 59, 999);
+
+        periodMatch.date.$lte = end;
+      }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Specific Account Ledger
+    |--------------------------------------------------------------------------
+    */
+
+    if (selectedAccount) {
+      /*
+      |--------------------------------------------------------------------------
+      | Opening Balance
+      |--------------------------------------------------------------------------
+      |
+      | Only calculate an opening balance when a start date exists.
+      | Transactions before the selected period are used.
+      |
+      */
+
+      let openingBalance = 0;
+
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+
+        const previousEntries = await JournalEntry.find({
+          date: { $lt: start },
+        })
+          .populate(
+            "entries.account",
+            "accountCode accountName accountType"
+          )
+          .sort({ date: 1, createdAt: 1 });
+
+        for (const journalEntry of previousEntries) {
+          for (const entry of journalEntry.entries) {
+            if (
+              entry.account &&
+              entry.account._id.toString() === accountId
+            ) {
+              const debit = Number(entry.debit || 0);
+              const credit = Number(entry.credit || 0);
+
+              if (
+                selectedAccount.accountType === "asset" ||
+                selectedAccount.accountType === "expense"
+              ) {
+                openingBalance += debit - credit;
+              } else {
+                openingBalance += credit - debit;
+              }
+            }
+          }
+        }
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Period Transactions
+      |--------------------------------------------------------------------------
+      */
+
+      const journalEntries = await JournalEntry.find(
+        periodMatch
+      )
+        .populate(
+          "entries.account",
+          "accountCode accountName accountType"
+        )
+        .sort({ date: 1, createdAt: 1 });
+
+      const transactions = [];
+
+      let runningBalance = openingBalance;
+
+      for (const journalEntry of journalEntries) {
+        for (const entry of journalEntry.entries) {
+          if (
+            !entry.account ||
+            entry.account._id.toString() !== accountId
+          ) {
+            continue;
+          }
+
+          const debit = Number(entry.debit || 0);
+          const credit = Number(entry.credit || 0);
+
+          if (
+            selectedAccount.accountType === "asset" ||
+            selectedAccount.accountType === "expense"
+          ) {
+            runningBalance += debit - credit;
+          } else {
+            runningBalance += credit - debit;
+          }
+
+          transactions.push({
+            date: journalEntry.date,
+            reference: journalEntry.reference,
+            description: journalEntry.description,
+            account: entry.account,
+            debit,
+            credit,
+            balance: Number(runningBalance.toFixed(2)),
+            journalEntryId: journalEntry._id,
+          });
+        }
+      }
+
+      const totalDebit = transactions.reduce(
+        (sum, entry) => sum + entry.debit,
+        0
+      );
+
+      const totalCredit = transactions.reduce(
+        (sum, entry) => sum + entry.credit,
+        0
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: transactions.length,
+        data: {
+          account: selectedAccount,
+          openingBalance: Number(
+            openingBalance.toFixed(2)
+          ),
+          transactions,
+          totalDebit: Number(totalDebit.toFixed(2)),
+          totalCredit: Number(totalCredit.toFixed(2)),
+          endingBalance: Number(
+            runningBalance.toFixed(2)
+          ),
+        },
+      });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | All Accounts Activity
+    |--------------------------------------------------------------------------
+    */
+
+    const journalEntries = await JournalEntry.find(
+      periodMatch
+    )
       .populate(
         "entries.account",
         "accountCode accountName accountType"
@@ -629,10 +819,7 @@ const getGeneralLedger = async (req, res, next) => {
 
     for (const journalEntry of journalEntries) {
       for (const entry of journalEntry.entries) {
-        if (
-          accountId &&
-          entry.account._id.toString() !== accountId
-        ) {
+        if (!entry.account) {
           continue;
         }
 
@@ -641,8 +828,8 @@ const getGeneralLedger = async (req, res, next) => {
           reference: journalEntry.reference,
           description: journalEntry.description,
           account: entry.account,
-          debit: entry.debit,
-          credit: entry.credit,
+          debit: Number(entry.debit || 0),
+          credit: Number(entry.credit || 0),
           journalEntryId: journalEntry._id,
         });
       }

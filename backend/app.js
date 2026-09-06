@@ -21,7 +21,7 @@ const commissionRoutes = require("./routes/commissionRoutes");
 const inventoryMovementRoutes = require("./routes/inventoryMovementRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const accountingRoutes = require("./routes/accountingRoutes");
-
+const reportRoutes = require("./routes/reportRoutes");
 
 const errorMiddleware = require("./middleware/errorMiddleware");
 const notFound = require("./middleware/notFound");
@@ -63,6 +63,7 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/commissions", commissionRoutes);
 app.use("/api/inventory-movements", inventoryMovementRoutes);
 app.use("/api/accounting", accountingRoutes);
+app.use("/api/reports", reportRoutes);
 
 // NOT FOUND
 app.use(notFound);

@@ -3,10 +3,19 @@ function Modal({
   onClose,
   title,
   children,
+  size = "lg",
 }) {
   if (!isOpen) {
     return null;
   }
+
+  const sizeClasses = {
+    sm: "max-w-md",
+    md: "max-w-lg",
+    lg: "max-w-2xl",
+    xl: "max-w-4xl",
+    "2xl": "max-w-5xl",
+  };
 
   return (
     <div
@@ -14,7 +23,7 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900"
+        className={`w-full ${sizeClasses[size] || sizeClasses.lg} max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-slate-900`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

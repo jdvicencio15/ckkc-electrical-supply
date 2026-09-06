@@ -95,7 +95,7 @@ const navigation = [
       },
       {
         label: "General Ledger",
-        path: "/accounting/ledger",
+          path: "/accounting/general-ledger",
       },
       {
         label: "Trial Balance",
