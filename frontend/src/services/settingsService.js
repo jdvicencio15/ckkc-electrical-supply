@@ -1,8 +1,10 @@
+
 import settingsApi from "../api/settingsApi";
 
 const settingsService = {
   getSettings: async () => {
     const data = await settingsApi.getSettings();
+
     return data;
   },
 
@@ -12,6 +14,21 @@ const settingsService = {
 
     return data;
   },
+
+  uploadLogo: async (formData) => {
+    const data =
+      await settingsApi.uploadLogo(formData);
+
+    return data;
+  },
+
+  removeLogo: async () => {
+    const data =
+      await settingsApi.removeLogo();
+
+    return data;
+  },
 };
 
 export default settingsService;
+

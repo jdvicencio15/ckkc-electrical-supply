@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import chartOfAccountsService from "../../services/chartOfAccountsService";
 import ChartOfAccountsForm from "../../components/accounting/ChartOfAccountsForm";
 import ChartOfAccountsTable from "../../components/accounting/ChartOfAccountsTable";
@@ -6,11 +7,15 @@ import Toast from "../../components/common/Toast";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 
 function ChartOfAccounts() {
+  const [searchParams] = useSearchParams();
+
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
+ const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [selectedType, setSelectedType] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
 

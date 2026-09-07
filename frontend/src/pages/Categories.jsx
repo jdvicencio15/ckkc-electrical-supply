@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 
 import categoryService from "../services/categoryService";
@@ -9,13 +10,16 @@ import { useAuth } from "../context/AuthContext";
 
 function Categories() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [categories, setCategories] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
+const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [selectedStatus, setSelectedStatus] = useState("all");
 
   const [showForm, setShowForm] = useState(false);

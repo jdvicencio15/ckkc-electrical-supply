@@ -5,14 +5,21 @@ import customerService from "../services/customerService";
 import CustomerForm from "../components/customers/CustomerForm";
 import Toast from "../components/common/Toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import { useSearchParams } from "react-router-dom";
+
 
 function Customers() {
+  const [searchParams] = useSearchParams();
+
   const [customers, setCustomers] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [selectedStatus, setSelectedStatus] = useState("all");
 
   const [showCustomerForm, setShowCustomerForm] = useState(false);

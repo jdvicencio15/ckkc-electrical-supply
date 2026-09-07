@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FaBan,
   FaCheck,
@@ -21,13 +22,18 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 function Invoices() {
   const { user } = useAuth();
 
+  const [searchParams] = useSearchParams();
+
   const [invoices, setInvoices] = useState([]);
   const [sales, setSales] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
+const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+  );
+  
   const [selectedCustomer, setSelectedCustomer] =
     useState("all");
   const [selectedStatus, setSelectedStatus] =

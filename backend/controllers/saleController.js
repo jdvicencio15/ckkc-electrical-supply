@@ -6,10 +6,15 @@ const InventoryMovement = require("../models/InventoryMovement");
 const Customer = require("../models/Customer");
 const ClientPO = require("../models/ClientPO");
 
+
 const {
   checkReferenceExists,
   checkReferencesExist,
 } = require("../utils/referenceValidator");
+
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
 
 // GET ALL SALES
 const getSales = async (req, res, next) => {
@@ -54,6 +59,7 @@ const getSaleById = async (req, res, next) => {
     next(error);
   }
 };
+
 
 // CREATE SALE
 const createSale = async (req, res, next) => {
@@ -102,8 +108,10 @@ const createSale = async (req, res, next) => {
 
     const totalAmount = subtotal + directExpenses + commission;
 
-    const totalProfit = subtotal - totalCost - directExpenses - commission;
+    const totalProfit =
+      subtotal - totalCost - directExpenses - commission;
 
+    // CREATE SALE
     const sale = await Sale.create({
       salesNumber,
       customerId,
@@ -119,6 +127,24 @@ const createSale = async (req, res, next) => {
       totalProfit,
       createdBy: req.user._id,
     });
+
+    // CREATE NOTIFICATION
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin"],
+        type: "sale",
+        title: "New Sale",
+        message: `Sale ${sale.salesNumber} was created.`,
+        link: `/sales?search=${encodeURIComponent(sale.salesNumber)}`,
+        entityType: "Sale",
+        entityId: sale._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create sale notification:",
+        notificationError,
+      );
+    }
 
     res.status(201).json({
       success: true,

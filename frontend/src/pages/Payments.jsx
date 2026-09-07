@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FaEdit,
   FaEye,
@@ -18,13 +19,17 @@ import { useAuth } from "../context/AuthContext";
 function Payments() {
   const { user } = useAuth();
 
+  const [searchParams] = useSearchParams();
+
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
+const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [selectedCustomer, setSelectedCustomer] =
     useState("all");
   const [selectedMethod, setSelectedMethod] =

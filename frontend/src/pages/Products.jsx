@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 
 import productService from "../services/productService";
@@ -11,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 
 function Products() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -18,7 +24,9 @@ function Products() {
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
+const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
 

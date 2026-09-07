@@ -21,6 +21,12 @@ const settingsSchema = new mongoose.Schema(
       default: "",
     },
 
+    businessAddress: {
+  type: String,
+  trim: true,
+  default: "",
+},
+
     currency: {
       type: String,
       enum: ["PHP", "USD"],
@@ -31,17 +37,111 @@ const settingsSchema = new mongoose.Schema(
     // Appearance
     // =========================
     appearance: {
-      logo: {
-        type: String,
-        default: "",
-      },
+  logo: {
+    url: {
+      type: String,
+      default: "",
+    },
 
+    publicId: {
+      type: String,
+      default: "",
+    },
+  },
       systemName: {
         type: String,
         trim: true,
         default: "CKKC",
       },
     },
+
+    salesInvoicing: {
+  invoicePrefix: {
+    type: String,
+    trim: true,
+    default: "INV-",
+  },
+
+  quotationPrefix: {
+    type: String,
+    trim: true,
+    default: "QUO-",
+  },
+
+  invoiceStartingNumber: {
+    type: Number,
+    default: 1,
+    min: 1,
+  },
+
+  quotationStartingNumber: {
+    type: Number,
+    default: 1,
+    min: 1,
+  },
+
+  defaultPaymentTerms: {
+    type: String,
+    trim: true,
+    default: "Due on Receipt",
+  },
+
+  defaultTaxRate: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100,
+  },
+
+  documentFooter: {
+    type: String,
+    trim: true,
+    default: "",
+  },
+    },
+
+    inventory: {
+  lowStockThreshold: {
+    type: Number,
+    default: 10,
+    min: 0,
+  },
+
+  allowNegativeStock: {
+    type: Boolean,
+    default: false,
+  },
+
+  autoDeductStockOnSale: {
+    type: Boolean,
+    default: true,
+  },
+
+  autoRestoreStockOnSaleCancellation: {
+    type: Boolean,
+    default: true,
+  },
+    },
+
+accountingTax: {
+  vatEnabled: {
+    type: Boolean,
+    default: false,
+  },
+
+  withholdingTaxEnabled: {
+    type: Boolean,
+    default: false,
+  },
+
+  fiscalYearStartMonth: {
+    type: Number,
+    default: 1,
+    min: 1,
+    max: 12,
+  },
+},
+
 
     // =========================
     // System Preferences

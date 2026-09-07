@@ -1,6 +1,8 @@
 const Settings = require("../models/Settings");
 const logger = require("../utils/logger");
 
+const fs = require("fs");
+
 // GET SETTINGS
 const getSettings = async (req, res) => {
   try {
@@ -30,15 +32,19 @@ const getSettings = async (req, res) => {
 // UPDATE SETTINGS
 const updateSettings = async (req, res) => {
   try {
-    const {
-      businessName,
-      businessEmail,
-      contactNumber,
-      currency,
-      appearance,
-      lowStockNotifications,
-      invoiceNotifications,
-    } = req.body;
+ const {
+  businessName,
+  businessEmail,
+  contactNumber,
+  businessAddress,
+  currency,
+  appearance,
+  salesInvoicing,
+  inventory,
+  accountingTax,
+  lowStockNotifications,
+  invoiceNotifications,
+} = req.body;
 
     let settings = await Settings.findOne();
 
@@ -66,6 +72,11 @@ const updateSettings = async (req, res) => {
         contactNumber.trim();
     }
 
+    if (businessAddress !== undefined) {
+  settings.businessAddress =
+    businessAddress.trim();
+    }
+
     if (currency !== undefined) {
       settings.currency = currency;
     }
@@ -88,9 +99,121 @@ const updateSettings = async (req, res) => {
       }
     }
 
+
+
     // =========================
     // System Preferences
     // =========================
+
+  if (salesInvoicing !== undefined) {
+  if (
+    salesInvoicing.invoicePrefix !== undefined
+  ) {
+    settings.salesInvoicing.invoicePrefix =
+      salesInvoicing.invoicePrefix.trim();
+  }
+
+  if (
+    salesInvoicing.quotationPrefix !== undefined
+  ) {
+    settings.salesInvoicing.quotationPrefix =
+      salesInvoicing.quotationPrefix.trim();
+  }
+
+  if (
+    salesInvoicing.invoiceStartingNumber !== undefined
+  ) {
+    settings.salesInvoicing.invoiceStartingNumber =
+      Number(
+        salesInvoicing.invoiceStartingNumber
+      );
+  }
+
+  if (
+    salesInvoicing.quotationStartingNumber !== undefined
+  ) {
+    settings.salesInvoicing.quotationStartingNumber =
+      Number(
+        salesInvoicing.quotationStartingNumber
+      );
+  }
+
+  if (
+    salesInvoicing.defaultPaymentTerms !== undefined
+  ) {
+    settings.salesInvoicing.defaultPaymentTerms =
+      salesInvoicing.defaultPaymentTerms.trim();
+  }
+
+  if (
+    salesInvoicing.defaultTaxRate !== undefined
+  ) {
+    settings.salesInvoicing.defaultTaxRate =
+      Number(
+        salesInvoicing.defaultTaxRate
+      );
+  }
+
+  if (
+    salesInvoicing.documentFooter !== undefined
+  ) {
+    settings.salesInvoicing.documentFooter =
+      salesInvoicing.documentFooter.trim();
+  }
+    }
+
+  if (inventory !== undefined) {
+  if (inventory.lowStockThreshold !== undefined) {
+    settings.inventory.lowStockThreshold =
+      Number(inventory.lowStockThreshold);
+  }
+
+  if (inventory.allowNegativeStock !== undefined) {
+    settings.inventory.allowNegativeStock =
+      inventory.allowNegativeStock;
+  }
+
+  if (inventory.autoDeductStockOnSale !== undefined) {
+    settings.inventory.autoDeductStockOnSale =
+      inventory.autoDeductStockOnSale;
+  }
+
+  if (
+    inventory.autoRestoreStockOnSaleCancellation !==
+    undefined
+  ) {
+    settings.inventory.autoRestoreStockOnSaleCancellation =
+      inventory.autoRestoreStockOnSaleCancellation;
+  }
+}
+
+  if (accountingTax !== undefined) {
+  if (accountingTax.vatEnabled !== undefined) {
+    settings.accountingTax.vatEnabled =
+      accountingTax.vatEnabled;
+  }
+
+  if (
+    accountingTax.withholdingTaxEnabled !==
+    undefined
+  ) {
+    settings.accountingTax.withholdingTaxEnabled =
+      accountingTax.withholdingTaxEnabled;
+  }
+
+  if (
+    accountingTax.fiscalYearStartMonth !==
+    undefined
+  ) {
+    settings.accountingTax.fiscalYearStartMonth =
+      Number(
+        accountingTax.fiscalYearStartMonth
+      );
+  }
+}
+
+
+
 
     if (
       lowStockNotifications !== undefined
@@ -130,7 +253,172 @@ const updateSettings = async (req, res) => {
   }
 };
 
+
+
+// UPLOAD BUSINESS LOGO
+const uploadLogo = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select a logo image.",
+      });
+    }
+
+    const {
+      uploadLogo: uploadToCloudinary,
+      deleteLogo,
+    } = require("../services/cloudinaryService");
+
+    let settings = await Settings.findOne();
+
+    if (!settings) {
+      settings = new Settings();
+    }
+
+    // Store old logo information
+    const oldPublicId =
+      settings.appearance.logo.publicId;
+
+    // =========================
+    // Upload new logo first
+    // =========================
+
+    const uploadedLogo = await uploadToCloudinary(
+      req.file.path
+    );
+
+    // =========================
+    // Delete temporary local file
+    // =========================
+
+    fs.unlink(req.file.path, (error) => {
+      if (error) {
+        logger.error(
+          `Failed to delete temporary logo file: ${error.message}`
+        );
+      }
+    });
+
+    // =========================
+    // Delete old Cloudinary logo
+    // Only after new upload succeeds
+    // =========================
+
+    if (oldPublicId) {
+      await deleteLogo(oldPublicId);
+    }
+
+    // =========================
+    // Save new logo
+    // =========================
+
+    settings.appearance.logo = {
+      url: uploadedLogo.url,
+      publicId: uploadedLogo.publicId,
+    };
+
+    await settings.save();
+
+    logger.info(
+      `Business logo updated by user ${req.user._id}`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Business logo uploaded successfully.",
+      logo: settings.appearance.logo,
+      settings,
+    });
+  } catch (error) {
+    // Cleanup temporary file if upload fails
+    if (req.file?.path) {
+      fs.unlink(req.file.path, (unlinkError) => {
+        if (unlinkError) {
+          logger.error(
+            `Failed to cleanup temporary logo file: ${unlinkError.message}`
+          );
+        }
+      });
+    }
+
+    logger.error(
+      `Upload logo error: ${error.message}`
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to upload business logo.",
+    });
+  }
+};
+
+
+// REMOVE BUSINESS LOGO
+const removeLogo = async (req, res) => {
+  try {
+    const settings = await Settings.findOne();
+
+    if (!settings) {
+      return res.status(404).json({
+        success: false,
+        message: "Settings not found.",
+      });
+    }
+
+    const publicId =
+      settings.appearance.logo.publicId;
+
+    // Nothing to remove
+    if (!publicId) {
+      return res.status(400).json({
+        success: false,
+        message: "No business logo found.",
+      });
+    }
+
+    const { deleteLogo } = require("../services/cloudinaryService");
+
+    // Remove from Cloudinary
+    await deleteLogo(publicId);
+
+    // Remove from MongoDB
+    settings.appearance.logo = {
+      url: "",
+      publicId: "",
+    };
+
+    await settings.save();
+
+    logger.info(
+      `Business logo removed by user ${req.user._id}`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Business logo removed successfully.",
+      settings,
+    });
+  } catch (error) {
+    logger.error(
+      `Remove logo error: ${error.message}`
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to remove business logo.",
+    });
+  }
+};
+
 module.exports = {
   getSettings,
   updateSettings,
+  uploadLogo,
+  removeLogo,
 };
+

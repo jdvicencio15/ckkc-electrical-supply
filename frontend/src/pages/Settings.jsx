@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import settingsService from "../services/settingsService";
@@ -7,22 +7,61 @@ import Button from "../components/ui/Button";
 import Spinner from "../components/ui/Spinner";
 
 function Settings() {
- const [formData, setFormData] = useState({
-  businessName: "",
-  businessEmail: "",
-  contactNumber: "",
-  currency: "PHP",
+  const [formData, setFormData] = useState({
+    businessName: "",
+    businessEmail: "",
+    contactNumber: "",
+    businessAddress: "",
+    currency: "PHP",
 
-  appearance: {
-    logo: "",
-    systemName: "CKKC",
-  },
+    appearance: {
+      logo: {
+        url: "",
+        publicId: "",
+      },
+      systemName: "CKKC",
+    },
 
-  lowStockNotifications: true,
-  invoiceNotifications: true,
-});
+    salesInvoicing: {
+      invoicePrefix: "INV-",
+      quotationPrefix: "QUO-",
+      invoiceStartingNumber: 1,
+      quotationStartingNumber: 1,
+      defaultPaymentTerms: "Due on Receipt",
+      defaultTaxRate: 0,
+      documentFooter: "",
+    },
+
+
+    inventory: {
+  lowStockThreshold: 10,
+  allowNegativeStock: false,
+  autoDeductStockOnSale: true,
+  autoRestoreStockOnSaleCancellation: true,
+    },
+
+    accountingTax: {
+  vatEnabled: false,
+  withholdingTaxEnabled: false,
+  fiscalYearStartMonth: 1,
+},
+
+    lowStockNotifications: true,
+    invoiceNotifications: true,
+  });
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const [selectedLogo, setSelectedLogo] = useState(null);
+
+  const [logoPreview, setLogoPreview] = useState("");
+
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const [removingLogo, setRemovingLogo] = useState(false);
+
+  const fileInputRef = useRef(null);
 
   // =========================
   // Load Settings
@@ -31,22 +70,82 @@ function Settings() {
     try {
       setLoading(true);
 
-      const response =
-        await settingsService.getSettings();
+      const response = await settingsService.getSettings();
 
       const settings = response.settings;
 
-   setFormData({
+     setFormData({
   businessName: settings?.businessName || "",
+
   businessEmail: settings?.businessEmail || "",
+
   contactNumber: settings?.contactNumber || "",
+
+  businessAddress: settings?.businessAddress || "",
+
   currency: settings?.currency || "PHP",
 
   appearance: {
-    logo: settings?.appearance?.logo || "",
+    logo: {
+      url: settings?.appearance?.logo?.url || "",
+      publicId: settings?.appearance?.logo?.publicId || "",
+    },
+
     systemName:
       settings?.appearance?.systemName || "CKKC",
   },
+
+  salesInvoicing: {
+    invoicePrefix:
+      settings?.salesInvoicing?.invoicePrefix || "INV-",
+
+    quotationPrefix:
+      settings?.salesInvoicing?.quotationPrefix || "QUO-",
+
+    invoiceStartingNumber:
+      settings?.salesInvoicing?.invoiceStartingNumber || 1,
+
+    quotationStartingNumber:
+      settings?.salesInvoicing?.quotationStartingNumber || 1,
+
+    defaultPaymentTerms:
+      settings?.salesInvoicing?.defaultPaymentTerms ||
+      "Due on Receipt",
+
+    defaultTaxRate:
+      settings?.salesInvoicing?.defaultTaxRate ?? 0,
+
+    documentFooter:
+      settings?.salesInvoicing?.documentFooter || "",
+  },
+
+  inventory: {
+  lowStockThreshold:
+    settings?.inventory?.lowStockThreshold ?? 10,
+
+  allowNegativeStock:
+    settings?.inventory?.allowNegativeStock ?? false,
+
+  autoDeductStockOnSale:
+    settings?.inventory?.autoDeductStockOnSale ?? true,
+
+  autoRestoreStockOnSaleCancellation:
+    settings?.inventory
+      ?.autoRestoreStockOnSaleCancellation ?? true,
+       },
+
+  accountingTax: {
+  vatEnabled:
+    settings?.accountingTax?.vatEnabled ?? false,
+
+  withholdingTaxEnabled:
+    settings?.accountingTax
+      ?.withholdingTaxEnabled ?? false,
+
+  fiscalYearStartMonth:
+    settings?.accountingTax
+      ?.fiscalYearStartMonth ?? 1,
+       },
 
   lowStockNotifications:
     settings?.lowStockNotifications ?? true,
@@ -55,15 +154,9 @@ function Settings() {
     settings?.invoiceNotifications ?? true,
 });
     } catch (error) {
-      console.error(
-        "Failed to load settings:",
-        error
-      );
+      console.error("Failed to load settings:", error);
 
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to load settings."
-      );
+      toast.error(error.response?.data?.message || "Failed to load settings.");
     } finally {
       setLoading(false);
     }
@@ -77,28 +170,167 @@ function Settings() {
   // Handle Input
   // =========================
   const handleChange = (e) => {
-    const { name, value, type, checked } =
-      e.target;
+    const { name, value, type, checked } = e.target;
 
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   const handleAppearanceChange = (e) => {
-  const { name, value } = e.target;
+    const { name, value } = e.target;
 
-  setFormData((prev) => ({
-    ...prev,
-    appearance: {
-      ...prev.appearance,
-      [name]: value,
-    },
-  }));
+    setFormData((prev) => ({
+      ...prev,
+
+      appearance: {
+        ...prev.appearance,
+        [name]: value,
+      },
+    }));
+  };
+
+  // =========================
+  // Logo File Selection
+  // =========================
+  const handleLogoChange = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG, and WEBP images are allowed.");
+
+      e.target.value = "";
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      toast.error("Logo image must not exceed 5MB.");
+
+      e.target.value = "";
+      return;
+    }
+
+    setSelectedLogo(file);
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setLogoPreview(previewUrl);
+  };
+
+  // =========================
+  // Upload Logo
+  // =========================
+  const handleLogoUpload = async () => {
+    if (!selectedLogo) {
+      toast.error("Please select a logo image first.");
+
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+
+      const formData = new FormData();
+
+      formData.append("logo", selectedLogo);
+
+      const response = await settingsService.uploadLogo(formData);
+
+      setFormData((prev) => ({
+        ...prev,
+
+        appearance: {
+          ...prev.appearance,
+
+          logo: {
+            url: response.logo?.url || "",
+
+            publicId: response.logo?.publicId || "",
+          },
+        },
+      }));
+
+      setSelectedLogo(null);
+      setLogoPreview("");
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      toast.success(response.message || "Business logo uploaded successfully.");
+    } catch (error) {
+      console.error("Failed to upload logo:", error);
+
+      toast.error(
+        error.response?.data?.message || "Failed to upload business logo.",
+      );
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  // =========================
+  // Remove Logo
+  // =========================
+  const handleRemoveLogo = async () => {
+    if (!formData.appearance.logo.url) {
+      toast.error("No business logo found.");
+
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure you want to remove the business logo?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setRemovingLogo(true);
+
+      const response = await settingsService.removeLogo();
+
+      setFormData((prev) => ({
+        ...prev,
+
+        appearance: {
+          ...prev.appearance,
+
+          logo: {
+            url: "",
+            publicId: "",
+          },
+        },
+      }));
+
+      setSelectedLogo(null);
+      setLogoPreview("");
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      toast.success(response.message || "Business logo removed successfully.");
+    } catch (error) {
+      console.error("Failed to remove logo:", error);
+
+      toast.error(
+        error.response?.data?.message || "Failed to remove business logo.",
+      );
+    } finally {
+      setRemovingLogo(false);
+    }
   };
 
   // =========================
@@ -110,23 +342,77 @@ function Settings() {
     try {
       setSubmitting(true);
 
-      const payload = {
-  businessName:
-    formData.businessName.trim(),
+    const payload = {
+  businessName: formData.businessName.trim(),
 
-  businessEmail:
-    formData.businessEmail.trim(),
+  businessEmail: formData.businessEmail.trim(),
 
-  contactNumber:
-    formData.contactNumber.trim(),
+  contactNumber: formData.contactNumber.trim(),
+
+  businessAddress: formData.businessAddress.trim(),
 
   currency: formData.currency,
 
   appearance: {
-    logo: formData.appearance.logo,
-    systemName:
-      formData.appearance.systemName.trim(),
+    systemName: formData.appearance.systemName.trim(),
   },
+
+  salesInvoicing: {
+    invoicePrefix:
+      formData.salesInvoicing.invoicePrefix.trim(),
+
+    quotationPrefix:
+      formData.salesInvoicing.quotationPrefix.trim(),
+
+    invoiceStartingNumber: Number(
+      formData.salesInvoicing.invoiceStartingNumber
+    ),
+
+    quotationStartingNumber: Number(
+      formData.salesInvoicing.quotationStartingNumber
+    ),
+
+    defaultPaymentTerms:
+      formData.salesInvoicing.defaultPaymentTerms.trim(),
+
+    defaultTaxRate: Number(
+      formData.salesInvoicing.defaultTaxRate
+    ),
+
+    documentFooter:
+      formData.salesInvoicing.documentFooter.trim(),
+  },
+
+  // ✅ INVENTORY IS OUTSIDE SALES INVOICING
+  inventory: {
+    lowStockThreshold: Number(
+      formData.inventory.lowStockThreshold
+    ),
+
+    allowNegativeStock:
+      formData.inventory.allowNegativeStock,
+
+    autoDeductStockOnSale:
+      formData.inventory.autoDeductStockOnSale,
+
+    autoRestoreStockOnSaleCancellation:
+      formData.inventory
+        .autoRestoreStockOnSaleCancellation,
+  },
+
+
+  accountingTax: {
+  vatEnabled:
+    formData.accountingTax.vatEnabled,
+
+  withholdingTaxEnabled:
+    formData.accountingTax.withholdingTaxEnabled,
+
+  fiscalYearStartMonth:
+    Number(
+      formData.accountingTax.fiscalYearStartMonth
+    ),
+      },
 
   lowStockNotifications:
     formData.lowStockNotifications,
@@ -135,45 +421,94 @@ function Settings() {
     formData.invoiceNotifications,
 };
 
-      const response =
-        await settingsService.updateSettings(
-          payload
-        );
+      const response = await settingsService.updateSettings(payload);
 
       const settings = response.settings;
 
-      setFormData({
-       businessName: settings?.businessName || "",
-  businessEmail: settings?.businessEmail || "",
-  contactNumber: settings?.contactNumber || "",
-  currency: settings?.currency || "PHP",
+     setFormData((prev) => ({
+  ...prev,
+
+  businessName:
+    settings?.businessName || "",
+
+  businessEmail:
+    settings?.businessEmail || "",
+
+  contactNumber:
+    settings?.contactNumber || "",
+
+  businessAddress:
+    settings?.businessAddress || "",
+
+  currency:
+    settings?.currency || "PHP",
 
   appearance: {
-    logo: settings?.appearance?.logo || "",
+    logo: {
+      url:
+        settings?.appearance?.logo?.url ||
+        prev.appearance.logo.url,
+
+      publicId:
+        settings?.appearance?.logo?.publicId ||
+        prev.appearance.logo.publicId,
+    },
+
     systemName:
       settings?.appearance?.systemName || "CKKC",
   },
+
+  salesInvoicing: {
+    invoicePrefix:
+      settings?.salesInvoicing?.invoicePrefix || "INV-",
+
+    quotationPrefix:
+      settings?.salesInvoicing?.quotationPrefix || "QUO-",
+
+    invoiceStartingNumber:
+      settings?.salesInvoicing?.invoiceStartingNumber || 1,
+
+    quotationStartingNumber:
+      settings?.salesInvoicing?.quotationStartingNumber || 1,
+
+    defaultPaymentTerms:
+      settings?.salesInvoicing?.defaultPaymentTerms ||
+      "Due on Receipt",
+
+    defaultTaxRate:
+      settings?.salesInvoicing?.defaultTaxRate ?? 0,
+
+    documentFooter:
+      settings?.salesInvoicing?.documentFooter || "",
+  },
+
+
+  accountingTax: {
+  vatEnabled:
+    settings?.accountingTax?.vatEnabled ?? false,
+
+  withholdingTaxEnabled:
+    settings?.accountingTax
+      ?.withholdingTaxEnabled ?? false,
+
+  fiscalYearStartMonth:
+    settings?.accountingTax
+      ?.fiscalYearStartMonth ?? 1,
+       },
 
   lowStockNotifications:
     settings?.lowStockNotifications ?? true,
 
   invoiceNotifications:
     settings?.invoiceNotifications ?? true,
-      });
+}));
 
-      toast.success(
-        response.message ||
-          "Settings updated successfully."
-      );
+      toast.success(response.message || "Settings updated successfully.");
     } catch (error) {
-      console.error(
-        "Failed to update settings:",
-        error
-      );
+      console.error("Failed to update settings:", error);
 
       toast.error(
-        error.response?.data?.message ||
-          "Failed to update settings."
+        error.response?.data?.message || "Failed to update settings.",
       );
     } finally {
       setSubmitting(false);
@@ -191,6 +526,12 @@ function Settings() {
     );
   }
 
+  const hasLogo = Boolean(formData.appearance.logo.url);
+
+  const displayLogo = logoPreview || formData.appearance.logo.url;
+
+  const logoBusy = uploadingLogo || removingLogo || submitting;
+
   // =========================
   // Render
   // =========================
@@ -207,10 +548,7 @@ function Settings() {
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-6"
-      >
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* General Settings */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
@@ -287,6 +625,27 @@ function Settings() {
               />
             </div>
 
+            {/* Business Address */}
+            <div>
+              <label
+                htmlFor="businessAddress"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Business Address
+              </label>
+
+              <textarea
+                id="businessAddress"
+                name="businessAddress"
+                value={formData.businessAddress}
+                onChange={handleChange}
+                placeholder="Enter business address"
+                rows={3}
+                disabled={submitting}
+                className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+
             {/* Currency */}
             <div>
               <label
@@ -304,71 +663,645 @@ function Settings() {
                 disabled={submitting}
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
               >
-                <option value="PHP">
-                  PHP — Philippine Peso
-                </option>
+                <option value="PHP">PHP — Philippine Peso</option>
 
-                <option value="USD">
-                  USD — US Dollar
-                </option>
+                <option value="USD">USD — US Dollar</option>
               </select>
             </div>
           </div>
         </div>
 
         {/* Appearance */}
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Appearance
+            </h2>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Configure how the system is identified and displayed.
+            </p>
+          </div>
+
+          <div className="grid gap-6 p-6 md:grid-cols-2">
+            {/* System Name */}
+            <div>
+              <label
+                htmlFor="systemName"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                System Name
+              </label>
+
+              <input
+                id="systemName"
+                type="text"
+                name="systemName"
+                value={formData.appearance.systemName}
+                onChange={handleAppearanceChange}
+                placeholder="Enter system name"
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+
+            {/* Business Logo */}
+            <div>
+              <label
+                htmlFor="businessLogo"
+                className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
+                Business Logo
+              </label>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                {/* Preview */}
+                <div className="flex min-h-[180px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-4 dark:border-slate-600 dark:bg-slate-900">
+                  {displayLogo ? (
+                    <img
+                      src={displayLogo}
+                      alt="Business logo preview"
+                      className="max-h-36 max-w-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="h-7 w-7"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l1.409 1.409m2.25 2.25 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 18.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6.75a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v10.5a1.5 1.5 0 0 0 1.5 1.5ZM6.75 8.25h.008v.008H6.75V8.25Z"
+                          />
+                        </svg>
+                      </div>
+
+                      <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                        No logo uploaded
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                        Upload your business logo below.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* File Input */}
+                <input
+                  ref={fileInputRef}
+                  id="businessLogo"
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  onChange={handleLogoChange}
+                  disabled={logoBusy}
+                  className="mt-4 block w-full cursor-pointer text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-green-600 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-400"
+                />
+
+                <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                  JPG, PNG, or WEBP · Maximum 5MB
+                </p>
+
+                {/* Actions */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {selectedLogo && (
+                    <Button
+                      type="button"
+                      onClick={handleLogoUpload}
+                      loading={uploadingLogo}
+                      disabled={logoBusy}
+                    >
+                      {hasLogo ? "Replace Logo" : "Upload Logo"}
+                    </Button>
+                  )}
+
+                  {hasLogo && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleRemoveLogo}
+                      loading={removingLogo}
+                      disabled={logoBusy}
+                    >
+                      Remove Logo
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+{/* Sales & Invoicing */}
 <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
   <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
     <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-      Appearance
+      Sales & Invoicing
     </h2>
 
     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-      Configure how the system is identified and displayed.
+      Configure invoice, quotation, payment, and tax defaults.
     </p>
   </div>
 
   <div className="grid gap-5 p-6 md:grid-cols-2">
-    {/* System Name */}
+    {/* Invoice Prefix */}
     <div>
       <label
-        htmlFor="systemName"
+        htmlFor="invoicePrefix"
         className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
       >
-        System Name
+        Invoice Prefix
       </label>
 
       <input
-        id="systemName"
+        id="invoicePrefix"
         type="text"
-        name="systemName"
-        value={formData.appearance.systemName}
-        onChange={handleAppearanceChange}
-        placeholder="Enter system name"
+        value={formData.salesInvoicing.invoicePrefix}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              invoicePrefix: e.target.value,
+            },
+          }))
+        }
+        placeholder="INV-"
         disabled={submitting}
         className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
       />
+
+      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+        Example: INV-000001
+      </p>
     </div>
 
-    {/* Logo */}
+    {/* Quotation Prefix */}
     <div>
-      <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-        Business Logo
+      <label
+        htmlFor="quotationPrefix"
+        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+      >
+        Quotation Prefix
       </label>
 
-      <div className="flex min-h-[42px] items-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-800">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Logo upload will be available soon.
-        </p>
-      </div>
+      <input
+        id="quotationPrefix"
+        type="text"
+        value={formData.salesInvoicing.quotationPrefix}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              quotationPrefix: e.target.value,
+            },
+          }))
+        }
+        placeholder="QUO-"
+        disabled={submitting}
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+      />
 
-      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-        Logo storage will use cloud-based image hosting.
+      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+        Example: QUO-000001
+      </p>
+    </div>
+
+    {/* Invoice Starting Number */}
+    <div>
+      <label
+        htmlFor="invoiceStartingNumber"
+        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+      >
+        Invoice Starting Number
+      </label>
+
+      <input
+        id="invoiceStartingNumber"
+        type="number"
+        min="1"
+        value={formData.salesInvoicing.invoiceStartingNumber}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              invoiceStartingNumber: e.target.value,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+      />
+
+      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+        Starting number for new invoices.
+      </p>
+    </div>
+
+    {/* Quotation Starting Number */}
+    <div>
+      <label
+        htmlFor="quotationStartingNumber"
+        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+      >
+        Quotation Starting Number
+      </label>
+
+      <input
+        id="quotationStartingNumber"
+        type="number"
+        min="1"
+        value={formData.salesInvoicing.quotationStartingNumber}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              quotationStartingNumber: e.target.value,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+      />
+
+      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+        Starting number for new quotations.
+      </p>
+    </div>
+
+    {/* Default Payment Terms */}
+    <div>
+      <label
+        htmlFor="defaultPaymentTerms"
+        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+      >
+        Default Payment Terms
+      </label>
+
+      <select
+        id="defaultPaymentTerms"
+        value={formData.salesInvoicing.defaultPaymentTerms}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              defaultPaymentTerms: e.target.value,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
+      >
+        <option value="Due on Receipt">Due on Receipt</option>
+        <option value="7 Days">7 Days</option>
+        <option value="15 Days">15 Days</option>
+        <option value="30 Days">30 Days</option>
+        <option value="45 Days">45 Days</option>
+        <option value="60 Days">60 Days</option>
+      </select>
+    </div>
+
+    {/* Default Tax Rate */}
+    <div>
+      <label
+        htmlFor="defaultTaxRate"
+        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+      >
+        Default Tax / VAT (%)
+      </label>
+
+      <input
+        id="defaultTaxRate"
+        type="number"
+        min="0"
+        max="100"
+        step="0.01"
+        value={formData.salesInvoicing.defaultTaxRate}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              defaultTaxRate: e.target.value,
+            },
+          }))
+        }
+        placeholder="0"
+        disabled={submitting}
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+      />
+
+      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+        Enter 0 if no default tax is applied.
+      </p>
+    </div>
+
+    {/* Document Footer */}
+    <div className="md:col-span-2">
+      <label
+        htmlFor="documentFooter"
+        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+      >
+        Document Footer
+      </label>
+
+      <textarea
+        id="documentFooter"
+        value={formData.salesInvoicing.documentFooter}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              documentFooter: e.target.value,
+            },
+          }))
+        }
+        placeholder="Example: Thank you for your business!"
+        rows={3}
+        disabled={submitting}
+        className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+      />
+
+      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+        This can be displayed on invoices, quotations, and other business
+        documents.
       </p>
     </div>
   </div>
+</div>
+
+        {/* Inventory Settings */}
+<div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+      Inventory Settings
+    </h2>
+
+    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      Configure stock behavior and inventory preferences.
+    </p>
+  </div>
+
+  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+    {/* Low Stock Threshold */}
+    <div className="px-6 py-6">
+      <div className="max-w-md">
+        <label
+          htmlFor="lowStockThreshold"
+          className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+        >
+          Low Stock Threshold
+        </label>
+
+        <input
+          id="lowStockThreshold"
+          type="number"
+          min="0"
+          value={formData.inventory.lowStockThreshold}
+          onChange={(e) =>
+            setFormData((prev) => ({
+              ...prev,
+              inventory: {
+                ...prev.inventory,
+                lowStockThreshold: e.target.value,
+              },
+            }))
+          }
+          disabled={submitting}
+          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+        />
+
+        <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+          Products at or below this quantity will be considered low stock.
+        </p>
+      </div>
+    </div>
+
+    {/* Allow Negative Stock */}
+    <div className="flex items-center justify-between gap-6 px-6 py-6">
+      <div>
+        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          Allow Negative Stock
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Allow sales transactions even when available stock reaches zero.
+        </p>
+      </div>
+
+      <input
+        type="checkbox"
+        checked={formData.inventory.allowNegativeStock}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            inventory: {
+              ...prev.inventory,
+              allowNegativeStock: e.target.checked,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="h-4 w-4 accent-green-600"
+      />
+    </div>
+
+    {/* Auto Deduct Stock */}
+    <div className="flex items-center justify-between gap-6 px-6 py-6">
+      <div>
+        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          Auto Deduct Stock on Sale
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Automatically reduce inventory when a sale is completed.
+        </p>
+      </div>
+
+      <input
+        type="checkbox"
+        checked={formData.inventory.autoDeductStockOnSale}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            inventory: {
+              ...prev.inventory,
+              autoDeductStockOnSale: e.target.checked,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="h-4 w-4 accent-green-600"
+      />
+    </div>
+
+    {/* Restore Stock */}
+    <div className="flex items-center justify-between gap-6 px-6 py-6">
+      <div>
+        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          Restore Stock on Sale Cancellation
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Automatically restore deducted stock when a sale is cancelled.
+        </p>
+      </div>
+
+      <input
+        type="checkbox"
+        checked={
+          formData.inventory
+            .autoRestoreStockOnSaleCancellation
+        }
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            inventory: {
+              ...prev.inventory,
+              autoRestoreStockOnSaleCancellation:
+                e.target.checked,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="h-4 w-4 accent-green-600"
+      />
+    </div>
+  </div>
         </div>
-        
+
+{/* Accounting & Tax */}
+<div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+      Accounting & Tax
+    </h2>
+
+    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      Configure tax and accounting preferences.
+    </p>
+  </div>
+
+  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+    {/* VAT Enabled */}
+    <div className="flex items-center justify-between gap-6 px-6 py-6">
+      <div>
+        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          VAT Enabled
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Enable VAT-related calculations and tax handling.
+        </p>
+      </div>
+
+      <input
+        type="checkbox"
+        checked={formData.accountingTax.vatEnabled}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            accountingTax: {
+              ...prev.accountingTax,
+              vatEnabled: e.target.checked,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="h-4 w-4 accent-green-600"
+      />
+    </div>
+
+    {/* Withholding Tax */}
+    <div className="flex items-center justify-between gap-6 px-6 py-6">
+      <div>
+        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          Withholding Tax
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Enable withholding tax handling for applicable transactions.
+        </p>
+      </div>
+
+      <input
+        type="checkbox"
+        checked={
+          formData.accountingTax.withholdingTaxEnabled
+        }
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            accountingTax: {
+              ...prev.accountingTax,
+              withholdingTaxEnabled: e.target.checked,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="h-4 w-4 accent-green-600"
+      />
+    </div>
+
+    {/* Fiscal Year Start */}
+    <div className="px-6 py-6">
+      <div className="max-w-md">
+        <label
+          htmlFor="fiscalYearStartMonth"
+          className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+        >
+          Fiscal Year Start Month
+        </label>
+
+        <select
+          id="fiscalYearStartMonth"
+          value={formData.accountingTax.fiscalYearStartMonth}
+          onChange={(e) =>
+            setFormData((prev) => ({
+              ...prev,
+              accountingTax: {
+                ...prev.accountingTax,
+                fiscalYearStartMonth: e.target.value,
+              },
+            }))
+          }
+          disabled={submitting}
+          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
+        >
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+
+        <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+          Determines the starting month used for the accounting fiscal year.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
 
         {/* System Preferences */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -398,9 +1331,7 @@ function Settings() {
               <input
                 type="checkbox"
                 name="lowStockNotifications"
-                checked={
-                  formData.lowStockNotifications
-                }
+                checked={formData.lowStockNotifications}
                 onChange={handleChange}
                 disabled={submitting}
                 className="h-4 w-4 accent-green-600"
@@ -422,9 +1353,7 @@ function Settings() {
               <input
                 type="checkbox"
                 name="invoiceNotifications"
-                checked={
-                  formData.invoiceNotifications
-                }
+                checked={formData.invoiceNotifications}
                 onChange={handleChange}
                 disabled={submitting}
                 className="h-4 w-4 accent-green-600"
@@ -435,10 +1364,7 @@ function Settings() {
 
         {/* Save */}
         <div className="flex justify-end">
-          <Button
-            type="submit"
-            loading={submitting}
-          >
+          <Button type="submit" loading={submitting}>
             Save Changes
           </Button>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaEdit, FaEye, FaPlus, FaRocket, FaTrash } from "react-icons/fa";
 
 import purchaseService from "../services/purchaseService";
@@ -14,6 +15,8 @@ import { useAuth } from "../context/AuthContext";
 function Purchases() {
   const { user } = useAuth();
 
+  const [searchParams] = useSearchParams();
+
   const [purchases, setPurchases] = useState([]);
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -24,7 +27,9 @@ function Purchases() {
 
   const [error, setError] = useState("");
 
-  const [searchTerm, setSearchTerm] = useState("");
+ const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [selectedSupplier, setSelectedSupplier] = useState("all");
   const [selectedDate, setSelectedDate] = useState("");
 

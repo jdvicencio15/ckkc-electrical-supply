@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import quotationService from "../services/quotationService";
 import Toast from "../components/common/Toast";
@@ -8,10 +9,14 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 function Quotations() {
   const [quotations, setQuotations] = useState([]);
 
+  const [searchParams] = useSearchParams();
+
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-  const [searchTerm, setSearchTerm] = useState("");
+const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [selectedCustomer, setSelectedCustomer] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedDate, setSelectedDate] = useState("");

@@ -24,6 +24,9 @@ const accountingRoutes = require("./routes/accountingRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
 
+const searchRoutes = require("./routes/searchRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+
 const errorMiddleware = require("./middleware/errorMiddleware");
 const notFound = require("./middleware/notFound");
 const { globalLimiter } = require("./middleware/rateLimitMiddleware");
@@ -66,6 +69,10 @@ app.use("/api/inventory-movements", inventoryMovementRoutes);
 app.use("/api/accounting", accountingRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/settings", settingsRoutes);
+
+app.use("/api/search", searchRoutes);
+app.use("/api/notifications", notificationRoutes);
+
 
 // NOT FOUND
 app.use(notFound);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 import supplierService from "../services/supplierService";
 import SupplierModal from "../components/suppliers/SupplierModal";
@@ -7,10 +8,13 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 
 function Suppliers() {
   const [suppliers, setSuppliers] = useState([]);
+const [searchParams] = useSearchParams();
 
   const [selectedSupplier, setSelectedSupplier] = useState(null);
 
-  const [searchTerm, setSearchTerm] = useState("");
+ const [searchTerm, setSearchTerm] = useState(
+  searchParams.get("search") || ""
+);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
