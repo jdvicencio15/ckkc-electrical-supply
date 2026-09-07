@@ -7,6 +7,8 @@ import {
 import { Link } from "react-router-dom";
 
 import reportsApi from "../../api/reportsApi";
+import exportToCsv from "../../utils/exportCsv";
+
 
 function SalesReport() {
   const [sales, setSales] = useState([]);
@@ -88,6 +90,38 @@ function SalesReport() {
     loadSalesReport(params);
   };
 
+const handleExportCsv = () => {
+  const headers = [
+    "Date",
+    "Sale No.",
+    "Customer",
+    "Status",
+    "Gross Sales",
+    "Total Amount",
+    "Total Cost",
+    "Total Profit",
+  ];
+
+  const rows = sales.map((sale) => [
+    new Date(sale.saleDate).toLocaleDateString("en-PH"),
+    sale.salesNumber,
+    sale.customerId?.name || "Unknown Customer",
+    sale.status,
+    sale.subtotal,
+    sale.totalAmount,
+    sale.totalCost,
+    sale.totalProfit,
+  ]);
+
+  exportToCsv("sales-report.csv", headers, rows);
+};
+
+
+
+
+
+
+
   return (
     <div className="space-y-6">
 
@@ -120,6 +154,17 @@ function SalesReport() {
             </div>
           </div>
         </div>
+
+         {/* Export Button */}
+  <button
+    onClick={handleExportCsv}
+    disabled={loading || sales.length === 0}
+    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+  >
+    Export CSV
+        </button>
+
+
       </div>
 
       {/* Filters */}

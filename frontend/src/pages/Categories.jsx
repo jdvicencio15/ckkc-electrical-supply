@@ -4,6 +4,7 @@ import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 import categoryService from "../services/categoryService";
 import CategoryForm from "../components/categories/CategoryForm";
 import Toast from "../components/common/Toast";
+import ConfirmModal from "../components/ui/ConfirmModal";
 import { useAuth } from "../context/AuthContext";
 
 function Categories() {
@@ -19,6 +20,10 @@ function Categories() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+
+  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
 
   const [toast, setToast] = useState({
     type: "success",
@@ -135,31 +140,48 @@ function Categories() {
     }
   };
 
-  const handleDelete = async (category) => {
-    const confirmed = window.confirm(`Delete category "${category.name}"?`);
+  const handleDelete = (category) => {
+  setDeletingCategory(category);
+};
 
-    if (!confirmed) {
-      return;
-    }
+const handleConfirmDelete = async () => {
+  if (!deletingCategory) {
+    return;
+  }
 
-    try {
-      await categoryService.deleteCategory(category._id);
+  try {
+    setDeleting(true);
 
-      await loadCategories();
+    await categoryService.deleteCategory(deletingCategory._id);
 
-      setToast({
-        type: "success",
-        message: "Category deleted successfully.",
-      });
-    } catch (error) {
-      console.error("Failed to delete category:", error);
+    await loadCategories();
 
-      setToast({
-        type: "error",
-        message: error.response?.data?.message || "Failed to delete category.",
-      });
-    }
-  };
+    setDeletingCategory(null);
+
+    setToast({
+      type: "success",
+      message: "Category deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to delete category:", error);
+
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message || "Failed to delete category.",
+    });
+  } finally {
+    setDeleting(false);
+  }
+};
+
+const handleCancelDelete = () => {
+  if (deleting) {
+    return;
+  }
+
+  setDeletingCategory(null);
+};
 
   const openCreateForm = () => {
     setEditingCategory(null);
@@ -190,6 +212,19 @@ function Categories() {
   return (
     <>
       <Toast type={toast.type} message={toast.message} onClose={closeToast} />
+
+      <ConfirmModal
+  isOpen={!!deletingCategory}
+  onClose={handleCancelDelete}
+  onConfirm={handleConfirmDelete}
+  title="Delete Category"
+  message={`Are you sure you want to delete "${
+    deletingCategory?.name || "this category"
+  }"? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  loading={deleting}
+/>
 
       <div className="space-y-6">
         {/* Page Header */}

@@ -36,6 +36,11 @@ import SalesReport from "../pages/reports/SalesReport";
 import PurchaseReport from "../pages/reports/PurchaseReport";
 import InventoryReport from "../pages/reports/InventoryReport";
 import ExpenseReport from "../pages/reports/ExpenseReport";
+import IncomeStatement from "../pages/reports/IncomeStatement";
+import BalanceSheet from "../pages/reports/BalanceSheet";
+
+import PermissionRoute from "./PermissionRoute";
+
 
 import Reports from "../pages/Reports";
 import Users from "../pages/Users";
@@ -115,7 +120,20 @@ function AppRoutes() {
 
             <Route path="/reports/expenses" element={<ExpenseReport />} />
 
-            <Route path="/users" element={<Users />} />
+            <Route
+              path="/reports/income-statement"
+              element={<IncomeStatement />}
+            />
+
+            <Route
+  path="/reports/balance-sheet"
+  element={<BalanceSheet />}
+            />
+
+
+           <Route element={<PermissionRoute module="users" action="view" />}>
+  <Route path="/users" element={<Users />} />
+</Route>
 
             <Route path="/roles-permissions" element={<RolesPermissions />} />
 

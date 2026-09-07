@@ -15,6 +15,8 @@ import saleService from "../services/saleService";
 import InvoiceForm from "../components/invoices/InvoiceForm";
 import Toast from "../components/common/Toast";
 import { useAuth } from "../context/AuthContext";
+import ConfirmModal from "../components/ui/ConfirmModal";
+
 
 function Invoices() {
   const { user } = useAuth();
@@ -38,6 +40,9 @@ function Invoices() {
 
   const [viewingInvoice, setViewingInvoice] =
     useState(null);
+
+  const [confirmAction, setConfirmAction] = useState(null);
+const [confirmLoading, setConfirmLoading] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -292,19 +297,39 @@ function Invoices() {
     }
   };
 
-  const handleDelete = async (invoice) => {
-    const confirmed = window.confirm(
-      `Delete invoice "${invoice.invoiceNumber}"?`,
-    );
+const handleDelete = (invoice) => {
+  setConfirmAction({
+    type: "delete",
+    invoice,
+  });
+};
 
-    if (!confirmed) {
-      return;
-    }
+const handleIssue = (invoice) => {
+  setConfirmAction({
+    type: "issue",
+    invoice,
+  });
+};
 
-    try {
-      await invoiceService.deleteInvoice(
-        invoice._id,
-      );
+const handleCancel = (invoice) => {
+  setConfirmAction({
+    type: "cancel",
+    invoice,
+  });
+  };
+
+  const handleConfirmAction = async () => {
+  if (!confirmAction?.invoice) {
+    return;
+  }
+
+  const { type, invoice } = confirmAction;
+
+  try {
+    setConfirmLoading(true);
+
+    if (type === "delete") {
+      await invoiceService.deleteInvoice(invoice._id);
 
       await Promise.all([
         loadInvoices(),
@@ -313,36 +338,11 @@ function Invoices() {
 
       setToast({
         type: "success",
-        message:
-          "Invoice deleted successfully.",
-      });
-    } catch (error) {
-      console.error(
-        "Failed to delete invoice:",
-        error,
-      );
-
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to delete invoice.",
+        message: "Invoice deleted successfully.",
       });
     }
-  };
 
-  const handleIssue = async (invoice) => {
-    const confirmed = window.confirm(
-      `Issue invoice "${invoice.invoiceNumber}"?\n\nOnce issued, the invoice can no longer be edited or deleted.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setFormLoading(true);
-
+    if (type === "issue") {
       await invoiceService.updateInvoice(
         invoice._id,
         {
@@ -354,38 +354,11 @@ function Invoices() {
 
       setToast({
         type: "success",
-        message:
-          "Invoice issued successfully.",
+        message: "Invoice issued successfully.",
       });
-    } catch (error) {
-      console.error(
-        "Failed to issue invoice:",
-        error,
-      );
-
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to issue invoice.",
-      });
-    } finally {
-      setFormLoading(false);
-    }
-  };
-
-  const handleCancel = async (invoice) => {
-    const confirmed = window.confirm(
-      `Cancel invoice "${invoice.invoiceNumber}"?\n\nA cancelled invoice cannot be edited or deleted.`,
-    );
-
-    if (!confirmed) {
-      return;
     }
 
-    try {
-      setFormLoading(true);
-
+    if (type === "cancel") {
       await invoiceService.updateInvoice(
         invoice._id,
         {
@@ -397,25 +370,36 @@ function Invoices() {
 
       setToast({
         type: "success",
-        message:
-          "Invoice cancelled successfully.",
+        message: "Invoice cancelled successfully.",
       });
-    } catch (error) {
-      console.error(
-        "Failed to cancel invoice:",
-        error,
-      );
-
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to cancel invoice.",
-      });
-    } finally {
-      setFormLoading(false);
     }
+
+    setConfirmAction(null);
+  } catch (error) {
+    console.error(
+      `Failed to ${type} invoice:`,
+      error,
+    );
+
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        `Failed to ${type} invoice.`,
+    });
+  } finally {
+    setConfirmLoading(false);
+  }
+};
+
+const handleCancelConfirmation = () => {
+  if (confirmLoading) {
+    return;
+  }
+
+  setConfirmAction(null);
   };
+
 
   const openCreateForm = () => {
     setEditingInvoice(null);
@@ -497,6 +481,36 @@ function Invoices() {
         message={toast.message}
         onClose={closeToast}
       />
+
+      <ConfirmModal
+  isOpen={!!confirmAction}
+  onClose={handleCancelConfirmation}
+  onConfirm={handleConfirmAction}
+  title={
+    confirmAction?.type === "delete"
+      ? "Delete Invoice"
+      : confirmAction?.type === "issue"
+        ? "Issue Invoice"
+        : "Cancel Invoice"
+  }
+  message={
+    confirmAction?.type === "delete"
+      ? `Are you sure you want to delete "${confirmAction?.invoice?.invoiceNumber}"? This action cannot be undone.`
+      : confirmAction?.type === "issue"
+        ? `Are you sure you want to issue "${confirmAction?.invoice?.invoiceNumber}"? Once issued, the invoice can no longer be edited or deleted.`
+        : `Are you sure you want to cancel "${confirmAction?.invoice?.invoiceNumber}"? A cancelled invoice cannot be edited or deleted.`
+  }
+  confirmText={
+    confirmAction?.type === "delete"
+      ? "Delete"
+      : confirmAction?.type === "issue"
+        ? "Issue Invoice"
+        : "Cancel Invoice"
+  }
+  cancelText="Cancel"
+  loading={confirmLoading}
+      />
+
 
       <div className="space-y-6">
 

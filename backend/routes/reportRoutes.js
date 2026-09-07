@@ -6,7 +6,9 @@ const {
   getSalesReport,
   getPurchasesReport,
     getInventoryReport,
-   getExpenseReport,
+  getExpenseReport,
+  getIncomeStatement,
+  getBalanceSheet,
 } = require("../controllers/reportController");
 
 const protect = require("../middleware/authMiddleware");
@@ -52,6 +54,22 @@ router.get(
   protect,
   authorize("owner", "admin", "accounting"),
   getExpenseReport
+);
+
+//INCOME STATEMENT REPORT
+router.get(
+  "/income-statement",
+  protect,
+  authorize("owner", "admin", "accounting"),
+  getIncomeStatement
+);
+
+//BALANCE SHEET REPORT
+router.get(
+  "/balance-sheet",
+  protect,
+  authorize("owner", "admin", "accounting"),
+  getBalanceSheet
 );
 
 module.exports = router;

@@ -3,6 +3,7 @@ import chartOfAccountsService from "../../services/chartOfAccountsService";
 import ChartOfAccountsForm from "../../components/accounting/ChartOfAccountsForm";
 import ChartOfAccountsTable from "../../components/accounting/ChartOfAccountsTable";
 import Toast from "../../components/common/Toast";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 
 function ChartOfAccounts() {
   const [accounts, setAccounts] = useState([]);
@@ -15,6 +16,9 @@ function ChartOfAccounts() {
 
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
+
+  const [deactivatingAccount, setDeactivatingAccount] = useState(null);
+  const [deactivating, setDeactivating] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -136,36 +140,54 @@ function ChartOfAccounts() {
   // =========================
   // Deactivate Account
   // =========================
-  const handleDelete = async (account) => {
-    const confirmed = window.confirm(
-      `Deactivate account "${account.accountName}"?`
+ const handleDelete = (account) => {
+  setDeactivatingAccount(account);
+};
+
+const handleConfirmDelete = async () => {
+  if (!deactivatingAccount) {
+    return;
+  }
+
+  try {
+    setDeactivating(true);
+
+    await chartOfAccountsService.deleteAccount(
+      deactivatingAccount._id
     );
 
-    if (!confirmed) return;
+    await loadAccounts();
 
-    try {
-      await chartOfAccountsService.deleteAccount(account._id);
+    setDeactivatingAccount(null);
 
-      await loadAccounts();
+    setToast({
+      type: "success",
+      message: "Account deactivated successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to deactivate account:",
+      error
+    );
 
-      setToast({
-        type: "success",
-        message: "Account deactivated successfully.",
-      });
-    } catch (error) {
-      console.error(
-        "Failed to deactivate account:",
-        error
-      );
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to deactivate account.",
+    });
+  } finally {
+    setDeactivating(false);
+  }
+};
 
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to deactivate account.",
-      });
-    }
-  };
+const handleCancelDelete = () => {
+  if (deactivating) {
+    return;
+  }
+
+  setDeactivatingAccount(null);
+};
 
   // =========================
   // Form Controls
@@ -243,6 +265,21 @@ function ChartOfAccounts() {
         message={toast.message}
         onClose={closeToast}
       />
+
+
+      <ConfirmModal
+  isOpen={!!deactivatingAccount}
+  onClose={handleCancelDelete}
+  onConfirm={handleConfirmDelete}
+  title="Deactivate Account"
+  message={`Are you sure you want to deactivate "${
+    deactivatingAccount?.accountName || "this account"
+  }"?`}
+  confirmText="Deactivate"
+  cancelText="Cancel"
+  loading={deactivating}
+  loadingText="Deactivating..."
+/>
 
       <div className="space-y-6">
         {/* =========================

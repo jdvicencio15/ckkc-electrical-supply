@@ -3,6 +3,7 @@ import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 import supplierService from "../services/supplierService";
 import SupplierModal from "../components/suppliers/SupplierModal";
 import Toast from "../components/common/Toast";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 function Suppliers() {
   const [suppliers, setSuppliers] = useState([]);
@@ -19,6 +20,9 @@ function Suppliers() {
   const [error, setError] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+const [deletingSupplier, setDeletingSupplier] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -133,35 +137,54 @@ function Suppliers() {
   };
 
   // DELETE SUPPLIER
-  const handleDeleteSupplier = async (supplier) => {
-    const confirmed = window.confirm(
-      `Delete supplier "${supplier.name}"?`
+const handleDeleteSupplier = (supplier) => {
+  setDeletingSupplier(supplier);
+};
+
+const handleConfirmDelete = async () => {
+  if (!deletingSupplier) {
+    return;
+  }
+
+  try {
+    setDeleting(true);
+
+    await supplierService.deleteSupplier(
+      deletingSupplier._id,
     );
 
-    if (!confirmed) {
-      return;
-    }
+    await fetchSuppliers();
 
-    try {
-      await supplierService.deleteSupplier(supplier._id);
+    setDeletingSupplier(null);
 
-      await fetchSuppliers();
+    setToast({
+      type: "success",
+      message: "Supplier deleted successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to delete supplier:",
+      error,
+    );
 
-      setToast({
-        type: "success",
-        message: "Supplier deleted successfully.",
-      });
-    } catch (error) {
-      console.error("Failed to delete supplier:", error);
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to delete supplier.",
+    });
+  } finally {
+    setDeleting(false);
+  }
+};
 
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to delete supplier.",
-      });
-    }
-  };
+const handleCancelDelete = () => {
+  if (deleting) {
+    return;
+  }
+
+  setDeletingSupplier(null);
+};
 
   // OPEN CREATE FORM
   const openCreateForm = () => {
@@ -247,6 +270,21 @@ function Suppliers() {
         type={toast.type}
         message={toast.message}
         onClose={closeToast}
+      />
+
+
+      <ConfirmModal
+  isOpen={!!deletingSupplier}
+  onClose={handleCancelDelete}
+  onConfirm={handleConfirmDelete}
+  title="Delete Supplier"
+  message={`Are you sure you want to delete "${
+    deletingSupplier?.name || "this supplier"
+  }"? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  loading={deleting}
+  loadingText="Deleting..."
       />
 
       <div className="space-y-6">

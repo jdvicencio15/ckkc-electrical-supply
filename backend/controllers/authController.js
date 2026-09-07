@@ -87,9 +87,8 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
 
-    // Find user
+ // Find user
     const user = await User.findOne({ email });
-
 
     if (!user) {
       logger.warn("Login failed");
@@ -99,6 +98,16 @@ const loginUser = async (req, res) => {
        message:"Invalid email or password",
       });
     }
+
+    if (!user.isActive) {
+  logger.warn("Login failed: inactive user");
+
+  return res.status(401).json({
+    success: false,
+    message:
+      "Your account is inactive. Please contact an administrator.",
+  });
+}
 
 
     // Compare password
@@ -133,12 +142,13 @@ logger.info("Login successful");
     res.json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-      },
+    user: {
+  id: user._id,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  email: user.email,
+  role: user.role,
+},
     });
 
 

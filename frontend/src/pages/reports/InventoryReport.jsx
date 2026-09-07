@@ -6,6 +6,8 @@ import {
 import { Link } from "react-router-dom";
 
 import reportsApi from "../../api/reportsApi";
+import exportToCsv from "../../utils/exportCsv";
+
 
 function InventoryReport() {
   const [products, setProducts] = useState([]);
@@ -111,37 +113,88 @@ function InventoryReport() {
       "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
   };
 
+
+  const handleExportCsv = () => {
+  const headers = [
+    "SKU",
+    "Product",
+    "Category",
+    "Unit",
+    "Current Stock",
+    "Minimum Stock",
+    "Status",
+  ];
+
+  const rows = products.map((product) => {
+    const currentStock = Number(product.currentStock || 0);
+    const minimumStock = Number(product.minimumStock || 0);
+
+    let status = "In Stock";
+
+    if (currentStock === 0) {
+      status = "Out of Stock";
+    } else if (currentStock <= minimumStock) {
+      status = "Low Stock";
+    }
+
+    return [
+      product.sku,
+      product.name,
+      product.categoryId?.name || "Uncategorized",
+      product.unit,
+      currentStock,
+      minimumStock,
+      status,
+    ];
+  });
+
+  exportToCsv("inventory-report.csv", headers, rows);
+  };
+
+
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div>
-        <div className="mb-3">
-          <Link
-            to="/reports"
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400"
-          >
-            <FaArrowLeft className="h-3 w-3" />
-            Back to Reports
-          </Link>
-        </div>
+{/* Header */}
+<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+  <div>
+    <div className="mb-3">
+      <Link
+        to="/reports"
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400"
+      >
+        <FaArrowLeft className="h-3 w-3" />
+        Back to Reports
+      </Link>
+    </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400">
-            <FaBoxes className="h-4 w-4" />
-          </div>
-
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              Inventory Report
-            </h1>
-
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Review current stock levels and inventory movements.
-            </p>
-          </div>
-        </div>
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400">
+        <FaBoxes className="h-4 w-4" />
       </div>
+
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          Inventory Report
+        </h1>
+
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Review current stock levels and inventory movements.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* Export Button */}
+  <button
+    onClick={handleExportCsv}
+    disabled={loading || products.length === 0}
+    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+  >
+    Export CSV
+  </button>
+</div>
+
 
       {/* Error */}
       {error && (

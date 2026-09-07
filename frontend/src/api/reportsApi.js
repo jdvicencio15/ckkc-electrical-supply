@@ -35,7 +35,17 @@ getInventoryReport: async () => {
     const response = await API.get("/reports/expenses", { params });
     return response.data;
     },
+
+
+    getIncomeStatement: async (params = {}) => {
+  const response = await API.get("/reports/income-statement", { params });
+  return response.data;
+  },
     
+getBalanceSheet: async (params = {}) => {
+  const response = await API.get("/reports/balance-sheet", { params });
+  return response.data;
+  },
 
 };
 

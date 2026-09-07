@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FaArrowLeft, FaReceipt } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import reportsApi from "../../api/reportsApi";
+import exportToCsv from "../../utils/exportCsv";
 
 const ExpenseReport = () => {
   const [transactions, setTransactions] = useState([]);
@@ -76,36 +77,74 @@ const ExpenseReport = () => {
       year: "numeric",
     });
 
+
+  const handleExportCsv = () => {
+  const headers = [
+    "Date",
+    "Reference",
+    "Account Code",
+    "Account",
+    "Description",
+    "Debit",
+    "Credit",
+    "Amount",
+  ];
+
+  const rows = transactions.map((transaction) => [
+    new Date(transaction.date).toLocaleDateString("en-PH"),
+    transaction.reference || "",
+    transaction.accountCode,
+    transaction.accountName,
+    transaction.description || "",
+    transaction.debit,
+    transaction.credit,
+    transaction.amount,
+  ]);
+
+  exportToCsv("expense-report.csv", headers, rows);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Link
-            to="/reports"
-            className="mb-2 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-          >
-            <FaArrowLeft />
-            Back to Reports
-          </Link>
+  {/* Header */}
+<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+  <div>
+    <div className="mb-3">
+      <Link
+        to="/reports"
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400"
+      >
+        <FaArrowLeft className="h-3 w-3" />
+        Back to Reports
+      </Link>
+    </div>
 
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
-              <FaReceipt className="text-gray-700 dark:text-gray-200" />
-            </div>
-
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Expense Report
-              </h1>
-
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Review expenses recorded through journal entries.
-              </p>
-            </div>
-          </div>
-        </div>
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400">
+        <FaReceipt className="h-4 w-4" />
       </div>
+
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          Expense Report
+        </h1>
+
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Review expenses recorded through journal entries.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* Export Button */}
+  <button
+    onClick={handleExportCsv}
+    disabled={loading || transactions.length === 0}
+    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+  >
+    Export CSV
+  </button>
+</div>
 
       {/* Filters */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">

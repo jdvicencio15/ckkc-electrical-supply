@@ -5,6 +5,8 @@ import productService from "../services/productService";
 import categoryService from "../services/categoryService";
 import ProductForm from "../components/products/ProductForm";
 import Toast from "../components/common/Toast";
+import ConfirmModal from "../components/ui/ConfirmModal";
+
 import { useAuth } from "../context/AuthContext";
 
 function Products() {
@@ -22,6 +24,9 @@ function Products() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+
+  const [deletingProduct, setDeletingProduct] = useState(null);
+const [deleting, setDeleting] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -165,35 +170,54 @@ function Products() {
     }
   };
 
-  const handleDelete = async (product) => {
-    const confirmed = window.confirm(
-      `Delete product "${product.name}"?`,
+  const handleDelete = (product) => {
+  setDeletingProduct(product);
+};
+
+const handleConfirmDelete = async () => {
+  if (!deletingProduct) {
+    return;
+  }
+
+  try {
+    setDeleting(true);
+
+    await productService.deleteProduct(
+      deletingProduct._id,
     );
 
-    if (!confirmed) {
-      return;
-    }
+    await loadProducts();
 
-    try {
-      await productService.deleteProduct(product._id);
+    setDeletingProduct(null);
 
-      await loadProducts();
+    setToast({
+      type: "success",
+      message: "Product deleted successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to delete product:",
+      error,
+    );
 
-      setToast({
-        type: "success",
-        message: "Product deleted successfully.",
-      });
-    } catch (error) {
-      console.error("Failed to delete product:", error);
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to delete product.",
+    });
+  } finally {
+    setDeleting(false);
+  }
+};
 
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to delete product.",
-      });
-    }
-  };
+const handleCancelDelete = () => {
+  if (deleting) {
+    return;
+  }
+
+  setDeletingProduct(null);
+};
 
   const openCreateForm = () => {
     setEditingProduct(null);
@@ -227,6 +251,21 @@ function Products() {
         type={toast.type}
         message={toast.message}
         onClose={closeToast}
+      />
+
+
+      <ConfirmModal
+  isOpen={!!deletingProduct}
+  onClose={handleCancelDelete}
+  onConfirm={handleConfirmDelete}
+  title="Delete Product"
+  message={`Are you sure you want to delete "${
+    deletingProduct?.name || "this product"
+  }"? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  loading={deleting}
+  loadingText="Deleting..."
       />
 
       <div className="space-y-6">

@@ -20,66 +20,81 @@ import {
   FaChevronDown,
 } from "react-icons/fa";
 
+import { useAuth } from "../../context/AuthContext";
+import { hasPermission } from "../../utils/permissions";
+
 const navigation = [
   {
     label: "Dashboard",
     path: "/dashboard",
     icon: FaTachometerAlt,
+    module: "dashboard",
   },
   {
     label: "Products",
     path: "/products",
     icon: FaBox,
+    module: "products",
   },
   {
     label: "Categories",
     path: "/categories",
     icon: FaTags,
+    module: "categories",
   },
   {
     label: "Sales",
     path: "/sales",
     icon: FaShoppingCart,
+    module: "sales",
   },
   {
     label: "Purchases",
     path: "/purchases",
     icon: FaTruck,
+    module: "purchases",
   },
   {
     label: "Inventory",
     path: "/inventory",
     icon: FaWarehouse,
+    module: "inventory",
   },
   {
     label: "Customers",
     path: "/customers",
     icon: FaUsers,
+    module: "customers",
   },
   {
     label: "Suppliers",
     path: "/suppliers",
     icon: FaBuilding,
+    module: "suppliers",
   },
   {
     label: "Quotations",
     path: "/quotations",
     icon: FaFileAlt,
+    module: "quotations",
   },
   {
     label: "Invoices",
     path: "/invoices",
     icon: FaFileInvoice,
+    module: "invoices",
   },
   {
     label: "Payments",
     path: "/payments",
     icon: FaMoneyBillWave,
+    module: "payments",
   },
   {
     label: "Accounting",
     path: "/accounting",
     icon: FaCalculator,
+    module: "accounting",
     children: [
       {
         label: "Dashboard",
@@ -95,7 +110,7 @@ const navigation = [
       },
       {
         label: "General Ledger",
-          path: "/accounting/general-ledger",
+        path: "/accounting/general-ledger",
       },
       {
         label: "Trial Balance",
@@ -107,26 +122,31 @@ const navigation = [
     label: "Reports",
     path: "/reports",
     icon: FaChartBar,
+    module: "reports",
   },
   {
     label: "Users",
     path: "/users",
     icon: FaUserCog,
+    module: "users",
   },
   {
     label: "Roles & Permissions",
     path: "/roles-permissions",
     icon: FaUserShield,
+    module: "rolesPermissions",
   },
   {
     label: "Settings",
     path: "/settings",
     icon: FaCog,
+    module: "settings",
   },
 ];
 
 function Sidebar() {
-  const location = useLocation();
+ const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
 
   const [openMenus, setOpenMenus] = useState({
     Accounting: location.pathname.startsWith("/accounting"),
@@ -139,6 +159,56 @@ function Sidebar() {
     }));
   };
 
+  if (authLoading) {
+    return null;
+  }
+
+  const filteredNavigation = navigation.filter((item) => {
+    return hasPermission(
+      user?.role,
+      item.module,
+      "view"
+    );
+  });
+
+
+  const getSummaryConfig = (role) => {
+  if (role === "owner" || role === "admin") {
+    return {
+      showSales: true,
+      showOrders: true,
+      showProfit: true,
+      showReport: true,
+    };
+  }
+
+  if (role === "sales") {
+    return {
+      showSales: true,
+      showOrders: true,
+      showProfit: false,
+      showReport: false,
+    };
+  }
+
+  if (role === "accounting") {
+    return {
+      showSales: true,
+      showOrders: true,
+      showProfit: true,
+      showReport: true,
+    };
+  }
+
+  return {
+    showSales: false,
+    showOrders: false,
+    showProfit: false,
+    showReport: false,
+  };
+  };
+
+
   return (
     <aside className="fixed inset-y-0 left-0 flex w-64 flex-col border-r border-green-800 bg-gradient-to-b from-green-700 to-emerald-800">
       {/* Brand */}
@@ -150,10 +220,12 @@ function Sidebar() {
 
       {/* Navigation */}
       <nav className="space-y-0.5 overflow-y-auto p-3">
-        {navigation.map((item) => {
+        {filteredNavigation.map((item) => {
           const Icon = item.icon;
+
           const hasChildren =
-            item.children && item.children.length > 0;
+            item.children &&
+            item.children.length > 0;
 
           // =========================
           // Parent Menu
@@ -162,13 +234,16 @@ function Sidebar() {
             const isParentActive =
               location.pathname.startsWith(item.path);
 
-            const isOpen = openMenus[item.label];
+            const isOpen =
+              openMenus[item.label];
 
             return (
               <div key={item.path}>
                 <button
                   type="button"
-                  onClick={() => toggleMenu(item.label)}
+                  onClick={() =>
+                    toggleMenu(item.label)
+                  }
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     isParentActive
                       ? "bg-white/10 text-white"
@@ -183,7 +258,9 @@ function Sidebar() {
 
                   <FaChevronDown
                     className={`h-3 w-3 transition-transform ${
-                      isOpen ? "rotate-180" : ""
+                      isOpen
+                        ? "rotate-180"
+                        : ""
                     }`}
                   />
                 </button>
@@ -193,22 +270,29 @@ function Sidebar() {
                 ========================= */}
                 {isOpen && (
                   <div className="ml-4 mt-1 space-y-0.5 border-l border-white/20 pl-3">
-                    {item.children.map((child) => (
-                      <NavLink
-                        key={child.path}
-                        to={child.path}
-                        end={child.path === "/accounting"}
-                        className={({ isActive }) =>
-                          `block rounded-lg px-3 py-2 text-sm transition ${
-                            isActive
-                              ? "bg-white text-green-700 shadow-sm"
-                              : "text-green-100 hover:bg-white/10 hover:text-white"
-                          }`
-                        }
-                      >
-                        {child.label}
-                      </NavLink>
-                    ))}
+                    {item.children.map(
+                      (child) => (
+                        <NavLink
+                          key={child.path}
+                          to={child.path}
+                          end={
+                            child.path ===
+                            "/accounting"
+                          }
+                          className={({
+                            isActive,
+                          }) =>
+                            `block rounded-lg px-3 py-2 text-sm transition ${
+                              isActive
+                                ? "bg-white text-green-700 shadow-sm"
+                                : "text-green-100 hover:bg-white/10 hover:text-white"
+                            }`
+                          }
+                        >
+                          {child.label}
+                        </NavLink>
+                      )
+                    )}
                   </div>
                 )}
               </div>
@@ -239,13 +323,26 @@ function Sidebar() {
       </nav>
 
       {/* Today's Summary */}
-      <div className="px-4 pb-3">
-        <div className="rounded-xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
-          <h3 className="text-sm font-semibold text-white">
-            Today's Summary
-          </h3>
+{(() => {
+  const summary = getSummaryConfig(user?.role);
 
-          <div className="mt-3 space-y-2">
+  if (
+    !summary.showSales &&
+    !summary.showOrders &&
+    !summary.showProfit
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="px-4 pb-3">
+      <div className="rounded-xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm">
+        <h3 className="text-sm font-semibold text-white">
+          Today's Summary
+        </h3>
+
+        <div className="mt-3 space-y-2">
+          {summary.showSales && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-green-100">
                 Sales
@@ -255,7 +352,9 @@ function Sidebar() {
                 ₱0.00
               </span>
             </div>
+          )}
 
+          {summary.showOrders && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-green-100">
                 Orders
@@ -265,7 +364,9 @@ function Sidebar() {
                 0
               </span>
             </div>
+          )}
 
+          {summary.showProfit && (
             <div className="flex items-center justify-between text-xs">
               <span className="text-green-100">
                 Profit
@@ -275,16 +376,21 @@ function Sidebar() {
                 ₱0.00
               </span>
             </div>
-          </div>
+          )}
+        </div>
 
+        {summary.showReport && (
           <button
             type="button"
             className="mt-4 text-xs font-medium text-green-100 transition hover:text-white"
           >
             View Full Report →
           </button>
-        </div>
+        )}
       </div>
+    </div>
+  );
+})()}
 
       {/* Developer Credit */}
       <div className="mt-auto px-4 pb-3 text-left">

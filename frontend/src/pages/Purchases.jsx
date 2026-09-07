@@ -8,6 +8,7 @@ import clientPOService from "../services/clientPOService";
 
 import PurchaseForm from "../components/purchases/PurchaseForm";
 import Toast from "../components/common/Toast";
+import ConfirmModal from "../components/ui/ConfirmModal";
 import { useAuth } from "../context/AuthContext";
 
 function Purchases() {
@@ -29,6 +30,9 @@ function Purchases() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState(null);
+
+  const [confirmAction, setConfirmAction] = useState(null);
+const [confirmLoading, setConfirmLoading] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -180,19 +184,35 @@ function Purchases() {
     }
   };
 
-  const handleDelete = async (purchase) => {
-    const confirmed = window.confirm(
-      `Delete purchase "${purchase.purchaseNumber}"?`,
-    );
+const handleDelete = (purchase) => {
+  setConfirmAction({
+    type: "delete",
+    purchase,
+  });
+};
 
-    if (!confirmed) {
-      return;
-    }
+const handleReceive = (purchase) => {
+  setConfirmAction({
+    type: "receive",
+    purchase,
+  });
+};
 
-    try {
-      setError("");
+const handleConfirmAction = async () => {
+  if (!confirmAction?.purchase) {
+    return;
+  }
 
-      await purchaseService.deletePurchase(purchase._id);
+  const { type, purchase } = confirmAction;
+
+  try {
+    setConfirmLoading(true);
+    setError("");
+
+    if (type === "delete") {
+      await purchaseService.deletePurchase(
+        purchase._id,
+      );
 
       await loadPurchases();
 
@@ -200,27 +220,12 @@ function Purchases() {
         type: "success",
         message: "Purchase deleted successfully.",
       });
-    } catch (error) {
-      console.error("Failed to delete purchase:", error);
-
-      setToast({
-        type: "error",
-        message: error.response?.data?.message || "Failed to delete purchase.",
-      });
-    }
-  };
-
-  const handleReceive = async (purchase) => {
-    const confirmed = window.confirm(
-      `Receive purchase "${purchase.purchaseNumber}"? This will add the items to inventory.`,
-    );
-
-    if (!confirmed) {
-      return;
     }
 
-    try {
-      await purchaseService.receivePurchase(purchase._id);
+    if (type === "receive") {
+      await purchaseService.receivePurchase(
+        purchase._id,
+      );
 
       await loadPurchases();
 
@@ -228,15 +233,33 @@ function Purchases() {
         type: "success",
         message: "Purchase received successfully.",
       });
-    } catch (error) {
-      console.error("Failed to receive purchase:", error);
-
-      setToast({
-        type: "error",
-        message: error.response?.data?.message || "Failed to receive purchase.",
-      });
     }
-  };
+
+    setConfirmAction(null);
+  } catch (error) {
+    console.error(
+      `Failed to ${type} purchase:`,
+      error,
+    );
+
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        `Failed to ${type} purchase.`,
+    });
+  } finally {
+    setConfirmLoading(false);
+  }
+};
+
+const handleCancelConfirmation = () => {
+  if (confirmLoading) {
+    return;
+  }
+
+  setConfirmAction(null);
+};
 
   const openCreateForm = () => {
     setEditingPurchase(null);
@@ -269,6 +292,34 @@ function Purchases() {
   return (
     <>
       <Toast type={toast.type} message={toast.message} onClose={closeToast} />
+
+      <ConfirmModal
+  isOpen={!!confirmAction}
+  onClose={handleCancelConfirmation}
+  onConfirm={handleConfirmAction}
+  title={
+    confirmAction?.type === "delete"
+      ? "Delete Purchase"
+      : "Receive Purchase"
+  }
+  message={
+    confirmAction?.type === "delete"
+      ? `Are you sure you want to delete "${confirmAction?.purchase?.purchaseNumber}"? This action cannot be undone.`
+      : `Are you sure you want to receive "${confirmAction?.purchase?.purchaseNumber}"? This will add the items to inventory.`
+  }
+  confirmText={
+    confirmAction?.type === "delete"
+      ? "Delete"
+      : "Receive Purchase"
+  }
+  cancelText="Cancel"
+  loading={confirmLoading}
+  loadingText={
+    confirmAction?.type === "delete"
+      ? "Deleting..."
+      : "Receiving..."
+  }
+      />
 
       <div className="space-y-6">
         {/* Page Header */}

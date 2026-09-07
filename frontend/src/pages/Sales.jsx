@@ -15,6 +15,7 @@ import clientPOService from "../services/clientPOService";
 import SaleForm from "../components/sales/SaleForm";
 import Toast from "../components/common/Toast";
 import { useAuth } from "../context/AuthContext";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 function Sales() {
   const { user } = useAuth();
@@ -34,6 +35,9 @@ function Sales() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
+
+  const [confirmAction, setConfirmAction] = useState(null);
+const [confirmLoading, setConfirmLoading] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -216,16 +220,31 @@ function Sales() {
     }
   };
 
-  const handleDelete = async (sale) => {
-    const confirmed = window.confirm(
-      `Delete sale "${sale.salesNumber}"?`,
-    );
+const handleDelete = (sale) => {
+  setConfirmAction({
+    type: "delete",
+    sale,
+  });
+};
 
-    if (!confirmed) {
-      return;
-    }
+const handleRelease = (sale) => {
+  setConfirmAction({
+    type: "release",
+    sale,
+  });
+};
 
-    try {
+const handleConfirmAction = async () => {
+  if (!confirmAction?.sale) {
+    return;
+  }
+
+  const { type, sale } = confirmAction;
+
+  try {
+    setConfirmLoading(true);
+
+    if (type === "delete") {
       await saleService.deleteSale(sale._id);
 
       await loadSales();
@@ -234,28 +253,9 @@ function Sales() {
         type: "success",
         message: "Sale deleted successfully.",
       });
-    } catch (error) {
-      console.error("Failed to delete sale:", error);
-
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to delete sale.",
-      });
-    }
-  };
-
-  const handleRelease = async (sale) => {
-    const confirmed = window.confirm(
-      `Release sale "${sale.salesNumber}"?\n\nThis will deduct the required quantities from inventory.`,
-    );
-
-    if (!confirmed) {
-      return;
     }
 
-    try {
+    if (type === "release") {
       await saleService.releaseSale(sale._id);
 
       await Promise.all([
@@ -267,17 +267,33 @@ function Sales() {
         type: "success",
         message: "Sale released successfully.",
       });
-    } catch (error) {
-      console.error("Failed to release sale:", error);
-
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to release sale.",
-      });
     }
-  };
+
+    setConfirmAction(null);
+  } catch (error) {
+    console.error(
+      `Failed to ${type} sale:`,
+      error,
+    );
+
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        `Failed to ${type} sale.`,
+    });
+  } finally {
+    setConfirmLoading(false);
+  }
+};
+
+const handleCancelConfirmation = () => {
+  if (confirmLoading) {
+    return;
+  }
+
+  setConfirmAction(null);
+};
 
   const openCreateForm = () => {
     setEditingSale(null);
@@ -347,6 +363,35 @@ function Sales() {
         type={toast.type}
         message={toast.message}
         onClose={closeToast}
+      />
+
+
+      <ConfirmModal
+  isOpen={!!confirmAction}
+  onClose={handleCancelConfirmation}
+  onConfirm={handleConfirmAction}
+  title={
+    confirmAction?.type === "delete"
+      ? "Delete Sale"
+      : "Release Sale"
+  }
+  message={
+    confirmAction?.type === "delete"
+      ? `Are you sure you want to delete "${confirmAction?.sale?.salesNumber}"? This action cannot be undone.`
+      : `Are you sure you want to release "${confirmAction?.sale?.salesNumber}"? This will deduct the required quantities from inventory.`
+  }
+  confirmText={
+    confirmAction?.type === "delete"
+      ? "Delete"
+      : "Release Sale"
+  }
+  cancelText="Cancel"
+  loading={confirmLoading}
+  loadingText={
+    confirmAction?.type === "delete"
+      ? "Deleting..."
+      : "Releasing..."
+  }
       />
 
       <div className="space-y-6">

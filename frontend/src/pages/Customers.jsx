@@ -4,6 +4,7 @@ import { FaEdit, FaTrash } from "react-icons/fa";
 import customerService from "../services/customerService";
 import CustomerForm from "../components/customers/CustomerForm";
 import Toast from "../components/common/Toast";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 function Customers() {
   const [customers, setCustomers] = useState([]);
@@ -16,6 +17,9 @@ function Customers() {
 
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+
+  const [deletingCustomer, setDeletingCustomer] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -125,19 +129,23 @@ function Customers() {
   };
 
 
-const handleDelete = async (customer) => {
-  const confirmed = window.confirm(
-    `Delete customer "${customer.name}"?`,
-  );
+const handleDelete = (customer) => {
+  setDeletingCustomer(customer);
+};
 
-  if (!confirmed) {
+const handleConfirmDelete = async () => {
+  if (!deletingCustomer) {
     return;
   }
 
   try {
-    await customerService.deleteCustomer(customer._id);
+    setDeleting(true);
+
+    await customerService.deleteCustomer(deletingCustomer._id);
 
     await loadCustomers();
+
+    setDeletingCustomer(null);
 
     setToast({
       type: "success",
@@ -152,9 +160,18 @@ const handleDelete = async (customer) => {
         error.response?.data?.message ||
         "Failed to delete customer.",
     });
+  } finally {
+    setDeleting(false);
   }
 };
 
+const handleCancelDelete = () => {
+  if (deleting) {
+    return;
+  }
+
+  setDeletingCustomer(null);
+};
 
 
 
@@ -212,6 +229,20 @@ const handleDelete = async (customer) => {
         type={toast.type}
         message={toast.message}
         onClose={closeToast}
+      />
+
+
+      <ConfirmModal
+  isOpen={!!deletingCustomer}
+  onClose={handleCancelDelete}
+  onConfirm={handleConfirmDelete}
+  title="Delete Customer"
+  message={`Are you sure you want to delete "${
+    deletingCustomer?.name || "this customer"
+  }"? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  loading={deleting}
       />
 
       <div className="space-y-6">

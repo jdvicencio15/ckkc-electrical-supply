@@ -11,6 +11,8 @@ import invoiceService from "../services/invoiceService";
 
 import PaymentForm from "../components/payments/PaymentForm";
 import Toast from "../components/common/Toast";
+import ConfirmModal from "../components/ui/ConfirmModal";
+
 import { useAuth } from "../context/AuthContext";
 
 function Payments() {
@@ -35,6 +37,11 @@ function Payments() {
 
   const [viewingPayment, setViewingPayment] =
     useState(null);
+
+  const [deletingPayment, setDeletingPayment] =
+  useState(null);
+
+const [deleting, setDeleting] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -455,46 +462,58 @@ function Payments() {
     }
   };
 
-  const handleDelete = async (payment) => {
-    const confirmed = window.confirm(
-      `Delete this payment of ${formatCurrency(
-        payment.amount,
-      )}?`,
+ const handleDelete = (payment) => {
+  setDeletingPayment(payment);
+};
+
+const handleConfirmDelete = async () => {
+  if (!deletingPayment) {
+    return;
+  }
+
+  try {
+    setDeleting(true);
+
+    await paymentService.deletePayment(
+      deletingPayment._id,
     );
 
-    if (!confirmed) {
-      return;
-    }
+    await Promise.all([
+      loadPayments(),
+      loadInvoices(),
+    ]);
 
-    try {
-      await paymentService.deletePayment(
-        payment._id,
-      );
+    setDeletingPayment(null);
 
-      await Promise.all([
-        loadPayments(),
-        loadInvoices(),
-      ]);
+    setToast({
+      type: "success",
+      message:
+        "Payment deleted successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to delete payment:",
+      error,
+    );
 
-      setToast({
-        type: "success",
-        message:
-          "Payment deleted successfully.",
-      });
-    } catch (error) {
-      console.error(
-        "Failed to delete payment:",
-        error,
-      );
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to delete payment.",
+    });
+  } finally {
+    setDeleting(false);
+  }
+};
 
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to delete payment.",
-      });
-    }
-  };
+const handleCancelDelete = () => {
+  if (deleting) {
+    return;
+  }
+
+  setDeletingPayment(null);
+};
 
   return (
     <>
@@ -503,6 +522,21 @@ function Payments() {
         message={toast.message}
         onClose={closeToast}
       />
+
+
+      <ConfirmModal
+  isOpen={!!deletingPayment}
+  onClose={handleCancelDelete}
+  onConfirm={handleConfirmDelete}
+  title="Delete Payment"
+  message={`Are you sure you want to delete this payment of ${formatCurrency(
+    deletingPayment?.amount,
+  )}? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  loading={deleting}
+  loadingText="Deleting..."
+/>
 
       <div className="space-y-6">
 

@@ -3,6 +3,7 @@ import { FaEdit, FaTrash } from "react-icons/fa";
 import quotationService from "../services/quotationService";
 import Toast from "../components/common/Toast";
 import QuotationForm from "../components/quotations/QuotationForm";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 function Quotations() {
   const [quotations, setQuotations] = useState([]);
@@ -17,6 +18,9 @@ function Quotations() {
 
   const [showQuotationForm, setShowQuotationForm] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState(null);
+
+  const [deletingQuotation, setDeletingQuotation] = useState(null);
+const [deleting, setDeleting] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -140,36 +144,54 @@ function Quotations() {
   };
 
   // DELETE QUOTATION
-  const handleDelete = async (quotation) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete quotation "${quotation.quotationNumber}"?`
+const handleDelete = (quotation) => {
+  setDeletingQuotation(quotation);
+};
+
+const handleConfirmDelete = async () => {
+  if (!deletingQuotation) {
+    return;
+  }
+
+  try {
+    setDeleting(true);
+
+    await quotationService.deleteQuotation(
+      deletingQuotation._id,
     );
 
-    if (!confirmed) {
-      return;
-    }
+    await loadQuotations();
 
-    try {
-      await quotationService.deleteQuotation(quotation._id);
+    setDeletingQuotation(null);
 
-      await loadQuotations();
+    setToast({
+      type: "success",
+      message: "Quotation deleted successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to delete quotation:",
+      error,
+    );
 
-      setToast({
-        type: "success",
-        message: "Quotation deleted successfully.",
-      });
-    } catch (error) {
-      console.error("Failed to delete quotation:", error);
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to delete quotation.",
+    });
+  } finally {
+    setDeleting(false);
+  }
+};
 
-      setToast({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to delete quotation.",
-      });
-    }
-  };
+const handleCancelDelete = () => {
+  if (deleting) {
+    return;
+  }
 
+  setDeletingQuotation(null);
+};
   // CLOSE TOAST
   const closeToast = () => {
     setToast({
@@ -229,6 +251,22 @@ function Quotations() {
         message={toast.message}
         onClose={closeToast}
       />
+
+      <ConfirmModal
+  isOpen={!!deletingQuotation}
+  onClose={handleCancelDelete}
+  onConfirm={handleConfirmDelete}
+  title="Delete Quotation"
+  message={`Are you sure you want to delete quotation "${
+    deletingQuotation?.quotationNumber ||
+    "this quotation"
+  }"? This action cannot be undone.`}
+  confirmText="Delete"
+  cancelText="Cancel"
+  loading={deleting}
+  loadingText="Deleting..."
+/>
+
 
       <div className="space-y-6">
         {/* PAGE HEADER */}
