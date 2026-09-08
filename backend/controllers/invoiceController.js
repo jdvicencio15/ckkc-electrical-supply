@@ -9,6 +9,10 @@ const {
   checkReferencesExist,
 } = require("../utils/referenceValidator");
 
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
+
 // GET ALL INVOICES
 const getInvoices = async (req, res, next) => {
   try {
@@ -142,6 +146,26 @@ const createInvoice = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
+    // CREATE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin"],
+    type: "invoice",
+    title: "New Invoice",
+    message: `Invoice ${invoice.invoiceNumber} was created.`,
+    link: `/invoices?search=${encodeURIComponent(
+      invoice.invoiceNumber
+    )}`,
+    entityType: "Invoice",
+    entityId: invoice._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create invoice notification:",
+    notificationError,
+  );
+    }
+    
     // POPULATE RESPONSE
     const populatedInvoice =
       await Invoice.findById(invoice._id)

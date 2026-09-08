@@ -9,6 +9,10 @@ const {
 } = require("../utils/referenceValidator");
 
 
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
+
 
 const calculateQuotationTotals = ({
   items,
@@ -174,6 +178,26 @@ const createQuotation = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
+    // CREATE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin"],
+    type: "quotation",
+    title: "New Quotation",
+    message: `Quotation ${quotation.quotationNumber} was created.`,
+    link: `/quotations?search=${encodeURIComponent(
+      quotation.quotationNumber
+    )}`,
+    entityType: "Quotation",
+    entityId: quotation._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create quotation notification:",
+    notificationError,
+  );
+    }
+    
     const populatedQuotation =
       await Quotation.findById(quotation._id)
         .populate("customerId", "customerCode name")

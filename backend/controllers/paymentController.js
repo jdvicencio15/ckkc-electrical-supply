@@ -3,6 +3,10 @@ const Payment = require("../models/Payment");
 const Invoice = require("../models/Invoice");
 const mongoose = require("mongoose");
 
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
+
 // ==============================
 // GET ALL PAYMENTS
 // ==============================
@@ -155,6 +159,27 @@ const createPayment = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
+
+    // CREATE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin"],
+    type: "payment",
+    title: "New Payment",
+    message: `Payment received for Invoice ${invoice.invoiceNumber}.`,
+    link: `/payments?search=${encodeURIComponent(
+      invoice.invoiceNumber
+    )}`,
+    entityType: "Payment",
+    entityId: payment._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create payment notification:",
+    notificationError,
+  );
+    }
+    
     const populatedPayment = await Payment.findById(payment._id)
       .populate({
         path: "invoiceId",

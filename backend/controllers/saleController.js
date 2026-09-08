@@ -16,6 +16,11 @@ const {
   createNotificationsForRoles,
 } = require("../services/notificationService");
 
+
+const {
+  checkAndCreateLowStockNotification,
+} = require("../services/lowStockNotificationService");
+
 // GET ALL SALES
 const getSales = async (req, res, next) => {
   try {
@@ -310,6 +315,8 @@ const releaseSale = async (req, res, next) => {
   try {
     session.startTransaction();
 
+    const lowStockChecks = [];
+
     const sale = await Sale.findById(req.params.id).session(session);
 
     if (!sale) {
@@ -362,11 +369,21 @@ const releaseSale = async (req, res, next) => {
       }
     }
 
-    // DEDUCT STOCK + CREATE INVENTORY MOVEMENTS
+     // DEDUCT STOCK + CREATE INVENTORY MOVEMENTS
     for (const item of sale.items) {
       const product = await Product.findById(item.productId).session(session);
 
+      const previousStock = product.currentStock;
+
       product.currentStock -= item.quantity;
+
+      const newStock = product.currentStock;
+
+      lowStockChecks.push({
+        productId: product._id,
+        previousStock,
+        newStock,
+      });
 
       await product.save({ session });
 
@@ -387,7 +404,6 @@ const releaseSale = async (req, res, next) => {
         { session },
       );
     }
-
     // UPDATE SALE STATUS
     sale.status = "released";
     sale.updatedBy = req.user._id;
@@ -395,6 +411,17 @@ const releaseSale = async (req, res, next) => {
     await sale.save({ session });
 
     await session.commitTransaction();
+
+       for (const check of lowStockChecks) {
+      try {
+        await checkAndCreateLowStockNotification(check);
+      } catch (notificationError) {
+        console.error(
+          "Failed to create low-stock notification:",
+          notificationError,
+        );
+      }
+    }
 
     const populatedSale = await Sale.findById(sale._id)
       .populate("customerId", "customerCode name")

@@ -1,9 +1,12 @@
-
 const mongoose = require("mongoose");
 
 const InventoryMovement = require("../models/InventoryMovement");
 const Product = require("../models/Product");
 const Purchase = require("../models/Purchase");
+
+const {
+  checkAndCreateLowStockNotification,
+} = require("../services/lowStockNotificationService");
 
 // RECALCULATE PRODUCT STOCK
 const recalculateProductStock = async (productId, session) => {
@@ -42,7 +45,7 @@ const recalculateProductStock = async (productId, session) => {
     {
       session,
       runValidators: true,
-    }
+    },
   );
 };
 
@@ -122,8 +125,7 @@ const createInventoryMovement = async (req, res, next) => {
 
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid inventory movement and reference type combination",
+        message: "Invalid inventory movement and reference type combination",
       });
     }
 
@@ -141,9 +143,7 @@ const createInventoryMovement = async (req, res, next) => {
 
     // Validate Purchase reference
     if (type === "IN" && referenceType === "PURCHASE") {
-      const purchase = await Purchase.findById(referenceId).session(
-        session
-      );
+      const purchase = await Purchase.findById(referenceId).session(session);
 
       if (!purchase) {
         await session.abortTransaction();
@@ -166,6 +166,8 @@ const createInventoryMovement = async (req, res, next) => {
         message: "Product not found",
       });
     }
+
+    const previousStock = product.currentStock;
 
     // Update stock
     if (type === "IN") {
@@ -190,6 +192,7 @@ const createInventoryMovement = async (req, res, next) => {
     }
 
     await product.save({ session });
+    const newStock = product.currentStock;
 
     // Build movement data
     const movementData = {
@@ -209,16 +212,26 @@ const createInventoryMovement = async (req, res, next) => {
       movementData.referenceId = referenceId;
     }
 
-    const [movement] = await InventoryMovement.create(
-      [movementData],
-      { session }
-    );
+    const [movement] = await InventoryMovement.create([movementData], {
+      session,
+    });
 
     await session.commitTransaction();
 
-    const populatedMovement = await InventoryMovement.findById(
-      movement._id
-    )
+    try {
+      await checkAndCreateLowStockNotification({
+        productId: product._id,
+        previousStock,
+        newStock,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create low-stock notification:",
+        notificationError,
+      );
+    }
+
+    const populatedMovement = await InventoryMovement.findById(movement._id)
       .populate("productId", "sku name unit currentStock")
       .populate("createdBy", "firstName lastName");
 
@@ -241,9 +254,9 @@ const updateInventoryMovement = async (req, res, next) => {
   try {
     session.startTransaction();
 
-    const movement = await InventoryMovement.findById(
-      req.params.id
-    ).session(session);
+    const movement = await InventoryMovement.findById(req.params.id).session(
+      session,
+    );
 
     if (!movement) {
       await session.abortTransaction();
@@ -260,8 +273,7 @@ const updateInventoryMovement = async (req, res, next) => {
 
       return res.status(403).json({
         success: false,
-        message:
-          "Sale-generated inventory movements cannot be modified",
+        message: "Sale-generated inventory movements cannot be modified",
       });
     }
 
@@ -277,47 +289,29 @@ const updateInventoryMovement = async (req, res, next) => {
     } = req.body;
 
     const nextProductId =
-      productId !== undefined
-        ? productId
-        : movement.productId;
+      productId !== undefined ? productId : movement.productId;
 
-    const nextType =
-      type !== undefined
-        ? type
-        : movement.type;
+    const nextType = type !== undefined ? type : movement.type;
 
     const nextReferenceType =
-      referenceType !== undefined
-        ? referenceType
-        : movement.referenceType;
+      referenceType !== undefined ? referenceType : movement.referenceType;
 
     const nextReferenceId =
-      referenceId !== undefined
-        ? referenceId
-        : movement.referenceId;
+      referenceId !== undefined ? referenceId : movement.referenceId;
 
     // Validate resulting movement/reference combination
-    if (
-      !validateMovementReference(
-        nextType,
-        nextReferenceType
-      )
-    ) {
+    if (!validateMovementReference(nextType, nextReferenceType)) {
       await session.abortTransaction();
 
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid inventory movement and reference type combination",
+        message: "Invalid inventory movement and reference type combination",
       });
     }
 
     // SALE movements cannot be converted into manually managed
     // inventory movements
-    if (
-      nextType === "OUT" &&
-      nextReferenceType === "SALE"
-    ) {
+    if (nextType === "OUT" && nextReferenceType === "SALE") {
       await session.abortTransaction();
 
       return res.status(403).json({
@@ -328,13 +322,9 @@ const updateInventoryMovement = async (req, res, next) => {
     }
 
     // Validate Purchase reference
-    if (
-      nextType === "IN" &&
-      nextReferenceType === "PURCHASE"
-    ) {
-      const purchase = await Purchase.findById(
-        nextReferenceId
-      ).session(session);
+    if (nextType === "IN" && nextReferenceType === "PURCHASE") {
+      const purchase =
+        await Purchase.findById(nextReferenceId).session(session);
 
       if (!purchase) {
         await session.abortTransaction();
@@ -346,10 +336,25 @@ const updateInventoryMovement = async (req, res, next) => {
       }
     }
 
-    const oldProductId =
-      movement.productId.toString();
+    const oldProduct = await Product.findById(movement.productId).session(
+      session,
+    );
+
+    if (!oldProduct) {
+      await session.abortTransaction();
+
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const oldProductStock = oldProduct.currentStock;
+
+    const oldProductId = movement.productId.toString();
 
     movement.productId = nextProductId;
+
     movement.type = nextType;
 
     if (quantity !== undefined) {
@@ -382,35 +387,58 @@ const updateInventoryMovement = async (req, res, next) => {
 
     await movement.save({ session });
 
-    const newProductId =
-      movement.productId.toString();
+    const newProductId = movement.productId.toString();
 
-    await recalculateProductStock(
-      movement.productId,
-      session
+    const lowStockChecks = [];
+
+    await recalculateProductStock(movement.productId, session);
+
+    const newProduct = await Product.findById(movement.productId).session(
+      session,
     );
 
+    if (newProduct) {
+      lowStockChecks.push({
+        productId: newProduct._id,
+        previousStock:
+          oldProductId === newProductId
+            ? oldProductStock
+            : newProduct.currentStock,
+        newStock: newProduct.currentStock,
+      });
+    }
+
     if (oldProductId !== newProductId) {
-      await recalculateProductStock(
-        oldProductId,
-        session
-      );
+      await recalculateProductStock(oldProductId, session);
+
+      const recalculatedOldProduct =
+        await Product.findById(oldProductId).session(session);
+
+      if (recalculatedOldProduct) {
+        lowStockChecks.push({
+          productId: recalculatedOldProduct._id,
+          previousStock: oldProductStock,
+          newStock: recalculatedOldProduct.currentStock,
+        });
+      }
     }
 
     await session.commitTransaction();
 
-    const populatedMovement =
-      await InventoryMovement.findById(
-        movement._id
-      )
-        .populate(
-          "productId",
-          "sku name unit currentStock"
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName"
-        );
+    for (const check of lowStockChecks) {
+  try {
+    await checkAndCreateLowStockNotification(check);
+  } catch (notificationError) {
+    console.error(
+      "Failed to create low-stock notification:",
+      notificationError,
+    );
+  }
+    }
+    
+    const populatedMovement = await InventoryMovement.findById(movement._id)
+      .populate("productId", "sku name unit currentStock")
+      .populate("createdBy", "firstName lastName");
 
     res.status(200).json({
       success: true,
@@ -431,9 +459,9 @@ const deleteInventoryMovement = async (req, res, next) => {
   try {
     session.startTransaction();
 
-    const movement = await InventoryMovement.findById(
-      req.params.id
-    ).session(session);
+    const movement = await InventoryMovement.findById(req.params.id).session(
+      session,
+    );
 
     if (!movement) {
       await session.abortTransaction();
@@ -450,8 +478,7 @@ const deleteInventoryMovement = async (req, res, next) => {
 
       return res.status(403).json({
         success: false,
-        message:
-          "Sale-generated inventory movements cannot be deleted",
+        message: "Sale-generated inventory movements cannot be deleted",
       });
     }
 
@@ -459,10 +486,7 @@ const deleteInventoryMovement = async (req, res, next) => {
 
     await movement.deleteOne({ session });
 
-    await recalculateProductStock(
-      productId,
-      session
-    );
+    await recalculateProductStock(productId, session);
 
     await session.commitTransaction();
 
@@ -485,4 +509,3 @@ module.exports = {
   updateInventoryMovement,
   deleteInventoryMovement,
 };
-

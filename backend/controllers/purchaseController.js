@@ -14,7 +14,9 @@ const {
   checkReferencesExist,
 } = require("../utils/referenceValidator");
 
-
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
 
 
 const calculatePurchaseTotals = (items) => {
@@ -133,6 +135,27 @@ await checkReferencesExist(
   createdBy: req.user._id,
     });
 
+
+    // CREATE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin"],
+    type: "purchase",
+    title: "New Purchase",
+    message: `Purchase ${purchase.purchaseNumber} was created.`,
+    link: `/purchases?search=${encodeURIComponent(
+      purchase.purchaseNumber
+    )}`,
+    entityType: "Purchase",
+    entityId: purchase._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create purchase notification:",
+    notificationError,
+  );
+    }
+    
     const populatedPurchase = await Purchase.findById(
       purchase._id
     )
