@@ -42,10 +42,14 @@ import BalanceSheet from "../pages/reports/BalanceSheet";
 import PermissionRoute from "./PermissionRoute";
 
 
+
 import Reports from "../pages/Reports";
 import Users from "../pages/Users";
 import RolesPermissions from "../pages/RolesPermissions";
 import Settings from "../pages/Settings";
+import Units from "../pages/Units";
+import UnitCreate from "../pages/UnitCreate";
+import UnitEdit from "../pages/UnitEdit";
 
 function AppRoutes() {
   return (
@@ -71,6 +75,11 @@ function AppRoutes() {
             <Route path="/products" element={<Products />} />
 
             <Route path="/categories" element={<Categories />} />
+
+            <Route path="/units" element={<Units />} />
+
+            <Route path="/units/new" element={<UnitCreate />} />
+            <Route path="/units/:id/edit" element={<UnitEdit />} />
 
             <Route path="/sales" element={<Sales />} />
 
@@ -145,7 +154,7 @@ function AppRoutes() {
           </Route>
         </Route>
         {/* 404 */}
-        <Route path="*" element={<NotFound />} />;
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+     "seed:units": "node scripts/seedUnits.js"
   },
   "keywords": [],
   "author": "Darren Vicencio",
@@ -28,4 +29,6 @@
   "devDependencies": {
     "nodemon": "^3.1.14"
   }
+
 }
+

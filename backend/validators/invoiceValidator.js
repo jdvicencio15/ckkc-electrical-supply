@@ -2,13 +2,6 @@
 const { body } = require("express-validator");
 
 const invoiceValidator = [
-  body("invoiceNumber")
-    .trim()
-    .notEmpty()
-    .withMessage("Invoice number is required")
-    .isLength({ max: 50 })
-    .withMessage("Invoice number must not exceed 50 characters"),
-
   body("saleId")
     .notEmpty()
     .withMessage("Sale is required")
@@ -32,14 +25,6 @@ const invoiceValidator = [
 ];
 
 const invoiceUpdateValidator = [
-  body("invoiceNumber")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Invoice number cannot be empty")
-    .isLength({ max: 50 })
-    .withMessage("Invoice number must not exceed 50 characters"),
-
   body("invoiceDate")
     .optional()
     .isISO8601()

@@ -14,6 +14,11 @@ const {
 } = require("../services/notificationService");
 
 
+const {
+  generateDocumentNumber,
+} = require("../services/documentNumberService");
+
+
 const calculateQuotationTotals = ({
   items,
   laborCost = 0,
@@ -138,10 +143,11 @@ const getQuotationById = async (req, res, next) => {
 const createQuotation = async (req, res, next) => {
   try {
     const {
+      quotationNumber: _quotationNumber,
       items,
       customerId,
-      laborCost = 0,
-      otherDirectCosts = 0,
+      laborCost,
+      otherDirectCosts,
       ...quotationData
     } = req.body;
 
@@ -167,8 +173,14 @@ const createQuotation = async (req, res, next) => {
       otherDirectCosts,
     });
 
+    // GENERATE DOCUMENT NUMBER
+    const quotationNumber = await generateDocumentNumber(
+      "quotation"
+    );
+
     const quotation = await Quotation.create({
       ...quotationData,
+      quotationNumber,
       customerId,
       items: calculatedItems,
       laborCost,
@@ -179,25 +191,25 @@ const createQuotation = async (req, res, next) => {
     });
 
     // CREATE NOTIFICATION
-try {
-  await createNotificationsForRoles({
-    roles: ["owner", "admin"],
-    type: "quotation",
-    title: "New Quotation",
-    message: `Quotation ${quotation.quotationNumber} was created.`,
-    link: `/quotations?search=${encodeURIComponent(
-      quotation.quotationNumber
-    )}`,
-    entityType: "Quotation",
-    entityId: quotation._id,
-  });
-} catch (notificationError) {
-  console.error(
-    "Failed to create quotation notification:",
-    notificationError,
-  );
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin"],
+        type: "quotation",
+        title: "New Quotation",
+        message: `Quotation ${quotation.quotationNumber} was created.`,
+        link: `/quotations?search=${encodeURIComponent(
+          quotation.quotationNumber
+        )}`,
+        entityType: "Quotation",
+        entityId: quotation._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create quotation notification:",
+        notificationError
+      );
     }
-    
+
     const populatedQuotation =
       await Quotation.findById(quotation._id)
         .populate("customerId", "customerCode name")
@@ -216,6 +228,8 @@ try {
   }
 };
 
+
+
 // UPDATE QUOTATION
 const updateQuotation = async (req, res, next) => {
   try {
@@ -230,7 +244,6 @@ const updateQuotation = async (req, res, next) => {
     }
 
     const {
-      quotationNumber,
       customerId,
       quotationDate,
       status,
@@ -259,14 +272,8 @@ const updateQuotation = async (req, res, next) => {
       quotation.items = items;
     }
 
-    if (quotationNumber !== undefined) {
-      quotation.quotationNumber =
-        quotationNumber;
-    }
-
     if (quotationDate !== undefined) {
-      quotation.quotationDate =
-        quotationDate;
+      quotation.quotationDate = quotationDate;
     }
 
     if (status !== undefined) {
@@ -278,10 +285,8 @@ const updateQuotation = async (req, res, next) => {
     }
 
     if (otherDirectCosts !== undefined) {
-      quotation.otherDirectCosts =
-        otherDirectCosts;
+      quotation.otherDirectCosts = otherDirectCosts;
     }
-
 
     const {
       calculatedItems,
@@ -290,8 +295,7 @@ const updateQuotation = async (req, res, next) => {
     } = calculateQuotationTotals({
       items: quotation.items,
       laborCost: quotation.laborCost,
-      otherDirectCosts:
-        quotation.otherDirectCosts,
+      otherDirectCosts: quotation.otherDirectCosts,
     });
 
     quotation.items = calculatedItems;
@@ -323,10 +327,12 @@ const updateQuotation = async (req, res, next) => {
   }
 };
 
+
+
 // DELETE QUOTATION
 const deleteQuotation = async (req, res, next) => {
   try {
-    const quotation = await Quotation.findByIdAndDelete(req.params.id);
+    const quotation = await Quotation.findById(req.params.id);
 
     if (!quotation) {
       return res.status(404).json({
@@ -334,6 +340,15 @@ const deleteQuotation = async (req, res, next) => {
         message: "Quotation not found",
       });
     }
+
+    if (quotation.status !== "draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only draft quotations can be deleted",
+      });
+    }
+
+    await quotation.deleteOne();
 
     res.status(200).json({
       success: true,

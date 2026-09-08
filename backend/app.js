@@ -29,6 +29,8 @@ const notificationRoutes = require("./routes/notificationRoutes");
 
 const dashboardRoutes = require("./routes/dashboardRoutes");
 
+const unitRoutes = require("./routes/unitRoutes");
+
 
 const errorMiddleware = require("./middleware/errorMiddleware");
 const notFound = require("./middleware/notFound");
@@ -73,6 +75,7 @@ app.use("/api/inventory-movements", inventoryMovementRoutes);
 app.use("/api/accounting", accountingRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/units", unitRoutes);
 
 app.use("/api/search", searchRoutes);
 app.use("/api/notifications", notificationRoutes);

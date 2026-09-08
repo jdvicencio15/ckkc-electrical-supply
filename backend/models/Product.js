@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const productSchema = new mongoose.Schema(
@@ -28,6 +29,13 @@ const productSchema = new mongoose.Schema(
       required: true,
     },
 
+    unitId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Unit",
+      required: false,
+    },
+
+    // Legacy field — temporary during UOM migration
     unit: {
       type: String,
       required: true,
@@ -54,7 +62,8 @@ const productSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Product", productSchema);
+

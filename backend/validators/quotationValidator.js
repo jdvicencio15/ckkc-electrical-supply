@@ -1,13 +1,6 @@
 const { body } = require("express-validator");
 
 const quotationValidator = [
-  body("quotationNumber")
-    .trim()
-    .notEmpty()
-    .withMessage("Quotation number is required")
-    .isLength({ max: 50 })
-    .withMessage("Quotation number must not exceed 50 characters"),
-
   body("customerId")
     .notEmpty()
     .withMessage("Customer is required")
@@ -70,16 +63,6 @@ body("items.*.quantity")
 ];
 
 const quotationUpdateValidator = [
-  body("quotationNumber")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Quotation number cannot be empty")
-    .isLength({ max: 50 })
-    .withMessage(
-      "Quotation number must not exceed 50 characters"
-    ),
-
   body("customerId")
     .optional()
     .notEmpty()

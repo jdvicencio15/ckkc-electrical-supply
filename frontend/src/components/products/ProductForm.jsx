@@ -6,6 +6,7 @@ const initialForm = {
   name: "",
   description: "",
   categoryId: "",
+  unitId: "",
   unit: "",
   minimumStock: 0,
   status: "active",
@@ -13,6 +14,7 @@ const initialForm = {
 
 function ProductForm({
   categories,
+  units,
   product,
   onSubmit,
   onCancel,
@@ -27,6 +29,7 @@ function ProductForm({
         name: product.name || "",
         description: product.description || "",
         categoryId: product.categoryId?._id || "",
+        unitId: product.unitId?._id || "",
         unit: product.unit || "",
         minimumStock: product.minimumStock ?? 0,
         status: product.status || "active",
@@ -42,6 +45,20 @@ function ProductForm({
     setFormData((current) => ({
       ...current,
       [name]: value,
+    }));
+  };
+
+  const handleUnitChange = (event) => {
+    const unitId = event.target.value;
+
+    const selectedUnit = units.find(
+      (unit) => unit._id === unitId
+    );
+
+    setFormData((current) => ({
+      ...current,
+      unitId,
+      unit: selectedUnit?.code || "",
     }));
   };
 
@@ -67,6 +84,7 @@ function ProductForm({
             value={formData.sku}
             onChange={handleChange}
             required
+            disabled={submitting}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
@@ -81,6 +99,7 @@ function ProductForm({
             value={formData.name}
             onChange={handleChange}
             required
+            disabled={submitting}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
@@ -96,11 +115,13 @@ function ProductForm({
           value={formData.description}
           onChange={handleChange}
           rows="3"
+          disabled={submitting}
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        {/* Category */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Category
@@ -111,6 +132,7 @@ function ProductForm({
             value={formData.categoryId}
             onChange={handleChange}
             required
+            disabled={submitting}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             <option value="">Select category</option>
@@ -123,23 +145,33 @@ function ProductForm({
           </select>
         </div>
 
+        {/* Unit */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-            Unit
+            Unit of Measurement
           </label>
 
-          <input
-            name="unit"
-            value={formData.unit}
-            onChange={handleChange}
+          <select
+            name="unitId"
+            value={formData.unitId}
+            onChange={handleUnitChange}
             required
-            placeholder="e.g. piece, meter"
+            disabled={submitting}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-          />
+          >
+            <option value="">Select unit</option>
+
+            {units.map((unit) => (
+              <option key={unit._id} value={unit._id}>
+                {unit.code} — {unit.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        {/* Minimum Stock */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Minimum Stock
@@ -151,10 +183,12 @@ function ProductForm({
             min="0"
             value={formData.minimumStock}
             onChange={handleChange}
+            disabled={submitting}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 
+        {/* Status */}
         {product && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -165,6 +199,7 @@ function ProductForm({
               name="status"
               value={formData.status}
               onChange={handleChange}
+              disabled={submitting}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="active">Active</option>
@@ -201,3 +236,4 @@ function ProductForm({
 }
 
 export default ProductForm;
+

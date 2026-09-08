@@ -1,10 +1,36 @@
+
 const Product = require("../models/Product");
+const Unit = require("../models/Unit");
+
+// VALIDATE UNIT REFERENCE
+const validateUnit = async (unitId) => {
+  if (!unitId) return null;
+
+  const unit = await Unit.findById(unitId);
+
+  if (!unit) {
+    const error = new Error("Unit not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (unit.status !== "active") {
+    const error = new Error(
+      "This unit is inactive and cannot be assigned to a product."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return unit;
+};
 
 // GET ALL PRODUCTS
 const getProducts = async (req, res, next) => {
   try {
     const products = await Product.find()
-      .populate("categoryId", "name");
+      .populate("categoryId", "name")
+      .populate("unitId", "code name");
 
     res.status(200).json({
       success: true,
@@ -20,7 +46,8 @@ const getProducts = async (req, res, next) => {
 const getProductById = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate("categoryId", "name");
+      .populate("categoryId", "name")
+      .populate("unitId", "code name");
 
     if (!product) {
       return res.status(404).json({
@@ -41,7 +68,14 @@ const getProductById = async (req, res, next) => {
 // CREATE PRODUCT
 const createProduct = async (req, res, next) => {
   try {
+    await validateUnit(req.body.unitId);
+
     const product = await Product.create(req.body);
+
+    await product.populate([
+      { path: "categoryId", select: "name" },
+      { path: "unitId", select: "code name" },
+    ]);
 
     res.status(201).json({
       success: true,
@@ -58,6 +92,8 @@ const updateProduct = async (req, res, next) => {
     // currentStock must not be manually changed through Product CRUD.
     const { currentStock, ...updateData } = req.body;
 
+    await validateUnit(updateData.unitId);
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -65,7 +101,9 @@ const updateProduct = async (req, res, next) => {
         new: true,
         runValidators: true,
       }
-    );
+    )
+      .populate("categoryId", "name")
+      .populate("unitId", "code name");
 
     if (!product) {
       return res.status(404).json({
@@ -111,3 +149,4 @@ module.exports = {
   updateProduct,
   deleteProduct,
 };
+

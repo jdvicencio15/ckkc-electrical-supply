@@ -11,12 +11,16 @@ import categoryService from "../services/categoryService";
 import ProductForm from "../components/products/ProductForm";
 import Toast from "../components/common/Toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import unitService from "../services/unitService";
 
 import { useAuth } from "../context/AuthContext";
 
 function Products() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+
+  const [units, setUnits] = useState([]);
+
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -41,6 +45,12 @@ const [deleting, setDeleting] = useState(false);
     message: "",
   });
 
+  const loadUnits = async () => {
+    const response = await unitService.getActiveUnits();
+    setUnits(response.units || []);
+  };
+
+
   const canManageProducts =
     user?.role === "owner" ||
     user?.role === "admin" ||
@@ -61,7 +71,7 @@ const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     const loadData = async () => {
       try {
-        await Promise.all([loadProducts(), loadCategories()]);
+        await Promise.all([loadProducts(), loadCategories()], loadUnits());
       } catch (error) {
         console.error("Failed to load products:", error);
 
@@ -321,6 +331,7 @@ const handleCancelDelete = () => {
             <ProductForm
               categories={categories}
               product={editingProduct}
+              units={units}
               onSubmit={
                 editingProduct
                   ? handleUpdate
@@ -470,7 +481,7 @@ const handleCancelDelete = () => {
                         </td>
 
                         <td className="py-4 text-sm text-slate-600 dark:text-slate-400">
-                          {product.unit}
+                          {product.unitId?.code || product.unit || "—"}
                         </td>
 
                         <td className="py-4 text-sm text-slate-600 dark:text-slate-400">

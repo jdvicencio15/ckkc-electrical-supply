@@ -13,6 +13,9 @@ const protect = require("../middleware/authMiddleware");
 const authorize = require("../middleware/authorize");
 const upload = require("../middleware/upload");
 
+const settingsValidator = require("../validators/settingsValidator");
+const validationMiddleware = require("../middleware/validationMiddleware");
+
 // GET SETTINGS
 router.get(
   "/",
@@ -26,6 +29,8 @@ router.put(
   "/",
   protect,
   authorize("owner", "admin"),
+  settingsValidator,
+  validationMiddleware,
   updateSettings
 );
 
@@ -49,3 +54,5 @@ router.delete(
 
 
 module.exports = router;
+
+

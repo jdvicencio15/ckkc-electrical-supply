@@ -13,6 +13,10 @@ const {
   createNotificationsForRoles,
 } = require("../services/notificationService");
 
+const {
+  generateDocumentNumber,
+} = require("../services/documentNumberService");
+
 // GET ALL INVOICES
 const getInvoices = async (req, res, next) => {
   try {
@@ -65,7 +69,7 @@ const getInvoiceById = async (req, res, next) => {
 const createInvoice = async (req, res, next) => {
   try {
     const {
-      invoiceNumber,
+      invoiceNumber: _invoiceNumber,
       saleId,
       invoiceDate,
       dueDate,
@@ -132,6 +136,11 @@ const createInvoice = async (req, res, next) => {
     // INVOICE TOTAL
     const totalAmount = subtotal;
 
+    // GENERATE DOCUMENT NUMBER
+    const invoiceNumber = await generateDocumentNumber(
+      "invoice"
+    );
+
     // CREATE INVOICE AS DRAFT
     const invoice = await Invoice.create({
       invoiceNumber,
@@ -147,25 +156,25 @@ const createInvoice = async (req, res, next) => {
     });
 
     // CREATE NOTIFICATION
-try {
-  await createNotificationsForRoles({
-    roles: ["owner", "admin"],
-    type: "invoice",
-    title: "New Invoice",
-    message: `Invoice ${invoice.invoiceNumber} was created.`,
-    link: `/invoices?search=${encodeURIComponent(
-      invoice.invoiceNumber
-    )}`,
-    entityType: "Invoice",
-    entityId: invoice._id,
-  });
-} catch (notificationError) {
-  console.error(
-    "Failed to create invoice notification:",
-    notificationError,
-  );
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin"],
+        type: "invoice",
+        title: "New Invoice",
+        message: `Invoice ${invoice.invoiceNumber} was created.`,
+        link: `/invoices?search=${encodeURIComponent(
+          invoice.invoiceNumber
+        )}`,
+        entityType: "Invoice",
+        entityId: invoice._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create invoice notification:",
+        notificationError
+      );
     }
-    
+
     // POPULATE RESPONSE
     const populatedInvoice =
       await Invoice.findById(invoice._id)
@@ -217,11 +226,10 @@ const updateInvoice = async (req, res, next) => {
     }
 
     const {
-      invoiceNumber,
-      invoiceDate,
-      dueDate,
-      status,
-    } = req.body;
+  invoiceDate,
+  dueDate,
+  status,
+} = req.body;
 
     // ONLY ALLOW VALID DRAFT TRANSITIONS
     if (
@@ -235,10 +243,6 @@ const updateInvoice = async (req, res, next) => {
     }
 
     // UPDATE BASIC FIELDS ONLY
-    if (invoiceNumber !== undefined) {
-      invoice.invoiceNumber = invoiceNumber;
-    }
-
     if (invoiceDate !== undefined) {
       invoice.invoiceDate = invoiceDate;
     }
