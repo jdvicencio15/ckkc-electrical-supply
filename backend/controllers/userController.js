@@ -282,6 +282,159 @@ const updateUserStatus = async (req, res) => {
   }
 };
 
+
+// ==============================
+// Update Current User Profile
+// ==============================
+
+const updateMyProfile = async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+    } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    if (
+      email &&
+      email.toLowerCase() !== user.email
+    ) {
+      const existingUser = await User.findOne({
+        email: email.toLowerCase(),
+        _id: { $ne: user._id },
+      });
+
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already registered.",
+        });
+      }
+
+      user.email = email.toLowerCase();
+    }
+
+    user.firstName = firstName;
+    user.lastName = lastName;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully.",
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Failed to update current user profile:",
+      error
+    );
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered.",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update profile.",
+    });
+  }
+};
+
+
+// ==============================
+// Change Current User Password
+// ==============================
+
+const changeMyPassword = async (req, res) => {
+  try {
+    const {
+      currentPassword,
+      newPassword,
+    } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect.",
+      });
+    }
+
+    const isSamePassword = await bcrypt.compare(
+      newPassword,
+      user.password
+    );
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "New password must be different from your current password.",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+
+    const hashedPassword = await bcrypt.hash(
+      newPassword,
+      salt
+    );
+
+    user.password = hashedPassword;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password changed successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to change current user password:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to change password.",
+    });
+  }
+};
+
 module.exports = {
   getMe,
   getUsers,
@@ -289,4 +442,6 @@ module.exports = {
   createUser,
   updateUser,
   updateUserStatus,
+  updateMyProfile,
+  changeMyPassword,
 };

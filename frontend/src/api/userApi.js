@@ -11,6 +11,34 @@ const userApi = {
     return response.data;
   },
 
+
+  // ==============================
+  // Update Current User Profile
+  // ==============================
+
+  updateMyProfile: async (userData) => {
+    const response = await API.patch(
+      "/users/me",
+      userData
+    );
+
+    return response.data;
+  },
+
+  // ==============================
+  // Change Current User Password
+  // ==============================
+
+  changeMyPassword: async (passwordData) => {
+    const response = await API.patch(
+      "/users/me/password",
+      passwordData
+    );
+
+    return response.data;
+  },
+
+
   // ==============================
   // Get Single User
   // ==============================

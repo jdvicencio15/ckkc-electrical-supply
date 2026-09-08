@@ -81,6 +81,15 @@ const formatNotificationTime = (date) => {
   });
 };
 
+const roleLabels = {
+  owner: "Owner",
+  admin: "Admin",
+  sales: "Sales",
+  purchasing: "Purchasing",
+  accounting: "Accounting",
+};
+
+
 function Header() {
   const { user, logout } = useAuth();
   const { darkMode, toggleTheme } = useTheme();
@@ -404,7 +413,7 @@ const handleNotificationClick = async (notification) => {
         {/* User */}
         <div className="hidden text-right sm:block">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {user?.role || "Admin"}
+           {roleLabels[user?.role] || "Admin"}
           </p>
         </div>
 

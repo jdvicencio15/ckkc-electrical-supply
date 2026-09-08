@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
 
       try {
         const response = await authService.getMe();
-        
+
 
         setToken(savedToken);
         setUser(response.user);
@@ -76,6 +76,19 @@ export const AuthProvider = ({ children }) => {
   return response;
 };
 
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+
+    const userData = JSON.stringify(updatedUser);
+
+    if (localStorage.getItem("token")) {
+      localStorage.setItem("user", userData);
+    }
+
+    if (sessionStorage.getItem("token")) {
+      sessionStorage.setItem("user", userData);
+    }
+  };
 
 
   const register = async (userData) => {
@@ -102,8 +115,9 @@ export const AuthProvider = ({ children }) => {
         token,
         loading,
         isAuthenticated: !!token,
-        login,
+         login,
         register,
+        updateUser,
         logout,
       }}
     >

@@ -59,6 +59,34 @@ const userService = {
 
     return data;
   },
+
+    // ==============================
+  // Update Current User Profile
+  // ==============================
+
+  updateMyProfile: async (userData) => {
+    const data = await userApi.updateMyProfile(
+      userData
+    );
+
+    return data;
+  },
+
+  // ==============================
+  // Change Current User Password
+  // ==============================
+
+  changeMyPassword: async (passwordData) => {
+    const data = await userApi.changeMyPassword(
+      passwordData
+    );
+
+    return data;
+  },
+
+
 };
+
+
 
 export default userService;

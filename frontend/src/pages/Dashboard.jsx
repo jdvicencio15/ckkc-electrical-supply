@@ -8,7 +8,6 @@ import {
   FaBox,
 } from "react-icons/fa";
 
-import { useAuth } from "../context/AuthContext";
 import StatCard from "../components/dashboard/StatCard";
 import SalesOverview from "../components/dashboard/SalesOverview";
 import LowStockAlerts from "../components/dashboard/LowStockAlerts";
@@ -17,7 +16,6 @@ import RecentTransactions from "../components/dashboard/RecentTransactions";
 import QuickActions from "../components/dashboard/QuickActions";
 
 function Dashboard() {
-  const { user } = useAuth();
 
   const currentDate = new Date();
 
@@ -63,7 +61,7 @@ function Dashboard() {
 
   const totalOrders = selectedSales.length;
 
-  const netProfit  = selectedSales.reduce(
+  const netProfit = selectedSales.reduce(
     (total, sale) => total + (sale.totalProfit || 0),
     0,
   );
@@ -102,27 +100,6 @@ function Dashboard() {
       label,
     };
   });
-
-
-useEffect(() => {
-  const loadDashboard = async () => {
-    try {
-      const response = await dashboardService.getSales();
-      const productResponse = await dashboardService.getProducts();
-
-
-      setSales(response.sales || []);
-      setProducts(productResponse.products || []);
-    } catch (error) {
-      console.error("Failed to load dashboard sales:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  loadDashboard();
-}, []);
-
 
   return (
     <div className="space-y-6">
@@ -175,7 +152,7 @@ useEffect(() => {
         />
 
         <StatCard
-           title="Net Profit"
+          title="Net Profit"
           value={
             loading
               ? "Loading..."
@@ -207,12 +184,9 @@ useEffect(() => {
 
       {/* Sales by Category + Recent Transactions */}
       <div className="grid gap-6 lg:grid-cols-2">
-     <SalesByCategory
-  sales={selectedSales}
-  products={products}
-/>
+        <SalesByCategory sales={selectedSales} products={products} />
 
-       <RecentTransactions sales={selectedSales} />
+        <RecentTransactions sales={selectedSales} />
       </div>
 
       {/* Quick Actions */}

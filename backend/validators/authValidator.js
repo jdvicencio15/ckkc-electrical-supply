@@ -64,9 +64,55 @@ const resetPasswordValidator = [
     .withMessage("Passwords do not match"),
 ];
 
+
+// UPDATE PROFILE
+
+const updateProfileValidator = [
+  body("firstName")
+    .trim()
+    .notEmpty()
+    .withMessage("First name is required")
+    .isLength({ max: 100 })
+    .withMessage("First name must not exceed 100 characters"),
+
+  body("lastName")
+    .trim()
+    .notEmpty()
+    .withMessage("Last name is required")
+    .isLength({ max: 100 })
+    .withMessage("Last name must not exceed 100 characters"),
+
+  body("email")
+    .trim()
+    .isEmail()
+    .withMessage("Invalid email"),
+];
+
+
+// CHANGE PASSWORD
+
+const changePasswordValidator = [
+  body("currentPassword")
+    .notEmpty()
+    .withMessage("Current password is required"),
+
+  body("newPassword")
+    .isLength({ min: 8 })
+    .withMessage("New password must be at least 8 characters"),
+
+  body("confirmPassword")
+    .notEmpty()
+    .withMessage("Password confirmation is required")
+    .custom((value, { req }) => value === req.body.newPassword)
+    .withMessage("Passwords do not match"),
+];
+
+
 module.exports = {
   registerValidator,
   loginValidator,
   forgotPasswordValidator,
   resetPasswordValidator,
+  updateProfileValidator,
+  changePasswordValidator,
 };

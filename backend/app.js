@@ -27,6 +27,9 @@ const settingsRoutes = require("./routes/settingsRoutes");
 const searchRoutes = require("./routes/searchRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 
+const dashboardRoutes = require("./routes/dashboardRoutes");
+
+
 const errorMiddleware = require("./middleware/errorMiddleware");
 const notFound = require("./middleware/notFound");
 const { globalLimiter } = require("./middleware/rateLimitMiddleware");
@@ -61,6 +64,7 @@ app.use("/api/client-pos", clientPORoutes);
 app.use("/api/supplier-pos", supplierPORoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/sales", saleRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/expenses", expenseRoutes);
