@@ -1,13 +1,6 @@
 const { body } = require("express-validator");
 
 const clientPOValidator = [
-  body("poNumber")
-    .trim()
-    .notEmpty()
-    .withMessage("PO number is required")
-    .isLength({ max: 50 })
-    .withMessage("PO number must not exceed 50 characters"),
-
   body("customerId")
     .notEmpty()
     .withMessage("Customer is required")
@@ -48,38 +41,24 @@ const clientPOValidator = [
     .notEmpty()
     .withMessage("Item description is required"),
 
-body("items.*.quantity")
-  .isFloat({ min: 0.01 })
-  .withMessage(
-    "Quantity must be greater than 0"
-  ),
+  body("items.*.quantity")
+    .isFloat({ min: 0.01 })
+    .withMessage("Quantity must be greater than 0"),
 
   body("items.*.agreedUnitPrice")
     .isFloat({ min: 0 })
     .withMessage(
       "Agreed unit price must be a valid number greater than or equal to 0"
     ),
-
-
 ];
 
 const clientPOUpdateValidator = [
-  body("poNumber")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("PO number cannot be empty")
-    .isLength({ max: 50 })
-    .withMessage(
-      "PO number must not exceed 50 characters"
-    ),
-
-  body("customerId")
-    .optional()
-    .notEmpty()
-    .withMessage("Customer cannot be empty")
-    .isMongoId()
-    .withMessage("Valid customer ID is required"),
+ body("customerId")
+  .optional()
+  .notEmpty()
+  .withMessage("Customer cannot be empty")
+  .isMongoId()
+  .withMessage("Valid customer ID is required"),
 
   body("quotationId")
     .optional()
@@ -105,36 +84,33 @@ const clientPOUpdateValidator = [
   body("items")
     .optional()
     .isArray({ min: 1 })
-    .withMessage(
-      "Client PO must contain at least one item"
-    ),
+    .withMessage("Client PO must contain at least one item"),
 
   body("items.*.productId")
-    .optional()
+    .if(body("items").exists())
+    .notEmpty()
+    .withMessage("Product is required for every item")
     .isMongoId()
     .withMessage("Valid product ID is required"),
 
   body("items.*.description")
-    .optional()
+    .if(body("items").exists())
     .trim()
     .notEmpty()
     .withMessage("Item description is required"),
 
   body("items.*.quantity")
-    .optional()
+    .if(body("items").exists())
     .isFloat({ min: 0.01 })
-    .withMessage(
-      "Quantity must be greater than 0"
-    ),
+    .withMessage("Quantity must be greater than 0"),
 
   body("items.*.agreedUnitPrice")
-    .optional()
+    .if(body("items").exists())
     .isFloat({ min: 0 })
     .withMessage(
       "Agreed unit price must be a valid number greater than or equal to 0"
     ),
 ];
-
 
 module.exports = {
   clientPOValidator,

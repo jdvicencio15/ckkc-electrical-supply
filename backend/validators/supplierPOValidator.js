@@ -1,16 +1,6 @@
 const { body } = require("express-validator");
 
 const supplierPOValidator = [
-body("poNumber")
-  .optional()
-  .trim()
-  .notEmpty()
-  .withMessage("PO number cannot be empty")
-  .isLength({ max: 50 })
-  .withMessage(
-    "PO number must not exceed 50 characters"
-  ),
-
   body("supplierId")
     .notEmpty()
     .withMessage("Supplier is required")
@@ -67,13 +57,7 @@ body("poNumber")
 ];
 
 const supplierPOUpdateValidator = [
-  body("poNumber")
-    .optional()
-    .trim()
-    .isLength({ max: 50 })
-    .withMessage("PO number must not exceed 50 characters"),
-
-  body("supplierId")
+body("supplierId")
     .optional()
     .isMongoId()
     .withMessage("Valid supplier ID is required"),

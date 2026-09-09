@@ -267,15 +267,19 @@ const updateInventoryMovement = async (req, res, next) => {
       });
     }
 
-    // Sale movements are system-generated and immutable
-    if (movement.referenceType === "SALE") {
-      await session.abortTransaction();
+   // System-generated Sale and Purchase movements are immutable
+if (
+  movement.referenceType === "SALE" ||
+  movement.referenceType === "PURCHASE"
+) {
+  await session.abortTransaction();
 
-      return res.status(403).json({
-        success: false,
-        message: "Sale-generated inventory movements cannot be modified",
-      });
-    }
+  return res.status(403).json({
+    success: false,
+    message:
+      "System-generated inventory movements cannot be modified",
+  });
+}
 
     const {
       productId,
@@ -435,7 +439,7 @@ const updateInventoryMovement = async (req, res, next) => {
     );
   }
     }
-    
+
     const populatedMovement = await InventoryMovement.findById(movement._id)
       .populate("productId", "sku name unit currentStock")
       .populate("createdBy", "firstName lastName");
@@ -472,15 +476,19 @@ const deleteInventoryMovement = async (req, res, next) => {
       });
     }
 
-    // Sale movements are system-generated and immutable
-    if (movement.referenceType === "SALE") {
-      await session.abortTransaction();
+    // System-generated Sale and Purchase movements are immutable
+if (
+  movement.referenceType === "SALE" ||
+  movement.referenceType === "PURCHASE"
+) {
+  await session.abortTransaction();
 
-      return res.status(403).json({
-        success: false,
-        message: "Sale-generated inventory movements cannot be deleted",
-      });
-    }
+  return res.status(403).json({
+    success: false,
+    message:
+      "System-generated inventory movements cannot be deleted",
+  });
+}
 
     const productId = movement.productId;
 

@@ -83,6 +83,33 @@ const settingsValidator = [
     .isLength({ min: 1, max: 20 })
     .withMessage("Quotation prefix must be between 1 and 20 characters"),
 
+  body("salesInvoicing.purchasePrefix")
+  .optional()
+  .isString()
+  .withMessage("Purchase prefix must be a string")
+  .trim()
+  .isLength({ min: 1, max: 20 })
+  .withMessage(
+    "Purchase prefix must be between 1 and 20 characters"
+  ),
+
+  body("salesInvoicing.clientPOPrefix")
+  .optional()
+  .isString()
+  .withMessage("Client PO prefix must be a string")
+  .trim()
+  .isLength({ min: 1, max: 20 })
+  .withMessage("Client PO prefix must be between 1 and 20 characters"),
+
+body("salesInvoicing.supplierPOPrefix")
+  .optional()
+  .isString()
+  .withMessage("Supplier PO prefix must be a string")
+  .trim()
+  .isLength({ min: 1, max: 20 })
+    .withMessage("Supplier PO prefix must be between 1 and 20 characters"),
+
+
   body("salesInvoicing.invoiceStartingNumber")
     .optional()
     .isInt({ min: 1 })
@@ -94,6 +121,27 @@ const settingsValidator = [
     .withMessage(
       "Quotation starting number must be an integer greater than or equal to 1"
     ),
+
+  body("salesInvoicing.purchaseStartingNumber")
+  .optional()
+  .isInt({ min: 1 })
+  .withMessage(
+    "Purchase starting number must be an integer greater than or equal to 1"
+  ),
+
+  body("salesInvoicing.clientPOStartingNumber")
+  .optional()
+  .isInt({ min: 1 })
+  .withMessage(
+    "Client PO starting number must be an integer greater than or equal to 1"
+  ),
+
+body("salesInvoicing.supplierPOStartingNumber")
+  .optional()
+  .isInt({ min: 1 })
+  .withMessage(
+    "Supplier PO starting number must be an integer greater than or equal to 1"
+  ),
 
   body("salesInvoicing.defaultPaymentTerms")
     .optional()

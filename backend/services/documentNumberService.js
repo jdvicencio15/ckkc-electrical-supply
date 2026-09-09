@@ -11,6 +11,23 @@ const DOCUMENT_CONFIG = {
     prefixField: "invoicePrefix",
     startingNumberField: "invoiceStartingNumber",
   },
+
+  purchase: {
+  prefixField: "purchasePrefix",
+  startingNumberField: "purchaseStartingNumber",
+  },
+
+  clientPO: {
+  prefixField: "clientPOPrefix",
+  startingNumberField: "clientPOStartingNumber",
+  },
+
+  supplierPO: {
+  prefixField: "supplierPOPrefix",
+  startingNumberField: "supplierPOStartingNumber",
+},
+
+
 };
 
 const PAD_LENGTH = 6;
@@ -31,11 +48,15 @@ const generateDocumentNumber = async (
     throw new Error("System settings not found");
   }
 
-  const salesInvoicing = settings.salesInvoicing || {};
+ const salesInvoicing = settings.salesInvoicing || {};
+const systemName = settings.appearance?.systemName?.trim();
 
-  const prefix = salesInvoicing[config.prefixField];
-  const startingNumber = salesInvoicing[config.startingNumberField];
+const prefix = salesInvoicing[config.prefixField];
+const startingNumber = salesInvoicing[config.startingNumberField];
 
+if (!systemName) {
+  throw new Error("System name is not configured");
+}
   if (!prefix) {
     throw new Error(`Prefix is not configured for ${documentType}`);
   }
@@ -100,7 +121,7 @@ const generateDocumentNumber = async (
     "0"
   );
 
-  return `${prefix}${year}-${paddedSequence}`;
+ return `${systemName}-${prefix}${year}-${paddedSequence}`;
 };
 
 module.exports = {

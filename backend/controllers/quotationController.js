@@ -1,5 +1,5 @@
 const Quotation = require("../models/Quotation");
-
+const ClientPO = require("../models/ClientPO");
 const Customer = require("../models/Customer");
 const Product = require("../models/Product");
 
@@ -139,6 +139,7 @@ const getQuotationById = async (req, res, next) => {
   }
 };
 
+
 // CREATE QUOTATION
 const createQuotation = async (req, res, next) => {
   try {
@@ -151,17 +152,47 @@ const createQuotation = async (req, res, next) => {
       ...quotationData
     } = req.body;
 
-    await checkReferenceExists(
-      Customer,
-      customerId,
-      "Customer"
-    );
+    // CUSTOMER
+    const customer = await Customer.findById(customerId);
 
+    if (!customer) {
+      const error = new Error("Customer not found");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (customer.status !== "active") {
+      const error = new Error(
+        "Cannot create Quotation for an inactive customer"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // PRODUCTS
     await checkReferencesExist(
       Product,
       items.map((item) => item.productId),
       "Product"
     );
+
+    const products = await Product.find({
+      _id: {
+        $in: items.map((item) => item.productId),
+      },
+    }).select("_id status");
+
+    const inactiveProduct = products.find(
+      (product) => product.status !== "active"
+    );
+
+    if (inactiveProduct) {
+      const error = new Error(
+        "Cannot add inactive product to Quotation"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
 
     const {
       calculatedItems,
@@ -230,11 +261,12 @@ const createQuotation = async (req, res, next) => {
 
 
 
+
+
 // UPDATE QUOTATION
 const updateQuotation = async (req, res, next) => {
   try {
-    const quotation =
-      await Quotation.findById(req.params.id);
+    const quotation = await Quotation.findById(req.params.id);
 
     if (!quotation) {
       return res.status(404).json({
@@ -252,41 +284,139 @@ const updateQuotation = async (req, res, next) => {
       otherDirectCosts,
     } = req.body;
 
-    if (customerId !== undefined) {
-      await checkReferenceExists(
-        Customer,
-        customerId,
-        "Customer"
-      );
+    // =========================
+    // VALIDATE STATUS TRANSITION
+    // =========================
 
-      quotation.customerId = customerId;
+    const allowedStatusTransitions = {
+      draft: ["draft", "sent", "cancelled"],
+      sent: ["accepted", "rejected", "expired", "cancelled"],
+      accepted: [],
+      rejected: [],
+      expired: [],
+      cancelled: [],
+    };
+
+    if (status !== undefined) {
+      const allowedStatuses =
+        allowedStatusTransitions[quotation.status] || [];
+
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid quotation status transition: ${quotation.status} → ${status}`,
+        });
+      }
     }
 
-    if (items !== undefined) {
-      await checkReferencesExist(
-        Product,
-        items.map((item) => item.productId),
-        "Product"
-      );
+    // =========================
+    // ONLY DRAFT CAN EDIT
+    // COMMERCIAL / BASIC FIELDS
+    // =========================
 
-      quotation.items = items;
+    const hasEditableFields =
+      customerId !== undefined ||
+      quotationDate !== undefined ||
+      items !== undefined ||
+      laborCost !== undefined ||
+      otherDirectCosts !== undefined;
+
+    if (hasEditableFields && quotation.status !== "draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only draft quotations can be edited",
+      });
     }
+
+    // =========================
+    // UPDATE CUSTOMER
+    // =========================
+
+if (customerId !== undefined) {
+  const customer = await Customer.findById(customerId);
+
+  if (!customer) {
+    const error = new Error("Customer not found");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (customer.status !== "active") {
+    const error = new Error(
+      "Cannot assign Quotation to an inactive customer"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  quotation.customerId = customerId;
+}
+    // =========================
+    // UPDATE ITEMS
+    // =========================
+
+if (items !== undefined) {
+  await checkReferencesExist(
+    Product,
+    items.map((item) => item.productId),
+    "Product"
+  );
+
+  const products = await Product.find({
+    _id: {
+      $in: items.map((item) => item.productId),
+    },
+  }).select("_id status");
+
+  const inactiveProduct = products.find(
+    (product) => product.status !== "active"
+  );
+
+  if (inactiveProduct) {
+    const error = new Error(
+      "Cannot add inactive product to Quotation"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  quotation.items = items;
+}
+    // =========================
+    // UPDATE QUOTATION DATE
+    // =========================
 
     if (quotationDate !== undefined) {
       quotation.quotationDate = quotationDate;
     }
 
+    // =========================
+    // UPDATE STATUS
+    // =========================
+
     if (status !== undefined) {
       quotation.status = status;
     }
+
+    // =========================
+    // UPDATE LABOR COST
+    // =========================
 
     if (laborCost !== undefined) {
       quotation.laborCost = laborCost;
     }
 
+    // =========================
+    // UPDATE OTHER DIRECT COSTS
+    // =========================
+
     if (otherDirectCosts !== undefined) {
       quotation.otherDirectCosts = otherDirectCosts;
     }
+
+    // =========================
+    // RECALCULATE TOTALS
+    // =========================
 
     const {
       calculatedItems,
@@ -326,7 +456,6 @@ const updateQuotation = async (req, res, next) => {
     next(error);
   }
 };
-
 
 
 // DELETE QUOTATION

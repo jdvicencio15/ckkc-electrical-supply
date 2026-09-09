@@ -1,13 +1,6 @@
 const { body } = require("express-validator");
 
 const purchaseValidator = [
-  body("purchaseNumber")
-    .trim()
-    .notEmpty()
-    .withMessage("Purchase number is required")
-    .isLength({ max: 50 })
-    .withMessage("Purchase number must not exceed 50 characters"),
-
   body("supplierId")
     .notEmpty()
     .withMessage("Supplier is required")
@@ -51,16 +44,6 @@ body("items.*.quantity")
 ];
 
   const purchaseUpdateValidator = [
-  body("purchaseNumber")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Purchase number cannot be empty")
-    .isLength({ max: 50 })
-    .withMessage(
-      "Purchase number must not exceed 50 characters"
-    ),
-
   body("supplierId")
     .optional()
     .notEmpty()

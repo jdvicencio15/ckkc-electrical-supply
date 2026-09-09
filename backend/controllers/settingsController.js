@@ -118,7 +118,14 @@ const updateSettings = async (req, res) => {
   ) {
     settings.salesInvoicing.quotationPrefix =
       salesInvoicing.quotationPrefix.trim();
-  }
+    }
+
+    if (
+  salesInvoicing.purchasePrefix !== undefined
+) {
+  settings.salesInvoicing.purchasePrefix =
+    salesInvoicing.purchasePrefix.trim();
+}
 
   if (
     salesInvoicing.invoiceStartingNumber !== undefined
@@ -136,7 +143,49 @@ const updateSettings = async (req, res) => {
       Number(
         salesInvoicing.quotationStartingNumber
       );
-  }
+    }
+
+if (
+  salesInvoicing.purchaseStartingNumber !== undefined
+) {
+  settings.salesInvoicing.purchaseStartingNumber =
+    Number(
+      salesInvoicing.purchaseStartingNumber
+    );
+}
+
+    if (
+  salesInvoicing.clientPOPrefix !== undefined
+) {
+  settings.salesInvoicing.clientPOPrefix =
+    salesInvoicing.clientPOPrefix.trim();
+}
+
+if (
+  salesInvoicing.clientPOStartingNumber !== undefined
+) {
+  settings.salesInvoicing.clientPOStartingNumber =
+    Number(
+      salesInvoicing.clientPOStartingNumber
+    );
+}
+
+if (
+  salesInvoicing.supplierPOPrefix !== undefined
+) {
+  settings.salesInvoicing.supplierPOPrefix =
+    salesInvoicing.supplierPOPrefix.trim();
+}
+
+if (
+  salesInvoicing.supplierPOStartingNumber !== undefined
+) {
+  settings.salesInvoicing.supplierPOStartingNumber =
+    Number(
+      salesInvoicing.supplierPOStartingNumber
+    );
+    }
+    
 
   if (
     salesInvoicing.defaultPaymentTerms !== undefined

@@ -18,6 +18,10 @@ const {
   createNotificationsForRoles,
 } = require("../services/notificationService");
 
+const {
+  generateDocumentNumber,
+} = require("../services/documentNumberService");
+
 
 const calculatePurchaseTotals = (items) => {
   const calculatedItems = items.map((item) => ({
@@ -85,85 +89,169 @@ const getPurchaseById = async (req, res, next) => {
   }
 };
 
-// CREATE PURCHASE
+
+  // CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
-  const {
-  items,
-  supplierId,
-  supplierPOId,
-  relatedClientPOId,
-  ...purchaseData
-} = req.body;
+    const {
+      items,
+      supplierId,
+      supplierPOId,
+      relatedClientPOId,
+      purchaseDate,
+    } = req.body;
 
-    await checkReferenceExists(
-  Supplier,
-  supplierId,
-  "Supplier"
-);
+    // SUPPLIER
+    const supplier = await Supplier.findById(supplierId);
 
-await checkReferenceExists(
-  SupplierPO,
-  supplierPOId,
-  "Supplier PO"
-);
+    if (!supplier) {
+      const error = new Error("Supplier not found");
+      error.statusCode = 400;
+      throw error;
+    }
 
-await checkReferenceExists(
-  ClientPO,
-  relatedClientPOId,
-  "Client PO"
-);
+    if (supplier.status !== "active") {
+      const error = new Error(
+        "Cannot create Purchase for an inactive supplier"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
 
-await checkReferencesExist(
-  Product,
-  items.map((item) => item.productId),
-  "Product"
+// SUPPLIER PO
+let supplierPO = null;
+
+if (supplierPOId !== undefined) {
+  supplierPO = await SupplierPO.findById(supplierPOId);
+
+  if (!supplierPO) {
+    const error = new Error("Supplier PO not found");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (
+    supplierPO.supplierId.toString() !==
+    supplierId.toString()
+  ) {
+    const error = new Error(
+      "Supplier PO does not belong to the selected supplier"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+if (
+  supplierPO.status === "cancelled" ||
+  supplierPO.status === "received"
+) {
+  const error = new Error(
+    `Cannot create Purchase from a ${supplierPO.status} Supplier PO`
+  );
+  error.statusCode = 400;
+  throw error;
+}
+
+
+}
+// CLIENT PO
+if (relatedClientPOId !== undefined) {
+  const clientPO = await ClientPO.findById(
+    relatedClientPOId
+  );
+
+  if (!clientPO) {
+    const error = new Error("Client PO not found");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (
+    supplierPO &&
+    supplierPO.relatedClientPOId &&
+    supplierPO.relatedClientPOId.toString() !==
+      relatedClientPOId.toString()
+  ) {
+    const error = new Error(
+      "Client PO does not match the Supplier PO"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+    // PRODUCTS
+    await checkReferencesExist(
+      Product,
+      items.map((item) => item.productId),
+      "Product"
     );
 
+    const products = await Product.find({
+      _id: {
+        $in: items.map((item) => item.productId),
+      },
+    }).select("_id status");
+
+    const inactiveProduct = products.find(
+      (product) => product.status !== "active"
+    );
+
+    if (inactiveProduct) {
+      const error = new Error(
+        "Cannot add inactive product to Purchase"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // COMPUTE TOTAL ON BACKEND
     const {
       calculatedItems,
       totalAmount,
     } = calculatePurchaseTotals(items);
 
+    const purchaseNumber =
+      await generateDocumentNumber("purchase");
+
     const purchase = await Purchase.create({
-      ...purchaseData,
-  supplierId,
-  supplierPOId,
-  relatedClientPOId,
-  items: calculatedItems,
-  totalAmount,
-  createdBy: req.user._id,
+      purchaseNumber,
+      supplierId,
+      supplierPOId,
+      relatedClientPOId,
+      purchaseDate,
+      items: calculatedItems,
+      totalAmount,
+      createdBy: req.user._id,
     });
 
-
     // CREATE NOTIFICATION
-try {
-  await createNotificationsForRoles({
-    roles: ["owner", "admin"],
-    type: "purchase",
-    title: "New Purchase",
-    message: `Purchase ${purchase.purchaseNumber} was created.`,
-    link: `/purchases?search=${encodeURIComponent(
-      purchase.purchaseNumber
-    )}`,
-    entityType: "Purchase",
-    entityId: purchase._id,
-  });
-} catch (notificationError) {
-  console.error(
-    "Failed to create purchase notification:",
-    notificationError,
-  );
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin"],
+        type: "purchase",
+        title: "New Purchase",
+        message: `Purchase ${purchase.purchaseNumber} was created.`,
+        link: `/purchases?search=${encodeURIComponent(
+          purchase.purchaseNumber
+        )}`,
+        entityType: "Purchase",
+        entityId: purchase._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create purchase notification:",
+        notificationError
+      );
     }
-    
-    const populatedPurchase = await Purchase.findById(
-      purchase._id
-    )
-      .populate("supplierId", "supplierCode name")
-      .populate("supplierPOId", "poNumber")
-      .populate("relatedClientPOId", "poNumber")
-      .populate("items.productId", "sku name unit")
-      .populate("createdBy", "firstName lastName");
+
+    const populatedPurchase =
+      await Purchase.findById(purchase._id)
+        .populate("supplierId", "supplierCode name")
+        .populate("supplierPOId", "poNumber")
+        .populate("relatedClientPOId", "poNumber")
+        .populate("items.productId", "sku name unit")
+        .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
       success: true,
@@ -173,6 +261,11 @@ try {
     next(error);
   }
 };
+
+
+
+
+
 
 // UPDATE PURCHASE
 const updatePurchase = async (req, res, next) => {
@@ -186,8 +279,14 @@ const updatePurchase = async (req, res, next) => {
       });
     }
 
+    if (purchase.status !== "draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only draft purchases can be updated",
+      });
+    }
+
     const {
-      purchaseNumber,
       supplierId,
       supplierPOId,
       relatedClientPOId,
@@ -195,43 +294,135 @@ const updatePurchase = async (req, res, next) => {
       items,
     } = req.body;
 
-    // CHECK UPDATED REFERENCES
+    // DETERMINE FINAL REFERENCES
+    let supplierPO = null;
+    const nextSupplierId =
+      supplierId !== undefined
+        ? supplierId
+        : purchase.supplierId;
+
+    const nextSupplierPOId =
+      supplierPOId !== undefined
+        ? supplierPOId
+        : purchase.supplierPOId;
+
+    const nextRelatedClientPOId =
+      relatedClientPOId !== undefined
+        ? relatedClientPOId
+        : purchase.relatedClientPOId;
+
+    // SUPPLIER
     if (supplierId !== undefined) {
-      await checkReferenceExists(
-        Supplier,
-        supplierId,
-        "Supplier"
+      const supplier = await Supplier.findById(
+        nextSupplierId
       );
+
+      if (!supplier) {
+        const error = new Error("Supplier not found");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (supplier.status !== "active") {
+        const error = new Error(
+          "Cannot assign Purchase to an inactive supplier"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
     }
 
-    if (supplierPOId !== undefined) {
-      await checkReferenceExists(
-        SupplierPO,
-        supplierPOId,
-        "Supplier PO"
-      );
-    }
+// SUPPLIER PO
+if (nextSupplierPOId !== undefined) {
+  supplierPO = await SupplierPO.findById(
+    nextSupplierPOId
+  );
 
-    if (relatedClientPOId !== undefined) {
-      await checkReferenceExists(
-        ClientPO,
-        relatedClientPOId,
-        "Client PO"
-      );
-    }
+  if (!supplierPO) {
+    const error = new Error("Supplier PO not found");
+    error.statusCode = 400;
+    throw error;
+  }
 
+  if (
+    supplierPO.supplierId.toString() !==
+    nextSupplierId.toString()
+  ) {
+    const error = new Error(
+      "Supplier PO does not belong to the selected supplier"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+if (
+  supplierPO.status === "cancelled" ||
+  supplierPO.status === "received"
+) {
+  const error = new Error(
+    `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`
+  );
+  error.statusCode = 400;
+  throw error;
+}
+
+
+}
+
+   // CLIENT PO
+if (relatedClientPOId !== undefined) {
+  const clientPO = await ClientPO.findById(
+    nextRelatedClientPOId
+  );
+
+  if (!clientPO) {
+    const error = new Error("Client PO not found");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (
+    supplierPO &&
+    supplierPO.relatedClientPOId &&
+    supplierPO.relatedClientPOId.toString() !==
+      nextRelatedClientPOId.toString()
+  ) {
+    const error = new Error(
+      "Client PO does not match the Supplier PO"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+    // PRODUCTS
     if (items !== undefined) {
       await checkReferencesExist(
         Product,
         items.map((item) => item.productId),
         "Product"
       );
+
+      const products = await Product.find({
+        _id: {
+          $in: items.map((item) => item.productId),
+        },
+      }).select("_id status");
+
+      const inactiveProduct = products.find(
+        (product) => product.status !== "active"
+      );
+
+      if (inactiveProduct) {
+        const error = new Error(
+          "Cannot add inactive product to Purchase"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
     }
 
-    if (purchaseNumber !== undefined) {
-      purchase.purchaseNumber = purchaseNumber;
-    }
-
+    // UPDATE FIELDS
     if (supplierId !== undefined) {
       purchase.supplierId = supplierId;
     }
@@ -262,15 +453,14 @@ const updatePurchase = async (req, res, next) => {
 
     await purchase.save();
 
-    const populatedPurchase = await Purchase.findById(
-      purchase._id
-    )
-      .populate("supplierId", "supplierCode name")
-      .populate("supplierPOId", "poNumber")
-      .populate("relatedClientPOId", "poNumber")
-      .populate("items.productId", "sku name unit")
-      .populate("createdBy", "firstName lastName")
-      .populate("updatedBy", "firstName lastName");
+    const populatedPurchase =
+      await Purchase.findById(purchase._id)
+        .populate("supplierId", "supplierCode name")
+        .populate("supplierPOId", "poNumber")
+        .populate("relatedClientPOId", "poNumber")
+        .populate("items.productId", "sku name unit")
+        .populate("createdBy", "firstName lastName")
+        .populate("updatedBy", "firstName lastName");
 
     res.status(200).json({
       success: true,
@@ -279,12 +469,15 @@ const updatePurchase = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-};
+}
+
+
+
 
 // DELETE PURCHASE
 const deletePurchase = async (req, res, next) => {
   try {
-    const purchase = await Purchase.findByIdAndDelete(req.params.id);
+    const purchase = await Purchase.findById(req.params.id);
 
     if (!purchase) {
       return res.status(404).json({
@@ -292,6 +485,16 @@ const deletePurchase = async (req, res, next) => {
         message: "Purchase not found",
       });
     }
+
+    // ONLY DRAFT PURCHASES CAN BE DELETED
+    if (purchase.status !== "draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only draft purchases can be deleted",
+      });
+    }
+
+    await purchase.deleteOne();
 
     res.status(200).json({
       success: true,
@@ -404,6 +607,54 @@ const receivePurchase = async (req, res, next) => {
   }
 };
 
+
+// CANCEL PURCHASE
+const cancelPurchase = async (req, res, next) => {
+  try {
+    const purchase = await Purchase.findById(req.params.id);
+
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: "Purchase not found",
+      });
+    }
+
+    // ONLY DRAFT PURCHASES CAN BE CANCELLED
+    if (purchase.status !== "draft") {
+      const error = new Error(
+        "Only draft purchases can be cancelled"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    purchase.status = "cancelled";
+    purchase.updatedBy = req.user._id;
+
+    await purchase.save();
+
+    const populatedPurchase =
+      await Purchase.findById(purchase._id)
+        .populate("supplierId", "supplierCode name")
+        .populate("supplierPOId", "poNumber")
+        .populate("relatedClientPOId", "poNumber")
+        .populate("items.productId", "sku name unit")
+        .populate("createdBy", "firstName lastName")
+        .populate("updatedBy", "firstName lastName");
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase cancelled successfully",
+      purchase: populatedPurchase,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
 module.exports = {
   getPurchases,
   getPurchaseById,
@@ -411,5 +662,5 @@ module.exports = {
   updatePurchase,
   deletePurchase,
   receivePurchase,
-
+  cancelPurchase,
 };

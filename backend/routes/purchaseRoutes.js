@@ -8,6 +8,7 @@ const {
   updatePurchase,
   deletePurchase,
   receivePurchase,
+  cancelPurchase,
 } = require("../controllers/purchaseController");
 
 const authorize = require("../middleware/authorize");
@@ -45,6 +46,14 @@ router.post(
   protect,
   authorize("owner", "admin", "purchasing"),
   receivePurchase
+);
+
+// CANCEL PURCHASE
+router.post(
+  "/:id/cancel",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  cancelPurchase
 );
 
 // READ SINGLE

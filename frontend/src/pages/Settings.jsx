@@ -22,15 +22,23 @@ function Settings() {
       systemName: "CKKC",
     },
 
-    salesInvoicing: {
-      invoicePrefix: "INV-",
-      quotationPrefix: "QUO-",
-      invoiceStartingNumber: 1,
-      quotationStartingNumber: 1,
-      defaultPaymentTerms: "Due on Receipt",
-      defaultTaxRate: 0,
-      documentFooter: "",
-    },
+  salesInvoicing: {
+   invoicePrefix: "INV-",
+  quotationPrefix: "QUO-",
+  purchasePrefix: "PUR-",
+  clientPOPrefix: "CPO-",
+  supplierPOPrefix: "SPO-",
+
+  invoiceStartingNumber: 1,
+  quotationStartingNumber: 1,
+  purchaseStartingNumber: 1,
+  clientPOStartingNumber: 1,
+  supplierPOStartingNumber: 1,
+
+  defaultPaymentTerms: "Due on Receipt",
+  defaultTaxRate: 0,
+  documentFooter: "",
+},
 
 
     inventory: {
@@ -95,30 +103,47 @@ function Settings() {
       settings?.appearance?.systemName || "CKKC",
   },
 
-  salesInvoicing: {
-    invoicePrefix:
-      settings?.salesInvoicing?.invoicePrefix || "INV-",
+salesInvoicing: {
+  invoicePrefix:
+    settings?.salesInvoicing?.invoicePrefix || "INV-",
 
-    quotationPrefix:
-      settings?.salesInvoicing?.quotationPrefix || "QUO-",
+  quotationPrefix:
+    settings?.salesInvoicing?.quotationPrefix || "QUO-",
 
-    invoiceStartingNumber:
-      settings?.salesInvoicing?.invoiceStartingNumber || 1,
+  purchasePrefix:
+    settings?.salesInvoicing?.purchasePrefix || "PUR-",
 
-    quotationStartingNumber:
-      settings?.salesInvoicing?.quotationStartingNumber || 1,
+  clientPOPrefix:
+    settings?.salesInvoicing?.clientPOPrefix || "CPO-",
 
-    defaultPaymentTerms:
-      settings?.salesInvoicing?.defaultPaymentTerms ||
-      "Due on Receipt",
+  supplierPOPrefix:
+    settings?.salesInvoicing?.supplierPOPrefix || "SPO-",
 
-    defaultTaxRate:
-      settings?.salesInvoicing?.defaultTaxRate ?? 0,
+  invoiceStartingNumber:
+    settings?.salesInvoicing?.invoiceStartingNumber || 1,
 
-    documentFooter:
-      settings?.salesInvoicing?.documentFooter || "",
-  },
+  quotationStartingNumber:
+    settings?.salesInvoicing?.quotationStartingNumber || 1,
 
+  purchaseStartingNumber:
+    settings?.salesInvoicing?.purchaseStartingNumber || 1,
+
+  clientPOStartingNumber:
+    settings?.salesInvoicing?.clientPOStartingNumber || 1,
+
+  supplierPOStartingNumber:
+    settings?.salesInvoicing?.supplierPOStartingNumber || 1,
+
+  defaultPaymentTerms:
+    settings?.salesInvoicing?.defaultPaymentTerms ||
+    "Due on Receipt",
+
+  defaultTaxRate:
+    settings?.salesInvoicing?.defaultTaxRate ?? 0,
+
+  documentFooter:
+    settings?.salesInvoicing?.documentFooter || "",
+},
   inventory: {
   lowStockThreshold:
     settings?.inventory?.lowStockThreshold ?? 10,
@@ -357,31 +382,52 @@ function Settings() {
     systemName: formData.appearance.systemName.trim(),
   },
 
-  salesInvoicing: {
-    invoicePrefix:
-      formData.salesInvoicing.invoicePrefix.trim(),
+ salesInvoicing: {
+  invoicePrefix:
+    formData.salesInvoicing.invoicePrefix.trim(),
 
-    quotationPrefix:
-      formData.salesInvoicing.quotationPrefix.trim(),
+  quotationPrefix:
+    formData.salesInvoicing.quotationPrefix.trim(),
 
-    invoiceStartingNumber: Number(
-      formData.salesInvoicing.invoiceStartingNumber
-    ),
+  purchasePrefix:
+    formData.salesInvoicing.purchasePrefix.trim(),
 
-    quotationStartingNumber: Number(
-      formData.salesInvoicing.quotationStartingNumber
-    ),
+  clientPOPrefix:
+    formData.salesInvoicing.clientPOPrefix.trim(),
 
-    defaultPaymentTerms:
-      formData.salesInvoicing.defaultPaymentTerms.trim(),
+  supplierPOPrefix:
+    formData.salesInvoicing.supplierPOPrefix.trim(),
 
-    defaultTaxRate: Number(
-      formData.salesInvoicing.defaultTaxRate
-    ),
+  invoiceStartingNumber: Number(
+    formData.salesInvoicing.invoiceStartingNumber
+  ),
 
-    documentFooter:
-      formData.salesInvoicing.documentFooter.trim(),
-  },
+  quotationStartingNumber: Number(
+    formData.salesInvoicing.quotationStartingNumber
+  ),
+
+  purchaseStartingNumber: Number(
+    formData.salesInvoicing.purchaseStartingNumber
+  ),
+
+  clientPOStartingNumber: Number(
+    formData.salesInvoicing.clientPOStartingNumber
+  ),
+
+  supplierPOStartingNumber: Number(
+    formData.salesInvoicing.supplierPOStartingNumber
+  ),
+
+  defaultPaymentTerms:
+    formData.salesInvoicing.defaultPaymentTerms.trim(),
+
+  defaultTaxRate: Number(
+    formData.salesInvoicing.defaultTaxRate
+  ),
+
+  documentFooter:
+    formData.salesInvoicing.documentFooter.trim(),
+},
 
   // ✅ INVENTORY IS OUTSIDE SALES INVOICING
   inventory: {
@@ -458,29 +504,47 @@ function Settings() {
       settings?.appearance?.systemName || "CKKC",
   },
 
-  salesInvoicing: {
-    invoicePrefix:
-      settings?.salesInvoicing?.invoicePrefix || "INV-",
+salesInvoicing: {
+  invoicePrefix:
+    settings?.salesInvoicing?.invoicePrefix || "INV-",
 
-    quotationPrefix:
-      settings?.salesInvoicing?.quotationPrefix || "QUO-",
+  quotationPrefix:
+    settings?.salesInvoicing?.quotationPrefix || "QUO-",
 
-    invoiceStartingNumber:
-      settings?.salesInvoicing?.invoiceStartingNumber || 1,
+  purchasePrefix:
+    settings?.salesInvoicing?.purchasePrefix || "PUR-",
 
-    quotationStartingNumber:
-      settings?.salesInvoicing?.quotationStartingNumber || 1,
+  clientPOPrefix:
+    settings?.salesInvoicing?.clientPOPrefix || "CPO-",
 
-    defaultPaymentTerms:
-      settings?.salesInvoicing?.defaultPaymentTerms ||
-      "Due on Receipt",
+  supplierPOPrefix:
+    settings?.salesInvoicing?.supplierPOPrefix || "SPO-",
 
-    defaultTaxRate:
-      settings?.salesInvoicing?.defaultTaxRate ?? 0,
+  invoiceStartingNumber:
+    settings?.salesInvoicing?.invoiceStartingNumber || 1,
 
-    documentFooter:
-      settings?.salesInvoicing?.documentFooter || "",
-  },
+  quotationStartingNumber:
+    settings?.salesInvoicing?.quotationStartingNumber || 1,
+
+  purchaseStartingNumber:
+    settings?.salesInvoicing?.purchaseStartingNumber || 1,
+
+  clientPOStartingNumber:
+    settings?.salesInvoicing?.clientPOStartingNumber || 1,
+
+  supplierPOStartingNumber:
+    settings?.salesInvoicing?.supplierPOStartingNumber || 1,
+
+  defaultPaymentTerms:
+    settings?.salesInvoicing?.defaultPaymentTerms ||
+    "Due on Receipt",
+
+  defaultTaxRate:
+    settings?.salesInvoicing?.defaultTaxRate ?? 0,
+
+  documentFooter:
+    settings?.salesInvoicing?.documentFooter || "",
+},
 
 
   accountingTax: {
@@ -798,6 +862,7 @@ function Settings() {
           </div>
         </div>
 
+
 {/* Sales & Invoicing */}
 <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
   <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
@@ -806,241 +871,579 @@ function Settings() {
     </h2>
 
     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-      Configure invoice, quotation, payment, and tax defaults.
+      Configure document numbering, payment, tax, and document defaults.
     </p>
   </div>
 
-  <div className="grid gap-5 p-6 md:grid-cols-2">
-    {/* Invoice Prefix */}
+  <div className="p-6">
+    {/* Document Numbering */}
     <div>
-      <label
-        htmlFor="invoicePrefix"
-        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Invoice Prefix
-      </label>
+      <div className="mb-5">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Document Numbering
+        </h3>
 
-      <input
-        id="invoicePrefix"
-        type="text"
-        value={formData.salesInvoicing.invoicePrefix}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            salesInvoicing: {
-              ...prev.salesInvoicing,
-              invoicePrefix: e.target.value,
-            },
-          }))
-        }
-        placeholder="INV-"
-        disabled={submitting}
-        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
-      />
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Configure prefixes and starting numbers for system-generated
+          documents.
+        </p>
+      </div>
 
-      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-        Example: INV-000001
-      </p>
+      <div className="grid gap-5 md:grid-cols-2">
+        {/* Quotation */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Quotation
+            </h4>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Numbering for customer quotations.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="quotationPrefix"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Prefix
+              </label>
+
+              <input
+                id="quotationPrefix"
+                type="text"
+                value={formData.salesInvoicing.quotationPrefix}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      quotationPrefix: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="QUO-"
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="quotationStartingNumber"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Starting Number
+              </label>
+
+              <input
+                id="quotationStartingNumber"
+                type="number"
+                min="1"
+                value={formData.salesInvoicing.quotationStartingNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      quotationStartingNumber: e.target.value,
+                    },
+                  }))
+                }
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Preview
+            </p>
+
+            <p className="mt-1 font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+              CKKC-{formData.salesInvoicing.quotationPrefix}
+              {new Date().getFullYear()}-
+              {String(
+                formData.salesInvoicing.quotationStartingNumber || 1
+              ).padStart(6, "0")}
+            </p>
+          </div>
+        </div>
+
+        {/* Client PO */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Client PO
+            </h4>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Numbering for client purchase orders.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="clientPOPrefix"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Prefix
+              </label>
+
+              <input
+                id="clientPOPrefix"
+                type="text"
+                value={formData.salesInvoicing.clientPOPrefix}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      clientPOPrefix: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="CPO-"
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="clientPOStartingNumber"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Starting Number
+              </label>
+
+              <input
+                id="clientPOStartingNumber"
+                type="number"
+                min="1"
+                value={formData.salesInvoicing.clientPOStartingNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      clientPOStartingNumber: e.target.value,
+                    },
+                  }))
+                }
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Preview
+            </p>
+
+            <p className="mt-1 font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+              CKKC-{formData.salesInvoicing.clientPOPrefix}
+              {new Date().getFullYear()}-
+              {String(
+                formData.salesInvoicing.clientPOStartingNumber || 1
+              ).padStart(6, "0")}
+            </p>
+          </div>
+        </div>
+
+        {/* Supplier PO */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Supplier PO
+            </h4>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Numbering for supplier purchase orders.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="supplierPOPrefix"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Prefix
+              </label>
+
+              <input
+                id="supplierPOPrefix"
+                type="text"
+                value={formData.salesInvoicing.supplierPOPrefix}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      supplierPOPrefix: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="SPO-"
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="supplierPOStartingNumber"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Starting Number
+              </label>
+
+              <input
+                id="supplierPOStartingNumber"
+                type="number"
+                min="1"
+                value={formData.salesInvoicing.supplierPOStartingNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      supplierPOStartingNumber: e.target.value,
+                    },
+                  }))
+                }
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Preview
+            </p>
+
+            <p className="mt-1 font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+              CKKC-{formData.salesInvoicing.supplierPOPrefix}
+              {new Date().getFullYear()}-
+              {String(
+                formData.salesInvoicing.supplierPOStartingNumber || 1
+              ).padStart(6, "0")}
+            </p>
+          </div>
+        </div>
+
+        {/* Purchase */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Purchase
+            </h4>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Numbering for purchase transactions.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="purchasePrefix"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Prefix
+              </label>
+
+              <input
+                id="purchasePrefix"
+                type="text"
+                value={formData.salesInvoicing.purchasePrefix}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      purchasePrefix: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="PUR-"
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="purchaseStartingNumber"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Starting Number
+              </label>
+
+              <input
+                id="purchaseStartingNumber"
+                type="number"
+                min="1"
+                value={formData.salesInvoicing.purchaseStartingNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      purchaseStartingNumber: e.target.value,
+                    },
+                  }))
+                }
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Preview
+            </p>
+
+            <p className="mt-1 font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+              CKKC-{formData.salesInvoicing.purchasePrefix}
+              {new Date().getFullYear()}-
+              {String(
+                formData.salesInvoicing.purchaseStartingNumber || 1
+              ).padStart(6, "0")}
+            </p>
+          </div>
+        </div>
+
+        {/* Invoice */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Invoice
+            </h4>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Numbering for customer invoices.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="invoicePrefix"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Prefix
+              </label>
+
+              <input
+                id="invoicePrefix"
+                type="text"
+                value={formData.salesInvoicing.invoicePrefix}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      invoicePrefix: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="INV-"
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="invoiceStartingNumber"
+                className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+              >
+                Starting Number
+              </label>
+
+              <input
+                id="invoiceStartingNumber"
+                type="number"
+                min="1"
+                value={formData.salesInvoicing.invoiceStartingNumber}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salesInvoicing: {
+                      ...prev.salesInvoicing,
+                      invoiceStartingNumber: e.target.value,
+                    },
+                  }))
+                }
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Preview
+            </p>
+
+            <p className="mt-1 font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+              CKKC-{formData.salesInvoicing.invoicePrefix}
+              {new Date().getFullYear()}-
+              {String(
+                formData.salesInvoicing.invoiceStartingNumber || 1
+              ).padStart(6, "0")}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-lg border border-green-100 bg-green-50 px-4 py-3 dark:border-green-900/30 dark:bg-green-950/20">
+        <p className="text-xs font-medium text-green-800 dark:text-green-300">
+          Number Format
+        </p>
+
+        <p className="mt-1 text-xs text-green-700 dark:text-green-400">
+          Document numbers follow the format{" "}
+          <span className="font-mono font-semibold">
+            CKKC-PREFIX-YEAR-SEQUENCE
+          </span>
+          .
+        </p>
+
+        <p className="mt-1 text-xs text-green-600 dark:text-green-500">
+          Example: CKKC-QUO-2026-000001
+        </p>
+      </div>
     </div>
 
-    {/* Quotation Prefix */}
-    <div>
-      <label
-        htmlFor="quotationPrefix"
-        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Quotation Prefix
-      </label>
+    {/* Sales Defaults */}
+    <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
+      <div className="mb-5">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Sales Defaults
+        </h3>
 
-      <input
-        id="quotationPrefix"
-        type="text"
-        value={formData.salesInvoicing.quotationPrefix}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            salesInvoicing: {
-              ...prev.salesInvoicing,
-              quotationPrefix: e.target.value,
-            },
-          }))
-        }
-        placeholder="QUO-"
-        disabled={submitting}
-        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
-      />
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Configure default values used by sales and business documents.
+        </p>
+      </div>
 
-      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-        Example: QUO-000001
-      </p>
-    </div>
+      <div className="grid gap-5 md:grid-cols-2">
+        {/* Default Payment Terms */}
+        <div>
+          <label
+            htmlFor="defaultPaymentTerms"
+            className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+          >
+            Default Payment Terms
+          </label>
 
-    {/* Invoice Starting Number */}
-    <div>
-      <label
-        htmlFor="invoiceStartingNumber"
-        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Invoice Starting Number
-      </label>
+          <select
+            id="defaultPaymentTerms"
+            value={formData.salesInvoicing.defaultPaymentTerms}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                salesInvoicing: {
+                  ...prev.salesInvoicing,
+                  defaultPaymentTerms: e.target.value,
+                },
+              }))
+            }
+            disabled={submitting}
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
+          >
+            <option value="Due on Receipt">Due on Receipt</option>
+            <option value="7 Days">7 Days</option>
+            <option value="15 Days">15 Days</option>
+            <option value="30 Days">30 Days</option>
+            <option value="45 Days">45 Days</option>
+            <option value="60 Days">60 Days</option>
+          </select>
+        </div>
 
-      <input
-        id="invoiceStartingNumber"
-        type="number"
-        min="1"
-        value={formData.salesInvoicing.invoiceStartingNumber}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            salesInvoicing: {
-              ...prev.salesInvoicing,
-              invoiceStartingNumber: e.target.value,
-            },
-          }))
-        }
-        disabled={submitting}
-        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
-      />
+        {/* Default Tax Rate */}
+        <div>
+          <label
+            htmlFor="defaultTaxRate"
+            className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+          >
+            Default Tax / VAT (%)
+          </label>
 
-      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-        Starting number for new invoices.
-      </p>
-    </div>
+          <input
+            id="defaultTaxRate"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value={formData.salesInvoicing.defaultTaxRate}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                salesInvoicing: {
+                  ...prev.salesInvoicing,
+                  defaultTaxRate: e.target.value,
+                },
+              }))
+            }
+            placeholder="0"
+            disabled={submitting}
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+          />
 
-    {/* Quotation Starting Number */}
-    <div>
-      <label
-        htmlFor="quotationStartingNumber"
-        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Quotation Starting Number
-      </label>
+          <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+            Enter 0 if no default tax is applied.
+          </p>
+        </div>
 
-      <input
-        id="quotationStartingNumber"
-        type="number"
-        min="1"
-        value={formData.salesInvoicing.quotationStartingNumber}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            salesInvoicing: {
-              ...prev.salesInvoicing,
-              quotationStartingNumber: e.target.value,
-            },
-          }))
-        }
-        disabled={submitting}
-        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
-      />
+        {/* Document Footer */}
+        <div className="md:col-span-2">
+          <label
+            htmlFor="documentFooter"
+            className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
+          >
+            Document Footer
+          </label>
 
-      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-        Starting number for new quotations.
-      </p>
-    </div>
+          <textarea
+            id="documentFooter"
+            value={formData.salesInvoicing.documentFooter}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                salesInvoicing: {
+                  ...prev.salesInvoicing,
+                  documentFooter: e.target.value,
+                },
+              }))
+            }
+            placeholder="Example: Thank you for your business!"
+            rows={3}
+            disabled={submitting}
+            className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
+          />
 
-    {/* Default Payment Terms */}
-    <div>
-      <label
-        htmlFor="defaultPaymentTerms"
-        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Default Payment Terms
-      </label>
-
-      <select
-        id="defaultPaymentTerms"
-        value={formData.salesInvoicing.defaultPaymentTerms}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            salesInvoicing: {
-              ...prev.salesInvoicing,
-              defaultPaymentTerms: e.target.value,
-            },
-          }))
-        }
-        disabled={submitting}
-        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
-      >
-        <option value="Due on Receipt">Due on Receipt</option>
-        <option value="7 Days">7 Days</option>
-        <option value="15 Days">15 Days</option>
-        <option value="30 Days">30 Days</option>
-        <option value="45 Days">45 Days</option>
-        <option value="60 Days">60 Days</option>
-      </select>
-    </div>
-
-    {/* Default Tax Rate */}
-    <div>
-      <label
-        htmlFor="defaultTaxRate"
-        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Default Tax / VAT (%)
-      </label>
-
-      <input
-        id="defaultTaxRate"
-        type="number"
-        min="0"
-        max="100"
-        step="0.01"
-        value={formData.salesInvoicing.defaultTaxRate}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            salesInvoicing: {
-              ...prev.salesInvoicing,
-              defaultTaxRate: e.target.value,
-            },
-          }))
-        }
-        placeholder="0"
-        disabled={submitting}
-        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
-      />
-
-      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-        Enter 0 if no default tax is applied.
-      </p>
-    </div>
-
-    {/* Document Footer */}
-    <div className="md:col-span-2">
-      <label
-        htmlFor="documentFooter"
-        className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Document Footer
-      </label>
-
-      <textarea
-        id="documentFooter"
-        value={formData.salesInvoicing.documentFooter}
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            salesInvoicing: {
-              ...prev.salesInvoicing,
-              documentFooter: e.target.value,
-            },
-          }))
-        }
-        placeholder="Example: Thank you for your business!"
-        rows={3}
-        disabled={submitting}
-        className="w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
-      />
-
-      <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-        This can be displayed on invoices, quotations, and other business
-        documents.
-      </p>
+          <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+            This can be displayed on invoices, quotations, and other business
+            documents.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 </div>
+```
+
 
         {/* Inventory Settings */}
 <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">

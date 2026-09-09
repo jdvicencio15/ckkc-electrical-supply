@@ -55,7 +55,7 @@ const settingsSchema = new mongoose.Schema(
       },
     },
 
-    salesInvoicing: {
+  salesInvoicing: {
   invoicePrefix: {
     type: String,
     trim: true,
@@ -80,6 +80,43 @@ const settingsSchema = new mongoose.Schema(
     min: 1,
   },
 
+  purchasePrefix: {
+    type: String,
+    trim: true,
+    default: "PUR-",
+  },
+
+  purchaseStartingNumber: {
+    type: Number,
+    default: 1,
+    min: 1,
+  },
+
+  clientPOPrefix: {
+    type: String,
+    trim: true,
+    default: "CPO-",
+  },
+
+  clientPOStartingNumber: {
+    type: Number,
+    default: 1,
+    min: 1,
+    },
+
+  supplierPOPrefix: {
+  type: String,
+  trim: true,
+  default: "SPO-",
+},
+
+supplierPOStartingNumber: {
+  type: Number,
+  default: 1,
+  min: 1,
+    },
+
+
   defaultPaymentTerms: {
     type: String,
     trim: true,
@@ -98,7 +135,7 @@ const settingsSchema = new mongoose.Schema(
     trim: true,
     default: "",
   },
-    },
+},
 
     inventory: {
   lowStockThreshold: {

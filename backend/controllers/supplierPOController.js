@@ -11,6 +11,11 @@ const {
   checkReferencesExist,
 } = require("../utils/referenceValidator");
 
+
+const {
+  generateDocumentNumber,
+} = require("../services/documentNumberService");
+
 const calculateSupplierPOTotal = (items) => {
   const totalAmount = items.reduce(
     (total, item) =>
@@ -67,6 +72,7 @@ const getSupplierPOById = async (req, res, next) => {
   }
 };
 
+
 // CREATE SUPPLIER PO
 const createSupplierPO = async (req, res, next) => {
   try {
@@ -77,29 +83,77 @@ const createSupplierPO = async (req, res, next) => {
       ...supplierPOData
     } = req.body;
 
-    await checkReferenceExists(
-      Supplier,
-      supplierId,
-      "Supplier"
+    // CHECK SUPPLIER
+    const supplier = await Supplier.findById(supplierId);
+
+    if (!supplier) {
+      const error = new Error("Supplier not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (supplier.status !== "active") {
+      const error = new Error("Supplier is inactive");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // CHECK CLIENT PO
+    const clientPO = await ClientPO.findById(relatedClientPOId);
+
+    if (!clientPO) {
+      const error = new Error("Client PO not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (["fulfilled", "cancelled"].includes(clientPO.status)) {
+      const error = new Error(
+        `Cannot create Supplier PO for a ${clientPO.status} Client PO`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // CHECK PRODUCTS
+    const productIds = [
+      ...new Set(
+        items.map((item) => item.productId.toString())
+      ),
+    ];
+
+    const products = await Product.find({
+      _id: { $in: productIds },
+    });
+
+    if (products.length !== productIds.length) {
+      const error = new Error("One or more products not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const inactiveProduct = products.find(
+      (product) => product.status !== "active"
     );
 
-    await checkReferenceExists(
-      ClientPO,
-      relatedClientPOId,
-      "Client PO"
-    );
+    if (inactiveProduct) {
+      const error = new Error(
+        `Product ${inactiveProduct._id} is inactive`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
 
-    await checkReferencesExist(
-      Product,
-      items.map((item) => item.productId),
-      "Product"
-    );
+    // CALCULATE TOTAL SERVER-SIDE
+    const totalAmount = calculateSupplierPOTotal(items);
 
-    const totalAmount =
-      calculateSupplierPOTotal(items);
+    // GENERATE DOCUMENT NUMBER SERVER-SIDE
+    const poNumber =
+      await generateDocumentNumber("supplierPO");
 
     const supplierPO = await SupplierPO.create({
       ...supplierPOData,
+      poNumber,
       supplierId,
       relatedClientPOId,
       items,
@@ -116,11 +170,14 @@ const createSupplierPO = async (req, res, next) => {
   }
 };
 
+
+
+
+
 // UPDATE SUPPLIER PO
 const updateSupplierPO = async (req, res, next) => {
   try {
-    const supplierPO =
-      await SupplierPO.findById(req.params.id);
+    const supplierPO = await SupplierPO.findById(req.params.id);
 
     if (!supplierPO) {
       return res.status(404).json({
@@ -129,44 +186,141 @@ const updateSupplierPO = async (req, res, next) => {
       });
     }
 
- const {
-  poNumber,
-  supplierId,
-  supplierPODate,
-  status,
-  relatedClientPOId,
-  items,
-} = req.body;
+    // SUPPLIER PO STATE TRANSITIONS
+    const SUPPLIER_PO_STATE_TRANSITIONS = {
+      draft: ["sent", "cancelled"],
+      sent: ["confirmed", "cancelled"],
+      confirmed: [
+        "partially_received",
+        "received",
+        "cancelled",
+      ],
+      partially_received: ["received"],
+      received: [],
+      cancelled: [],
+    };
 
-    // CHECK UPDATED REFERENCES
-if (supplierId !== undefined) {
-  await checkReferenceExists(
-    Supplier,
-    supplierId,
-    "Supplier"
-  );
-}
+    // TERMINAL SUPPLIER PO STATUSES
+    const TERMINAL_SUPPLIER_PO_STATUSES = [
+      "received",
+      "cancelled",
+    ];
 
-if (relatedClientPOId !== undefined) {
-  await checkReferenceExists(
-    ClientPO,
-    relatedClientPOId,
-    "Client PO"
-  );
-}
+    const {
+      supplierId,
+      supplierPODate,
+      status,
+      relatedClientPOId,
+      items,
+    } = req.body;
 
-if (items !== undefined) {
-  await checkReferencesExist(
-    Product,
-    items.map((item) => item.productId),
-    "Product"
-  );
+    // PREVENT ANY MODIFICATION TO TERMINAL SUPPLIER PO
+    if (
+      TERMINAL_SUPPLIER_PO_STATUSES.includes(
+        supplierPO.status
+      )
+    ) {
+      const error = new Error(
+        `Cannot modify a ${supplierPO.status} Supplier PO`
+      );
+      error.statusCode = 400;
+      throw error;
     }
 
-    if (poNumber !== undefined) {
-  supplierPO.poNumber = poNumber;
-}
+    // VALIDATE SUPPLIER PO STATE TRANSITION
+    if (
+      status !== undefined &&
+      status !== supplierPO.status
+    ) {
+      const allowedTransitions =
+        SUPPLIER_PO_STATE_TRANSITIONS[supplierPO.status] ||
+        [];
 
+      if (!allowedTransitions.includes(status)) {
+        const error = new Error(
+          `Invalid Supplier PO state transition: ${supplierPO.status} → ${status}`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // CHECK UPDATED SUPPLIER REFERENCE
+    if (supplierId !== undefined) {
+      const supplier = await Supplier.findById(supplierId);
+
+      if (!supplier) {
+        const error = new Error("Supplier not found");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (supplier.status !== "active") {
+        const error = new Error("Supplier is inactive");
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // CHECK UPDATED CLIENT PO REFERENCE
+    if (relatedClientPOId !== undefined) {
+      const clientPO = await ClientPO.findById(
+        relatedClientPOId
+      );
+
+      if (!clientPO) {
+        const error = new Error("Client PO not found");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (
+        ["fulfilled", "cancelled"].includes(
+          clientPO.status
+        )
+      ) {
+        const error = new Error(
+          `Cannot associate Supplier PO with a ${clientPO.status} Client PO`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // CHECK UPDATED PRODUCT REFERENCES
+    if (items !== undefined) {
+      const productIds = [
+        ...new Set(
+          items.map((item) => item.productId.toString())
+        ),
+      ];
+
+      const products = await Product.find({
+        _id: { $in: productIds },
+      });
+
+      if (products.length !== productIds.length) {
+        const error = new Error(
+          "One or more products not found"
+        );
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const inactiveProduct = products.find(
+        (product) => product.status !== "active"
+      );
+
+      if (inactiveProduct) {
+        const error = new Error(
+          `Product ${inactiveProduct._id} is inactive`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // APPLY UPDATES
     if (supplierId !== undefined) {
       supplierPO.supplierId = supplierId;
     }
@@ -203,13 +357,10 @@ if (items !== undefined) {
   }
 };
 
-
 // DELETE SUPPLIER PO
 const deleteSupplierPO = async (req, res, next) => {
   try {
-    const supplierPO = await SupplierPO.findByIdAndDelete(
-      req.params.id
-    );
+    const supplierPO = await SupplierPO.findById(req.params.id);
 
     if (!supplierPO) {
       return res.status(404).json({
@@ -217,6 +368,32 @@ const deleteSupplierPO = async (req, res, next) => {
         message: "Supplier PO not found",
       });
     }
+
+    // ONLY DRAFT SUPPLIER POs CAN BE DELETED
+    if (supplierPO.status !== "draft") {
+      const error = new Error(
+        `Cannot delete a ${supplierPO.status} Supplier PO`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // PREVENT DELETE IF REFERENCED BY PURCHASE
+    const Purchase = require("../models/Purchase");
+
+   const relatedPurchase = await Purchase.findOne({
+  supplierPOId: supplierPO._id,
+});
+
+    if (relatedPurchase) {
+      const error = new Error(
+        "Cannot delete Supplier PO because it is referenced by a Purchase"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await supplierPO.deleteOne();
 
     res.status(200).json({
       success: true,
