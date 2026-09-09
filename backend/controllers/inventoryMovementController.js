@@ -101,6 +101,7 @@ const validateMovementReference = (type, referenceType) => {
   return validCombinations[type]?.includes(referenceType);
 };
 
+
 // CREATE INVENTORY MOVEMENT
 const createInventoryMovement = async (req, res, next) => {
   const session = await mongoose.startSession();
@@ -141,19 +142,61 @@ const createInventoryMovement = async (req, res, next) => {
       });
     }
 
-    // Validate Purchase reference
+   // Validate Purchase reference
     if (type === "IN" && referenceType === "PURCHASE") {
-      const purchase = await Purchase.findById(referenceId).session(session);
 
-      if (!purchase) {
-        await session.abortTransaction();
 
-        return res.status(404).json({
-          success: false,
-          message: "Purchase not found",
-        });
+  const purchase = await Purchase.findById(referenceId).session(session);
+
+  if (!purchase) {
+    await session.abortTransaction();
+
+    return res.status(404).json({
+      success: false,
+      message: "Purchase not found",
+    });
+  }
+
+  // Inventory can only be received from a received Purchase
+  if (purchase.status !== "received") {
+    await session.abortTransaction();
+
+    return res.status(400).json({
+      success: false,
+      message:
+        "Inventory can only be received from a received purchase",
+    });
+  }
+
+  // Product must belong to the referenced Purchase
+  const purchaseItem = purchase.items.find(
+    (item) => item.productId.toString() === productId.toString()
+  );
+
+  if (!purchaseItem) {
+    await session.abortTransaction();
+
+    return res.status(400).json({
+      success: false,
+      message: "Product is not included in the referenced Purchase",
+    });
+  }
+
+      const existingPurchaseMovement = await InventoryMovement.findOne({
+  referenceType: "PURCHASE",
+  referenceId: purchase._id,
+}).session(session);
+
+if (existingPurchaseMovement) {
+  await session.abortTransaction();
+
+  return res.status(400).json({
+    success: false,
+    message: "Inventory has already been received for this purchase",
+  });
       }
-    }
+
+}
 
     // Find product
     const product = await Product.findById(productId).session(session);
@@ -165,6 +208,15 @@ const createInventoryMovement = async (req, res, next) => {
         success: false,
         message: "Product not found",
       });
+    }
+
+    if (product.status !== "active") {
+  await session.abortTransaction();
+
+  return res.status(400).json({
+    success: false,
+    message: "Inactive products cannot receive inventory movements",
+  });
     }
 
     const previousStock = product.currentStock;
@@ -192,6 +244,7 @@ const createInventoryMovement = async (req, res, next) => {
     }
 
     await product.save({ session });
+
     const newStock = product.currentStock;
 
     // Build movement data
@@ -246,6 +299,8 @@ const createInventoryMovement = async (req, res, next) => {
     session.endSession();
   }
 };
+
+
 
 // UPDATE INVENTORY MOVEMENT
 const updateInventoryMovement = async (req, res, next) => {
@@ -352,6 +407,26 @@ if (
         message: "Product not found",
       });
     }
+
+  const targetProduct = await Product.findById(nextProductId).session(session);
+
+if (!targetProduct) {
+  await session.abortTransaction();
+
+  return res.status(404).json({
+    success: false,
+    message: "Product not found",
+  });
+}
+
+if (targetProduct.status !== "active") {
+  await session.abortTransaction();
+
+  return res.status(400).json({
+    success: false,
+    message: "Inactive products cannot receive inventory movements",
+  });
+}
 
     const oldProductStock = oldProduct.currentStock;
 

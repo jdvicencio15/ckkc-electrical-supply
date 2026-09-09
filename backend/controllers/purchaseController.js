@@ -141,18 +141,29 @@ if (supplierPOId !== undefined) {
     throw error;
   }
 
-if (
-  supplierPO.status === "cancelled" ||
-  supplierPO.status === "received"
-) {
-  const error = new Error(
-    `Cannot create Purchase from a ${supplierPO.status} Supplier PO`
-  );
-  error.statusCode = 400;
-  throw error;
-}
+  if (
+    supplierPO.status === "cancelled" ||
+    supplierPO.status === "received"
+  ) {
+    const error = new Error(
+      `Cannot create Purchase from a ${supplierPO.status} Supplier PO`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
 
+  // PREVENT DUPLICATE PURCHASE FROM THE SAME SUPPLIER PO
+  const existingPurchase = await Purchase.findOne({
+    supplierPOId: supplierPO._id,
+  });
 
+  if (existingPurchase) {
+    const error = new Error(
+      "A Purchase already exists for this Supplier PO"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
 }
 // CLIENT PO
 if (relatedClientPOId !== undefined) {
@@ -577,6 +588,36 @@ const receivePurchase = async (req, res, next) => {
       );
     }
 
+    // UPDATE LINKED SUPPLIER PO
+    if (purchase.supplierPOId) {
+      const supplierPO = await SupplierPO.findById(
+        purchase.supplierPOId,
+      ).session(session);
+
+      if (!supplierPO) {
+        await session.abortTransaction();
+
+        return res.status(404).json({
+          success: false,
+          message: "Linked Supplier PO not found",
+        });
+      }
+
+      if (supplierPO.status === "cancelled") {
+        await session.abortTransaction();
+
+        return res.status(400).json({
+          success: false,
+          message: "Cannot receive Purchase linked to a cancelled Supplier PO",
+        });
+      }
+
+      supplierPO.status = "received";
+      supplierPO.updatedBy = req.user._id;
+
+      await supplierPO.save({ session });
+    }
+
     // MARK PURCHASE AS RECEIVED
     purchase.status = "received";
     purchase.updatedBy = req.user._id;
@@ -599,11 +640,13 @@ const receivePurchase = async (req, res, next) => {
       purchase: populatedPurchase,
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
 
     next(error);
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 };
 

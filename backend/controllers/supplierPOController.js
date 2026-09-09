@@ -98,22 +98,24 @@ const createSupplierPO = async (req, res, next) => {
       throw error;
     }
 
-    // CHECK CLIENT PO
-    const clientPO = await ClientPO.findById(relatedClientPOId);
+ // CHECK CLIENT PO (OPTIONAL)
+if (relatedClientPOId !== undefined) {
+  const clientPO = await ClientPO.findById(relatedClientPOId);
 
-    if (!clientPO) {
-      const error = new Error("Client PO not found");
-      error.statusCode = 404;
-      throw error;
-    }
+  if (!clientPO) {
+    const error = new Error("Client PO not found");
+    error.statusCode = 404;
+    throw error;
+  }
 
-    if (["fulfilled", "cancelled"].includes(clientPO.status)) {
-      const error = new Error(
-        `Cannot create Supplier PO for a ${clientPO.status} Client PO`
-      );
-      error.statusCode = 400;
-      throw error;
-    }
+  if (["fulfilled", "cancelled"].includes(clientPO.status)) {
+    const error = new Error(
+      `Cannot create Supplier PO for a ${clientPO.status} Client PO`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+}
 
     // CHECK PRODUCTS
     const productIds = [

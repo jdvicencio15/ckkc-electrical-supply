@@ -74,12 +74,13 @@ const getClientPOById = async (req, res, next) => {
 
 const createClientPO = async (req, res, next) => {
   try {
-    const {
-      items,
-      customerId,
-      quotationId,
-      ...clientPOData
-    } = req.body;
+   const {
+  items,
+  customerId,
+  quotationId,
+  status,
+  ...clientPOData
+} = req.body;
 
     // CUSTOMER
     const customer = await Customer.findById(customerId);
@@ -161,13 +162,14 @@ const createClientPO = async (req, res, next) => {
     );
     const poNumber = await generateDocumentNumber("clientPO");
 
-  const clientPO = await ClientPO.create({
+ const clientPO = await ClientPO.create({
   ...clientPOData,
   poNumber,
   customerId,
   quotationId,
   items,
   totalAmount,
+  status: "received",
   createdBy: req.user._id,
 });
 

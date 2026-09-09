@@ -17,17 +17,6 @@ const clientPOValidator = [
     .isISO8601()
     .withMessage("PO date must be a valid date"),
 
-  body("status")
-    .optional()
-    .isIn([
-      "draft",
-      "received",
-      "processing",
-      "fulfilled",
-      "cancelled",
-    ])
-    .withMessage("Invalid client PO status"),
-
   body("items")
     .isArray({ min: 1 })
     .withMessage("Client PO must contain at least one item"),
