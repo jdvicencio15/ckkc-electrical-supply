@@ -1442,7 +1442,7 @@ salesInvoicing: {
     </div>
   </div>
 </div>
-```
+
 
 
         {/* Inventory Settings */}

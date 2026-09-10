@@ -15,7 +15,7 @@ function Input({
       {label && (
         <label
           htmlFor={name}
-          className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
+          className="mb-1 block text-sm font-medium text-slate-500 dark:text-slate-400"
         >
           {label}
         </label>

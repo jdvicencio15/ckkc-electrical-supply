@@ -401,7 +401,9 @@ const handleCancelDelete = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredSuppliers.map((supplier) => (
+                  [...filteredSuppliers]
+  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  .map((supplier) => (
                     <tr
                       key={supplier._id}
                       className="border-t border-slate-100 dark:border-slate-800"

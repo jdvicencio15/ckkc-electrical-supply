@@ -1,5 +1,7 @@
 const Customer = require("../models/Customer");
-
+const Quotation = require("../models/Quotation");
+const ClientPO = require("../models/ClientPO");
+const Invoice = require("../models/Invoice");
 const Sale = require("../models/Sale");
 
 // GET ALL CUSTOMERS
@@ -175,7 +177,7 @@ const updateCustomer = async (req, res, next) => {
 // DELETE CUSTOMER
 const deleteCustomer = async (req, res, next) => {
   try {
-    const customer = await Customer.findByIdAndDelete(req.params.id);
+    const customer = await Customer.findById(req.params.id);
 
     if (!customer) {
       return res.status(404).json({
@@ -183,6 +185,28 @@ const deleteCustomer = async (req, res, next) => {
         message: "Customer not found",
       });
     }
+
+    const [quotationExists, clientPOExists, saleExists, invoiceExists] =
+      await Promise.all([
+        Quotation.exists({ customerId: customer._id }),
+        ClientPO.exists({ customerId: customer._id }),
+        Sale.exists({ customerId: customer._id }),
+        Invoice.exists({ customerId: customer._id }),
+      ]);
+
+    if (
+      quotationExists ||
+      clientPOExists ||
+      saleExists ||
+      invoiceExists
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer cannot be deleted because it has existing transactions",
+      });
+    }
+
+    await customer.deleteOne();
 
     res.status(200).json({
       success: true,

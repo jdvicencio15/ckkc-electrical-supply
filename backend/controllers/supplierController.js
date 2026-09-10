@@ -1,4 +1,7 @@
 const Supplier = require("../models/Supplier");
+const SupplierPricing = require("../models/SupplierPricing");
+const SupplierPO = require("../models/SupplierPO");
+const Purchase = require("../models/Purchase");
 
 // GET ALL SUPPLIERS
 const getSuppliers = async (req, res, next) => {
@@ -39,7 +42,27 @@ const getSupplierById = async (req, res, next) => {
 // CREATE SUPPLIER
 const createSupplier = async (req, res, next) => {
   try {
-    const supplier = await Supplier.create(req.body);
+    const {
+      supplierCode,
+      name,
+      contactPerson,
+      email,
+      phone,
+      address,
+      supplierType,
+      status,
+    } = req.body;
+
+    const supplier = await Supplier.create({
+      supplierCode,
+      name,
+      contactPerson,
+      email,
+      phone,
+      address,
+      supplierType,
+      status,
+    });
 
     res.status(201).json({
       success: true,
@@ -53,9 +76,20 @@ const createSupplier = async (req, res, next) => {
 // UPDATE SUPPLIER
 const updateSupplier = async (req, res, next) => {
   try {
+    const updateData = {
+      supplierCode: req.body.supplierCode,
+      name: req.body.name,
+      contactPerson: req.body.contactPerson,
+      email: req.body.email,
+      phone: req.body.phone,
+      address: req.body.address,
+      supplierType: req.body.supplierType,
+      status: req.body.status,
+    };
+
     const supplier = await Supplier.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true,
@@ -81,7 +115,7 @@ const updateSupplier = async (req, res, next) => {
 // DELETE SUPPLIER
 const deleteSupplier = async (req, res, next) => {
   try {
-    const supplier = await Supplier.findByIdAndDelete(req.params.id);
+    const supplier = await Supplier.findById(req.params.id);
 
     if (!supplier) {
       return res.status(404).json({
@@ -89,6 +123,27 @@ const deleteSupplier = async (req, res, next) => {
         message: "Supplier not found",
       });
     }
+
+    const [supplierPricingExists, supplierPOExists, purchaseExists] =
+      await Promise.all([
+        SupplierPricing.exists({ supplierId: supplier._id }),
+        SupplierPO.exists({ supplierId: supplier._id }),
+        Purchase.exists({ supplierId: supplier._id }),
+      ]);
+
+    if (
+      supplierPricingExists ||
+      supplierPOExists ||
+      purchaseExists
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Supplier cannot be deleted because it has existing transactions",
+      });
+    }
+
+    await supplier.deleteOne();
 
     res.status(200).json({
       success: true,

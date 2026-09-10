@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import customerService from "../../services/customerService";
 import productService from "../../services/productService";
+import supplierService from "../../services/supplierService";
+import supplierPricingService from "../../services/supplierPricingService";
 
 function QuotationForm({
   initialData = null,
@@ -11,8 +13,10 @@ function QuotationForm({
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
 
-  const [loadingReferences, setLoadingReferences] =
-    useState(true);
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierPricings, setSupplierPricings] = useState([]);
+
+  const [loadingReferences, setLoadingReferences] = useState(true);
 
   const [error, setError] = useState("");
 
@@ -24,13 +28,12 @@ function QuotationForm({
       return {
         quotationNumber: "",
         customerId: "",
-        quotationDate: new Date()
-          .toISOString()
-          .split("T")[0],
+        quotationDate: new Date().toISOString().split("T")[0],
         status: "draft",
         items: [
           {
             productId: "",
+            supplierId: "",
             description: "",
             quantity: 1,
             supplierCostAtQuotation: 0,
@@ -43,47 +46,33 @@ function QuotationForm({
     }
 
     return {
-      quotationNumber:
-        quotation.quotationNumber || "",
+      quotationNumber: quotation.quotationNumber || "",
 
-      customerId:
-        quotation.customerId?._id ||
-        quotation.customerId ||
-        "",
+      customerId: quotation.customerId?._id || quotation.customerId || "",
 
       quotationDate: quotation.quotationDate
-        ? new Date(quotation.quotationDate)
-            .toISOString()
-            .split("T")[0]
-        : new Date()
-            .toISOString()
-            .split("T")[0],
+        ? new Date(quotation.quotationDate).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
 
       status: quotation.status || "draft",
 
       items:
         quotation.items?.length > 0
           ? quotation.items.map((item) => ({
-              productId:
-                item.productId?._id ||
-                item.productId ||
-                "",
+              productId: item.productId?._id || item.productId || "",
+              supplierId: item.supplierId?._id || item.supplierId || "",
+              description: item.description || "",
 
-              description:
-                item.description || "",
+              quantity: item.quantity ?? 1,
 
-              quantity:
-                item.quantity ?? 1,
+              supplierCostAtQuotation: item.supplierCostAtQuotation ?? 0,
 
-              supplierCostAtQuotation:
-                item.supplierCostAtQuotation ?? 0,
-
-              quotedUnitPrice:
-                item.quotedUnitPrice ?? 0,
+              quotedUnitPrice: item.quotedUnitPrice ?? 0,
             }))
           : [
               {
                 productId: "",
+                supplierId: "",
                 description: "",
                 quantity: 1,
                 supplierCostAtQuotation: 0,
@@ -93,14 +82,11 @@ function QuotationForm({
 
       laborCost: quotation.laborCost ?? 0,
 
-      otherDirectCosts:
-        quotation.otherDirectCosts ?? 0,
+      otherDirectCosts: quotation.otherDirectCosts ?? 0,
     };
   };
 
-  const [formData, setFormData] = useState(
-    buildFormData(initialData)
-  );
+  const [formData, setFormData] = useState(buildFormData(initialData));
 
   // UPDATE FORM WHEN EDITING TARGET CHANGES
   useEffect(() => {
@@ -118,27 +104,32 @@ function QuotationForm({
         const [
           customerResponse,
           productResponse,
+          supplierResponse,
+          supplierPricingResponse,
         ] = await Promise.all([
           customerService.getCustomers(),
           productService.getProducts(),
+          supplierService.getSuppliers(),
+          supplierPricingService.getSupplierPricings(),
         ]);
 
-        setCustomers(
-          customerResponse.customers || []
+        setCustomers(customerResponse.customers || []);
+
+        setProducts(productResponse.products || []);
+
+        setSuppliers(
+          (supplierResponse.suppliers || []).filter(
+            (supplier) => supplier.status === "active",
+          ),
         );
 
-        setProducts(
-          productResponse.products || []
-        );
+        setSupplierPricings(supplierPricingResponse.supplierPricings || []);
       } catch (error) {
-        console.error(
-          "Failed to load quotation references:",
-          error
-        );
+        console.error("Failed to load quotation references:", error);
 
         setError(
           error.response?.data?.message ||
-            "Failed to load customers and products."
+            "Failed to load customers and products.",
         );
       } finally {
         setLoadingReferences(false);
@@ -159,11 +150,7 @@ function QuotationForm({
   };
 
   // HANDLE ITEM CHANGE
-  const handleItemChange = (
-    index,
-    field,
-    value
-  ) => {
+  const handleItemChange = (index, field, value) => {
     setFormData((previous) => {
       const items = [...previous.items];
 
@@ -187,6 +174,7 @@ function QuotationForm({
         ...previous.items,
         {
           productId: "",
+          supplierId: "",
           description: "",
           quantity: 1,
           supplierCostAtQuotation: 0,
@@ -205,20 +193,15 @@ function QuotationForm({
 
       return {
         ...previous,
-        items: previous.items.filter(
-          (_, itemIndex) => itemIndex !== index
-        ),
+        items: previous.items.filter((_, itemIndex) => itemIndex !== index),
       };
     });
   };
 
   // PRODUCT SELECTION
-  const handleProductChange = (
-    index,
-    productId
-  ) => {
+  const handleProductChange = (index, productId) => {
     const selectedProduct = products.find(
-      (product) => product._id === productId
+      (product) => product._id === productId,
     );
 
     setFormData((previous) => {
@@ -227,10 +210,9 @@ function QuotationForm({
       items[index] = {
         ...items[index],
         productId,
-
-        description:
-          selectedProduct?.name ||
-          items[index].description,
+        supplierId: "",
+        supplierCostAtQuotation: 0,
+        description: selectedProduct?.name || items[index].description,
       };
 
       return {
@@ -240,100 +222,95 @@ function QuotationForm({
     });
   };
 
+  const handleSupplierChange = (index, supplierId) => {
+    const selectedPricing = supplierPricings.find(
+      (pricing) =>
+        pricing.productId?._id === formData.items[index].productId &&
+        pricing.supplierId?._id === supplierId &&
+        pricing.status === "active",
+    );
+
+    setFormData((previous) => {
+      const items = [...previous.items];
+
+      items[index] = {
+        ...items[index],
+        supplierId,
+        supplierCostAtQuotation: selectedPricing?.unitCost ?? 0,
+      };
+
+      return {
+        ...previous,
+        items,
+      };
+    });
+  };
+
+
   // SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError("");
 
-    if (!formData.quotationNumber.trim()) {
-      setError(
-        "Quotation number is required."
-      );
-      return;
-    }
-
     if (!formData.customerId) {
       setError("Customer is required.");
       return;
     }
 
-    const hasInvalidItem =
-      formData.items.some(
-        (item) =>
-          !item.productId ||
-          !item.description.trim() ||
-          Number(item.quantity) <= 0
-      );
+    const hasInvalidItem = formData.items.some(
+      (item) =>
+        !item.productId ||
+        !item.description.trim() ||
+        Number(item.quantity) <= 0,
+    );
 
     if (hasInvalidItem) {
-      setError(
-        "Please complete all quotation items."
-      );
+      setError("Please complete all quotation items.");
       return;
     }
 
-    const hasInvalidPrice =
-      formData.items.some(
-        (item) =>
-          Number(item.supplierCostAtQuotation) < 0 ||
-          Number(item.quotedUnitPrice) < 0
-      );
+    const hasInvalidPrice = formData.items.some(
+      (item) =>
+        Number(item.supplierCostAtQuotation) < 0 ||
+        Number(item.quotedUnitPrice) < 0,
+    );
 
     if (hasInvalidPrice) {
-      setError(
-        "Supplier cost and quoted price cannot be negative."
-      );
+      setError("Supplier cost and quoted price cannot be negative.");
       return;
     }
 
     try {
       await onSubmit({
-        quotationNumber:
-          formData.quotationNumber.trim(),
-
         customerId: formData.customerId,
 
-        quotationDate:
-          formData.quotationDate,
+        quotationDate: formData.quotationDate,
 
         status: formData.status,
 
         items: formData.items.map((item) => ({
           productId: item.productId,
 
-          description:
-            item.description.trim(),
+          supplierId: item.supplierId || undefined,
+
+          description: item.description.trim(),
 
           quantity: Number(item.quantity),
 
-          supplierCostAtQuotation: Number(
-            item.supplierCostAtQuotation
-          ),
+          supplierCostAtQuotation: Number(item.supplierCostAtQuotation),
 
-          quotedUnitPrice: Number(
-            item.quotedUnitPrice
-          ),
+          quotedUnitPrice: Number(item.quotedUnitPrice),
         })),
 
-        laborCost: Number(
-          formData.laborCost
-        ),
+        laborCost: Number(formData.laborCost),
 
-        otherDirectCosts: Number(
-          formData.otherDirectCosts
-        ),
+        otherDirectCosts: Number(formData.otherDirectCosts),
       });
     } catch (error) {
-      console.error(
-        "Failed to submit quotation:",
-        error
-      );
+      console.error("Failed to submit quotation:", error);
 
-      setError(
-        error.response?.data?.message ||
-          "Failed to save quotation."
-      );
+      setError(error.response?.data?.message || "Failed to save quotation.");
     }
   };
 
@@ -344,9 +321,7 @@ function QuotationForm({
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {isEditing
-                ? "Edit Quotation"
-                : "New Quotation"}
+              {isEditing ? "Edit Quotation" : "New Quotation"}
             </h2>
 
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -374,10 +349,7 @@ function QuotationForm({
         )}
 
         {/* FORM */}
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-6 p-6"
-        >
+        <form onSubmit={handleSubmit} className="space-y-6 p-6">
           {/* BASIC INFORMATION */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             {/* QUOTATION NUMBER */}
@@ -388,15 +360,21 @@ function QuotationForm({
 
               <input
                 type="text"
-                name="quotationNumber"
                 value={
-                  formData.quotationNumber
+                  isEditing
+                    ? formData.quotationNumber
+                    : "Auto-generated on save"
                 }
-                onChange={handleChange}
-                placeholder="QUO-001"
+                readOnly
                 disabled={submitting}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
               />
+
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                {isEditing
+                  ? "Document number cannot be changed."
+                  : "The quotation number will be generated automatically."}
+              </p>
             </div>
 
             {/* CUSTOMER */}
@@ -409,10 +387,7 @@ function QuotationForm({
                 name="customerId"
                 value={formData.customerId}
                 onChange={handleChange}
-                disabled={
-                  submitting ||
-                  loadingReferences
-                }
+                disabled={submitting || loadingReferences}
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               >
                 <option value="">
@@ -422,10 +397,7 @@ function QuotationForm({
                 </option>
 
                 {customers.map((customer) => (
-                  <option
-                    key={customer._id}
-                    value={customer._id}
-                  >
+                  <option key={customer._id} value={customer._id}>
                     {customer.name}
                   </option>
                 ))}
@@ -441,9 +413,7 @@ function QuotationForm({
               <input
                 type="date"
                 name="quotationDate"
-                value={
-                  formData.quotationDate
-                }
+                value={formData.quotationDate}
                 onChange={handleChange}
                 disabled={submitting}
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -463,29 +433,17 @@ function QuotationForm({
                 disabled={submitting}
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               >
-                <option value="draft">
-                  Draft
-                </option>
+                <option value="draft">Draft</option>
 
-                <option value="sent">
-                  Sent
-                </option>
+                <option value="sent">Sent</option>
 
-                <option value="accepted">
-                  Accepted
-                </option>
+                <option value="accepted">Accepted</option>
 
-                <option value="rejected">
-                  Rejected
-                </option>
+                <option value="rejected">Rejected</option>
 
-                <option value="expired">
-                  Expired
-                </option>
+                <option value="expired">Expired</option>
 
-                <option value="cancelled">
-                  Cancelled
-                </option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
           </div>
@@ -514,186 +472,172 @@ function QuotationForm({
             </div>
 
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-              <table className="w-full min-w-[900px] text-left text-sm">
+             <table className="w-full min-w-[1100px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                   <tr>
-                    <th className="px-4 py-3">
-                      Product
-                    </th>
+                    <th className="px-4 py-3">Product</th>
 
-                    <th className="px-4 py-3">
-                      Description
-                    </th>
+                    <th className="px-4 py-3">Supplier</th>
 
-                    <th className="px-4 py-3">
-                      Qty
-                    </th>
+                    <th className="px-4 py-3">Description</th>
 
-                    <th className="px-4 py-3">
-                      Supplier Cost
-                    </th>
+                    <th className="px-4 py-3">Qty</th>
 
-                    <th className="px-4 py-3">
-                      Quoted Price
-                    </th>
+                    <th className="px-4 py-3">Supplier Cost</th>
 
-                    <th className="px-4 py-3 text-right">
-                      Action
-                    </th>
+                    <th className="px-4 py-3">Quoted Price</th>
+
+                    <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {formData.items.map(
-                    (item, index) => (
-                      <tr
-                        key={index}
-                        className="border-t border-slate-100 dark:border-slate-800"
-                      >
-                        {/* PRODUCT */}
-                        <td className="px-4 py-3">
-                          <select
-                            value={
-                              item.productId
-                            }
-                            onChange={(e) =>
-                              handleProductChange(
-                                index,
-                                e.target.value
-                              )
-                            }
-                            disabled={
-                              submitting ||
-                              loadingReferences
-                            }
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                          >
-                            <option value="">
-                              {loadingReferences
-                                ? "Loading products..."
-                                : "Select product"}
+                  {formData.items.map((item, index) => (
+                    <tr
+                      key={index}
+                      className="border-t border-slate-100 dark:border-slate-800"
+                    >
+                      {/* PRODUCT */}
+                      <td className="px-4 py-3">
+                        <select
+                          value={item.productId}
+                          onChange={(e) =>
+                            handleProductChange(index, e.target.value)
+                          }
+                          disabled={submitting || loadingReferences}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        >
+                          <option value="">
+                            {loadingReferences
+                              ? "Loading products..."
+                              : "Select product"}
+                          </option>
+
+                          {products.map((product) => (
+                            <option key={product._id} value={product._id}>
+                              {product.sku} - {product.name}
                             </option>
+                          ))}
+                        </select>
+                      </td>
 
-                            {products.map(
-                              (product) => (
-                                <option
-                                  key={
-                                    product._id
-                                  }
-                                  value={
-                                    product._id
-                                  }
-                                >
-                                  {product.sku} -{" "}
-                                  {product.name}
-                                </option>
-                              )
-                            )}
-                          </select>
-                        </td>
+                      {/* Supplier */}
+                      <td className="px-4 py-3">
+                        <select
+                          value={item.supplierId}
+                          onChange={(e) =>
+                            handleSupplierChange(index, e.target.value)
+                          }
+                          disabled={
+                            submitting || loadingReferences || !item.productId
+                          }
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        >
+                          <option value="">
+                            {!item.productId
+                              ? "Select product first"
+                              : "Select supplier (optional)"}
+                          </option>
 
-                        {/* DESCRIPTION */}
-                        <td className="px-4 py-3">
-                          <input
-                            type="text"
-                            value={
-                              item.description
-                            }
-                            onChange={(e) =>
-                              handleItemChange(
-                                index,
-                                "description",
-                                e.target.value
-                              )
-                            }
-                            disabled={submitting}
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                          />
-                        </td>
+                          {suppliers.map((supplier) => (
+                            <option key={supplier._id} value={supplier._id}>
+                              {supplier.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
 
-                        {/* QUANTITY */}
-                        <td className="px-4 py-3">
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={
-                              item.quantity
-                            }
-                            onChange={(e) =>
-                              handleItemChange(
-                                index,
-                                "quantity",
-                                e.target.value
-                              )
-                            }
-                            disabled={submitting}
-                            className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                          />
-                        </td>
+                      {/* DESCRIPTION */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="text"
+                          value={item.description}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "description",
+                              e.target.value,
+                            )
+                          }
+                          disabled={submitting}
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                        />
+                      </td>
 
-                        {/* SUPPLIER COST */}
-                        <td className="px-4 py-3">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              item.supplierCostAtQuotation
-                            }
-                            onChange={(e) =>
-                              handleItemChange(
-                                index,
-                                "supplierCostAtQuotation",
-                                e.target.value
-                              )
-                            }
-                            disabled={submitting}
-                            className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                          />
-                        </td>
+                      {/* QUANTITY */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            handleItemChange(index, "quantity", e.target.value)
+                          }
+                          disabled={submitting}
+                          className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                        />
+                      </td>
 
-                        {/* QUOTED PRICE */}
-                        <td className="px-4 py-3">
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={
-                              item.quotedUnitPrice
-                            }
-                            onChange={(e) =>
-                              handleItemChange(
-                                index,
-                                "quotedUnitPrice",
-                                e.target.value
-                              )
-                            }
-                            disabled={submitting}
-                            className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                          />
-                        </td>
+                      {/* SUPPLIER COST */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.supplierCostAtQuotation}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "supplierCostAtQuotation",
+                              e.target.value,
+                            )
+                          }
+                          disabled={
+                            submitting ||
+                            supplierPricings.some(
+                              (pricing) =>
+                                pricing.productId?._id === item.productId &&
+                                pricing.supplierId?._id === item.supplierId &&
+                                pricing.status === "active",
+                            )
+                          }
+                          className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                        />
+                      </td>
 
-                        {/* REMOVE */}
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeItem(index)
-                            }
-                            disabled={
-                              submitting ||
-                              formData.items
-                                .length === 1
-                            }
-                            className="text-sm font-medium text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  )}
+                      {/* QUOTED PRICE */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.quotedUnitPrice}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "quotedUnitPrice",
+                              e.target.value,
+                            )
+                          }
+                          disabled={submitting}
+                          className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                        />
+                      </td>
+
+                      {/* REMOVE */}
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          disabled={submitting || formData.items.length === 1}
+                          className="text-sm font-medium text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -728,9 +672,7 @@ function QuotationForm({
                 min="0"
                 step="0.01"
                 name="otherDirectCosts"
-                value={
-                  formData.otherDirectCosts
-                }
+                value={formData.otherDirectCosts}
                 onChange={handleChange}
                 disabled={submitting}
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
@@ -751,17 +693,14 @@ function QuotationForm({
 
             <button
               type="submit"
-              disabled={
-                submitting ||
-                loadingReferences
-              }
+              disabled={submitting || loadingReferences}
               className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
                 ? "Saving..."
                 : isEditing
-                ? "Update Quotation"
-                : "Save Quotation"}
+                  ? "Update Quotation"
+                  : "Save Quotation"}
             </button>
           </div>
         </form>

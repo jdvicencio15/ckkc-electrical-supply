@@ -10,11 +10,16 @@ const initialForm = {
   unit: "",
   minimumStock: 0,
   status: "active",
+  initialSupplierPricing: {
+    supplierId: "",
+    unitCost: "",
+  },
 };
 
 function ProductForm({
   categories,
   units,
+  suppliers,
   product,
   onSubmit,
   onCancel,
@@ -24,16 +29,20 @@ function ProductForm({
 
   useEffect(() => {
     if (product) {
-      setFormData({
-        sku: product.sku || "",
-        name: product.name || "",
-        description: product.description || "",
-        categoryId: product.categoryId?._id || "",
-        unitId: product.unitId?._id || "",
-        unit: product.unit || "",
-        minimumStock: product.minimumStock ?? 0,
-        status: product.status || "active",
-      });
+     setFormData({
+  sku: product.sku || "",
+  name: product.name || "",
+  description: product.description || "",
+  categoryId: product.categoryId?._id || "",
+  unitId: product.unitId?._id || "",
+  unit: product.unit || "",
+  minimumStock: product.minimumStock ?? 0,
+  status: product.status || "active",
+  initialSupplierPricing: {
+    supplierId: "",
+    unitCost: "",
+  },
+});
     } else {
       setFormData(initialForm);
     }
@@ -62,14 +71,55 @@ function ProductForm({
     }));
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
 
-    onSubmit({
-      ...formData,
-      minimumStock: Number(formData.minimumStock),
-    });
+const handleSupplierChange = (event) => {
+  const supplierId = event.target.value;
+
+  setFormData((current) => ({
+    ...current,
+    initialSupplierPricing: {
+      ...current.initialSupplierPricing,
+      supplierId,
+    },
+  }));
+};
+
+const handleSupplierCostChange = (event) => {
+  const unitCost = event.target.value;
+
+  setFormData((current) => ({
+    ...current,
+    initialSupplierPricing: {
+      ...current.initialSupplierPricing,
+      unitCost,
+    },
+  }));
+};
+
+  const handleSubmit = (event) => {
+  event.preventDefault();
+
+  const payload = {
+    ...formData,
+    minimumStock: Number(formData.minimumStock),
   };
+
+  const { initialSupplierPricing } = payload;
+
+  if (
+    !initialSupplierPricing?.supplierId &&
+    !initialSupplierPricing?.unitCost
+  ) {
+    delete payload.initialSupplierPricing;
+  } else {
+    payload.initialSupplierPricing = {
+      supplierId: initialSupplierPricing.supplierId,
+      unitCost: Number(initialSupplierPricing.unitCost),
+    };
+  }
+
+  onSubmit(payload);
+};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -169,6 +219,63 @@ function ProductForm({
           </select>
         </div>
       </div>
+
+
+{!product && (
+  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+    <div className="mb-4">
+      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+        Initial Supplier Pricing
+      </h3>
+
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        Optional — you can add supplier pricing later.
+      </p>
+    </div>
+
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Supplier
+        </label>
+
+        <select
+          value={formData.initialSupplierPricing.supplierId}
+          onChange={handleSupplierChange}
+          disabled={submitting}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        >
+          <option value="">Select supplier</option>
+
+          {suppliers.map((supplier) => (
+            <option key={supplier._id} value={supplier._id}>
+              {supplier.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Unit Cost
+        </label>
+
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={formData.initialSupplierPricing.unitCost}
+          onChange={handleSupplierCostChange}
+          disabled={submitting}
+          placeholder="0.00"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        />
+      </div>
+    </div>
+  </div>
+)}
+
+
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Minimum Stock */}

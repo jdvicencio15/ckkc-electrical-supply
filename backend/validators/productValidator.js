@@ -16,10 +16,22 @@ const productValidator = [
     .isFloat({ min: 0 })
     .withMessage("Minimum stock must be 0 or greater"),
 
-  body("unitId")
+  body("unitId").optional().isMongoId().withMessage("Invalid unit reference"),
+
+  body("initialSupplierPricing")
     .optional()
+    .isObject()
+    .withMessage("Initial supplier pricing must be an object"),
+
+  body("initialSupplierPricing.supplierId")
+    .if(body("initialSupplierPricing").exists())
     .isMongoId()
-    .withMessage("Invalid unit reference"),
+    .withMessage("Valid supplier is required"),
+
+  body("initialSupplierPricing.unitCost")
+    .if(body("initialSupplierPricing").exists())
+    .isFloat({ min: 0 })
+    .withMessage("Supplier cost must be 0 or greater"),
 ];
 
 const productUpdateValidator = [
@@ -50,10 +62,7 @@ const productUpdateValidator = [
     .isIn(["active", "inactive"])
     .withMessage("Status must be either active or inactive"),
 
-  body("unitId")
-    .optional()
-    .isMongoId()
-    .withMessage("Invalid unit reference"),
+  body("unitId").optional().isMongoId().withMessage("Invalid unit reference"),
 ];
 
 module.exports = {

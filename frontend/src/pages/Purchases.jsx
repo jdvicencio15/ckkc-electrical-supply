@@ -463,7 +463,14 @@ const handleCancelConfirmation = () => {
                 </thead>
 
                 <tbody>
-                  {filteredPurchases.map((purchase) => (
+                {[...filteredPurchases]
+  .sort((a, b) => {
+    const sequenceA = Number(a.purchaseNumber?.split("-").pop());
+    const sequenceB = Number(b.purchaseNumber?.split("-").pop());
+
+    return sequenceB - sequenceA;
+  })
+  .map((purchase) => (
                     <tr
                       key={purchase._id}
                       className="border-b border-slate-100 last:border-0 dark:border-slate-800"

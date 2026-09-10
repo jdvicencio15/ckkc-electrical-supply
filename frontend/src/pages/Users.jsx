@@ -324,7 +324,10 @@ const handleEditUser = (user) => {
 
       {/* Users Table */}
       <UserTable
-        users={filteredUsers}
+        users={[...filteredUsers].sort(
+    (a, b) =>
+      new Date(b.createdAt) - new Date(a.createdAt)
+  )}
         loading={loading}
         onEdit={handleEditUser}
         onToggleStatus={handleToggleStatus}

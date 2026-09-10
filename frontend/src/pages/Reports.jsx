@@ -30,62 +30,29 @@ function Reports() {
     let endDate;
 
     if (selectedPeriod === "thisMonth") {
-      startDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1
-      );
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      endDate = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0
-      );
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
 
     if (selectedPeriod === "lastMonth") {
-      startDate = new Date(
-        now.getFullYear(),
-        now.getMonth() - 1,
-        1
-      );
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-      endDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        0
-      );
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0);
     }
 
     if (selectedPeriod === "thisQuarter") {
-      const quarterStartMonth =
-        Math.floor(now.getMonth() / 3) * 3;
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
 
-      startDate = new Date(
-        now.getFullYear(),
-        quarterStartMonth,
-        1
-      );
+      startDate = new Date(now.getFullYear(), quarterStartMonth, 1);
 
-      endDate = new Date(
-        now.getFullYear(),
-        quarterStartMonth + 3,
-        0
-      );
+      endDate = new Date(now.getFullYear(), quarterStartMonth + 3, 0);
     }
 
     if (selectedPeriod === "thisYear") {
-      startDate = new Date(
-        now.getFullYear(),
-        0,
-        1
-      );
+      startDate = new Date(now.getFullYear(), 0, 1);
 
-      endDate = new Date(
-        now.getFullYear(),
-        11,
-        31
-      );
+      endDate = new Date(now.getFullYear(), 11, 31);
     }
 
     return {
@@ -107,10 +74,7 @@ function Reports() {
     } catch (err) {
       console.error("Failed to load report summary:", err);
 
-      setError(
-        err.response?.data?.message ||
-          "Failed to load report summary."
-      );
+      setError(err.response?.data?.message || "Failed to load report summary.");
     } finally {
       setLoading(false);
     }
@@ -126,7 +90,6 @@ function Reports() {
 
   return (
     <div className="space-y-6">
-
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -140,27 +103,18 @@ function Reports() {
 
       {/* Report Filters */}
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row dark:border-slate-800 dark:bg-slate-900">
-
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
           className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
         >
-          <option value="thisMonth">
-            This Month
-          </option>
+          <option value="thisMonth">This Month</option>
 
-          <option value="lastMonth">
-            Last Month
-          </option>
+          <option value="lastMonth">Last Month</option>
 
-          <option value="thisQuarter">
-            This Quarter
-          </option>
+          <option value="thisQuarter">This Quarter</option>
 
-          <option value="thisYear">
-            This Year
-          </option>
+          <option value="thisYear">This Year</option>
         </select>
 
         <button
@@ -171,7 +125,6 @@ function Reports() {
         >
           {loading ? "Generating..." : "Generate Report"}
         </button>
-
       </div>
 
       {/* Error */}
@@ -183,17 +136,12 @@ function Reports() {
 
       {/* Report Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
         {/* Sales */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Sales
-          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Sales</p>
 
-          <p className="mt-2 text-2xl font-bold text-green-600">
-            {loading
-              ? "Loading..."
-              : formatCurrency(summary.sales)}
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {loading ? "Loading..." : formatCurrency(summary.sales)}
           </p>
         </div>
 
@@ -203,23 +151,17 @@ function Reports() {
             Purchases
           </p>
 
-          <p className="mt-2 text-2xl font-bold text-blue-600">
-            {loading
-              ? "Loading..."
-              : formatCurrency(summary.purchases)}
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {loading ? "Loading..." : formatCurrency(summary.purchases)}
           </p>
         </div>
 
         {/* Expenses */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Expenses
-          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Expenses</p>
 
-          <p className="mt-2 text-2xl font-bold text-red-500">
-            {loading
-              ? "Loading..."
-              : formatCurrency(summary.expenses)}
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {loading ? "Loading..." : formatCurrency(summary.expenses)}
           </p>
         </div>
 
@@ -230,17 +172,13 @@ function Reports() {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {loading
-              ? "Loading..."
-              : formatCurrency(summary.netProfit)}
+            {loading ? "Loading..." : formatCurrency(summary.netProfit)}
           </p>
         </div>
-
       </div>
 
       {/* Available Reports */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-
         <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Available Reports
@@ -252,7 +190,6 @@ function Reports() {
         </div>
 
         <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
           {/* Sales Report */}
           <Link
             to="/reports/sales"
@@ -336,11 +273,8 @@ function Reports() {
               Review assets, liabilities, and equity.
             </p>
           </Link>
-
         </div>
-
       </div>
-
     </div>
   );
 }

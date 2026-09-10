@@ -6,6 +6,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 
+import supplierService from "../services/supplierService";
 import productService from "../services/productService";
 import categoryService from "../services/categoryService";
 import ProductForm from "../components/products/ProductForm";
@@ -17,7 +18,11 @@ import { useAuth } from "../context/AuthContext";
 
 function Products() {
   const { user } = useAuth();
+
+  const [suppliers, setSuppliers] = useState([]);
+
   const [searchParams] = useSearchParams();
+
 
   const [units, setUnits] = useState([]);
 
@@ -45,6 +50,17 @@ const [deleting, setDeleting] = useState(false);
     message: "",
   });
 
+
+  const loadSuppliers = async () => {
+  const response = await supplierService.getSuppliers();
+
+  setSuppliers(
+    (response.suppliers || []).filter(
+      (supplier) => supplier.status === "active"
+    )
+  );
+  };
+
   const loadUnits = async () => {
     const response = await unitService.getActiveUnits();
     setUnits(response.units || []);
@@ -71,7 +87,7 @@ const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     const loadData = async () => {
       try {
-        await Promise.all([loadProducts(), loadCategories()], loadUnits());
+        await Promise.all([loadProducts(), loadCategories()], loadUnits()),loadSuppliers();
       } catch (error) {
         console.error("Failed to load products:", error);
 
@@ -328,18 +344,19 @@ const handleCancelDelete = () => {
               </p>
             </div>
 
-            <ProductForm
-              categories={categories}
-              product={editingProduct}
-              units={units}
-              onSubmit={
-                editingProduct
-                  ? handleUpdate
-                  : handleCreate
-              }
-              onCancel={closeForm}
-              submitting={formLoading}
-            />
+        <ProductForm
+  categories={categories}
+  product={editingProduct}
+  units={units}
+  suppliers={suppliers}
+  onSubmit={
+    editingProduct
+      ? handleUpdate
+      : handleCreate
+  }
+  onCancel={closeForm}
+  submitting={formLoading}
+/>
           </div>
         )}
 
@@ -449,7 +466,11 @@ const handleCancelDelete = () => {
                 </thead>
 
                 <tbody>
-                  {filteredProducts.map((product) => {
+                    {[...filteredProducts]
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map((product) => {
+
+
                     const lowStock =
                       product.currentStock <=
                       product.minimumStock;

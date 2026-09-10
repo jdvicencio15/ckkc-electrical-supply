@@ -10,8 +10,19 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendPasswordResetEmail = async (email, resetUrl) => {
-  logger.info(`Sending password reset email to ${email}`);
+ logger.info(`Sending password reset email to ${email}`);
 
+  logger.info(
+    `Email user loaded: ${process.env.EMAIL_USER}`
+  );
+
+  logger.info(
+    `Email configuration loaded: ${Boolean(process.env.EMAIL_USER)}`
+  );
+
+  logger.info(
+    `Email app password loaded: ${Boolean(process.env.EMAIL_APP_PASSWORD)}`
+  );
   const info = await transporter.sendMail({
     from: `"${process.env.APP_NAME}" <${process.env.EMAIL_USER}>`,
     to: email,
@@ -65,7 +76,6 @@ If you did not request a password reset, you can safely ignore this email.
 
   return info;
 };
-
 module.exports = {
   sendPasswordResetEmail,
 };

@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  FaEdit,
-  FaEye,
-  FaPlus,
-  FaTrash,
-} from "react-icons/fa";
+import { FaEdit, FaEye, FaPlus, FaTrash } from "react-icons/fa";
 
 import paymentService from "../services/paymentService";
 import invoiceService from "../services/invoiceService";
@@ -27,26 +22,21 @@ function Payments() {
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-const [searchTerm, setSearchTerm] = useState(
-  searchParams.get("search") || ""
-);
-  const [selectedCustomer, setSelectedCustomer] =
-    useState("all");
-  const [selectedMethod, setSelectedMethod] =
-    useState("all");
+  const [searchTerm, setSearchTerm] = useState(
+    searchParams.get("search") || "",
+  );
+  const [selectedCustomer, setSelectedCustomer] = useState("all");
+  const [selectedMethod, setSelectedMethod] = useState("all");
   const [selectedDate, setSelectedDate] = useState("");
 
   const [showForm, setShowForm] = useState(false);
-  const [editingPayment, setEditingPayment] =
-    useState(null);
+  const [editingPayment, setEditingPayment] = useState(null);
 
-  const [viewingPayment, setViewingPayment] =
-    useState(null);
+  const [viewingPayment, setViewingPayment] = useState(null);
 
-  const [deletingPayment, setDeletingPayment] =
-  useState(null);
+  const [deletingPayment, setDeletingPayment] = useState(null);
 
-const [deleting, setDeleting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -59,15 +49,13 @@ const [deleting, setDeleting] = useState(false);
     user?.role === "accounting";
 
   const loadPayments = async () => {
-    const response =
-      await paymentService.getPayments();
+    const response = await paymentService.getPayments();
 
     setPayments(response.payments || []);
   };
 
   const loadInvoices = async () => {
-    const response =
-      await invoiceService.getInvoices();
+    const response = await invoiceService.getInvoices();
 
     setInvoices(response.invoices || []);
   };
@@ -75,15 +63,9 @@ const [deleting, setDeleting] = useState(false);
   useEffect(() => {
     const loadData = async () => {
       try {
-        await Promise.all([
-          loadPayments(),
-          loadInvoices(),
-        ]);
+        await Promise.all([loadPayments(), loadInvoices()]);
       } catch (error) {
-        console.error(
-          "Failed to load payments:",
-          error,
-        );
+        console.error("Failed to load payments:", error);
 
         setToast({
           type: "error",
@@ -120,19 +102,15 @@ const [deleting, setDeleting] = useState(false);
     const customerMap = new Map();
 
     payments.forEach((payment) => {
-      const customer =
-        payment.invoiceId?.customerId;
+      const customer = payment.invoiceId?.customerId;
 
       if (customer?._id) {
         customerMap.set(customer._id, customer);
       }
     });
 
-    return Array.from(customerMap.values()).sort(
-      (a, b) =>
-        (a.name || "").localeCompare(
-          b.name || "",
-        ),
+    return Array.from(customerMap.values()).sort((a, b) =>
+      (a.name || "").localeCompare(b.name || ""),
     );
   }, [payments]);
 
@@ -143,34 +121,22 @@ const [deleting, setDeleting] = useState(false);
    * customer payment information is derived from
    * the invoice relationship.
    */
-  const getInvoiceTotalPaid = (
-    invoiceId,
-    excludePaymentId = null,
-  ) => {
+  const getInvoiceTotalPaid = (invoiceId, excludePaymentId = null) => {
     return payments
       .filter((payment) => {
-        const paymentInvoiceId =
-          payment.invoiceId?._id ||
-          payment.invoiceId;
+        const paymentInvoiceId = payment.invoiceId?._id || payment.invoiceId;
 
         if (paymentInvoiceId !== invoiceId) {
           return false;
         }
 
-        if (
-          excludePaymentId &&
-          payment._id === excludePaymentId
-        ) {
+        if (excludePaymentId && payment._id === excludePaymentId) {
           return false;
         }
 
         return true;
       })
-      .reduce(
-        (total, payment) =>
-          total + Number(payment.amount || 0),
-        0,
-      );
+      .reduce((total, payment) => total + Number(payment.amount || 0), 0);
   };
 
   const getInvoiceBalance = (invoice) => {
@@ -178,14 +144,9 @@ const [deleting, setDeleting] = useState(false);
       return 0;
     }
 
-    const totalPaid =
-      getInvoiceTotalPaid(invoice._id);
+    const totalPaid = getInvoiceTotalPaid(invoice._id);
 
-    return Math.max(
-      Number(invoice.totalAmount || 0) -
-        totalPaid,
-      0,
-    );
+    return Math.max(Number(invoice.totalAmount || 0) - totalPaid, 0);
   };
 
   /*
@@ -195,36 +156,24 @@ const [deleting, setDeleting] = useState(false);
    */
   const issuedInvoices = useMemo(() => {
     return invoices.filter((invoice) => {
-      return (
-        invoice.status === "issued" &&
-        getInvoiceBalance(invoice) > 0
-      );
+      return invoice.status === "issued" && getInvoiceBalance(invoice) > 0;
     });
   }, [invoices, payments]);
 
   const filteredPayments = useMemo(() => {
-    const search = searchTerm
-      .trim()
-      .toLowerCase();
+    const search = searchTerm.trim().toLowerCase();
 
     return payments.filter((payment) => {
       const invoice = payment.invoiceId;
       const customer = invoice?.customerId;
 
-      const invoiceNumber =
-        invoice?.invoiceNumber?.toLowerCase() ||
-        "";
+      const invoiceNumber = invoice?.invoiceNumber?.toLowerCase() || "";
 
-      const customerName =
-        customer?.name?.toLowerCase() || "";
+      const customerName = customer?.name?.toLowerCase() || "";
 
-      const customerCode =
-        customer?.customerCode?.toLowerCase() ||
-        "";
+      const customerCode = customer?.customerCode?.toLowerCase() || "";
 
-      const referenceNumber =
-        payment.referenceNumber?.toLowerCase() ||
-        "";
+      const referenceNumber = payment.referenceNumber?.toLowerCase() || "";
 
       const matchesSearch =
         invoiceNumber.includes(search) ||
@@ -233,37 +182,20 @@ const [deleting, setDeleting] = useState(false);
         referenceNumber.includes(search);
 
       const matchesCustomer =
-        selectedCustomer === "all" ||
-        customer?._id === selectedCustomer;
+        selectedCustomer === "all" || customer?._id === selectedCustomer;
 
       const matchesMethod =
-        selectedMethod === "all" ||
-        payment.paymentMethod === selectedMethod;
+        selectedMethod === "all" || payment.paymentMethod === selectedMethod;
 
       const paymentDate = payment.paymentDate
-        ? new Date(payment.paymentDate)
-            .toISOString()
-            .split("T")[0]
+        ? new Date(payment.paymentDate).toISOString().split("T")[0]
         : "";
 
-      const matchesDate =
-        !selectedDate ||
-        paymentDate === selectedDate;
+      const matchesDate = !selectedDate || paymentDate === selectedDate;
 
-      return (
-        matchesSearch &&
-        matchesCustomer &&
-        matchesMethod &&
-        matchesDate
-      );
+      return matchesSearch && matchesCustomer && matchesMethod && matchesDate;
     });
-  }, [
-    payments,
-    searchTerm,
-    selectedCustomer,
-    selectedMethod,
-    selectedDate,
-  ]);
+  }, [payments, searchTerm, selectedCustomer, selectedMethod, selectedDate]);
 
   /*
    * Payment summary cards intentionally use
@@ -272,8 +204,7 @@ const [deleting, setDeleting] = useState(false);
    */
   const totalCollected = useMemo(() => {
     return payments.reduce(
-      (total, payment) =>
-        total + Number(payment.amount || 0),
+      (total, payment) => total + Number(payment.amount || 0),
       0,
     );
   }, [payments]);
@@ -282,15 +213,8 @@ const [deleting, setDeleting] = useState(false);
 
   const outstandingReceivables = useMemo(() => {
     return invoices
-      .filter(
-        (invoice) =>
-          invoice.status === "issued",
-      )
-      .reduce(
-        (total, invoice) =>
-          total + getInvoiceBalance(invoice),
-        0,
-      );
+      .filter((invoice) => invoice.status === "issued")
+      .reduce((total, invoice) => total + getInvoiceBalance(invoice), 0);
   }, [invoices, payments]);
 
   const collectedThisMonth = useMemo(() => {
@@ -302,46 +226,32 @@ const [deleting, setDeleting] = useState(false);
           return false;
         }
 
-        const paymentDate = new Date(
-          payment.paymentDate,
-        );
+        const paymentDate = new Date(payment.paymentDate);
 
         return (
-          paymentDate.getMonth() ===
-            now.getMonth() &&
-          paymentDate.getFullYear() ===
-            now.getFullYear()
+          paymentDate.getMonth() === now.getMonth() &&
+          paymentDate.getFullYear() === now.getFullYear()
         );
       })
-      .reduce(
-        (total, payment) =>
-          total + Number(payment.amount || 0),
-        0,
-      );
+      .reduce((total, payment) => total + Number(payment.amount || 0), 0);
   }, [payments]);
 
   const formatCurrency = (value) =>
-    `₱${Number(value || 0).toLocaleString(
-      "en-PH",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      },
-    )}`;
+    `₱${Number(value || 0).toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
   const formatDate = (date) => {
     if (!date) {
       return "—";
     }
 
-    return new Date(date).toLocaleDateString(
-      "en-PH",
-      {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      },
-    );
+    return new Date(date).toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   const formatPaymentMethod = (method) => {
@@ -395,33 +305,22 @@ const [deleting, setDeleting] = useState(false);
     try {
       setFormLoading(true);
 
-      await paymentService.createPayment(
-        formData,
-      );
+      await paymentService.createPayment(formData);
 
-      await Promise.all([
-        loadPayments(),
-        loadInvoices(),
-      ]);
+      await Promise.all([loadPayments(), loadInvoices()]);
 
       setShowForm(false);
 
       setToast({
         type: "success",
-        message:
-          "Payment recorded successfully.",
+        message: "Payment recorded successfully.",
       });
     } catch (error) {
-      console.error(
-        "Failed to create payment:",
-        error,
-      );
+      console.error("Failed to create payment:", error);
 
       setToast({
         type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to record payment.",
+        message: error.response?.data?.message || "Failed to record payment.",
       });
     } finally {
       setFormLoading(false);
@@ -432,119 +331,90 @@ const [deleting, setDeleting] = useState(false);
     try {
       setFormLoading(true);
 
-      await paymentService.updatePayment(
-        editingPayment._id,
-        formData,
-      );
+      await paymentService.updatePayment(editingPayment._id, formData);
 
-      await Promise.all([
-        loadPayments(),
-        loadInvoices(),
-      ]);
+      await Promise.all([loadPayments(), loadInvoices()]);
 
       setEditingPayment(null);
       setShowForm(false);
 
       setToast({
         type: "success",
-        message:
-          "Payment updated successfully.",
+        message: "Payment updated successfully.",
       });
     } catch (error) {
-      console.error(
-        "Failed to update payment:",
-        error,
-      );
+      console.error("Failed to update payment:", error);
 
       setToast({
         type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to update payment.",
+        message: error.response?.data?.message || "Failed to update payment.",
       });
     } finally {
       setFormLoading(false);
     }
   };
 
- const handleDelete = (payment) => {
-  setDeletingPayment(payment);
-};
+  const handleDelete = (payment) => {
+    setDeletingPayment(payment);
+  };
 
-const handleConfirmDelete = async () => {
-  if (!deletingPayment) {
-    return;
-  }
+  const handleConfirmDelete = async () => {
+    if (!deletingPayment) {
+      return;
+    }
 
-  try {
-    setDeleting(true);
+    try {
+      setDeleting(true);
 
-    await paymentService.deletePayment(
-      deletingPayment._id,
-    );
+      await paymentService.deletePayment(deletingPayment._id);
 
-    await Promise.all([
-      loadPayments(),
-      loadInvoices(),
-    ]);
+      await Promise.all([loadPayments(), loadInvoices()]);
+
+      setDeletingPayment(null);
+
+      setToast({
+        type: "success",
+        message: "Payment deleted successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to delete payment:", error);
+
+      setToast({
+        type: "error",
+        message: error.response?.data?.message || "Failed to delete payment.",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    if (deleting) {
+      return;
+    }
 
     setDeletingPayment(null);
-
-    setToast({
-      type: "success",
-      message:
-        "Payment deleted successfully.",
-    });
-  } catch (error) {
-    console.error(
-      "Failed to delete payment:",
-      error,
-    );
-
-    setToast({
-      type: "error",
-      message:
-        error.response?.data?.message ||
-        "Failed to delete payment.",
-    });
-  } finally {
-    setDeleting(false);
-  }
-};
-
-const handleCancelDelete = () => {
-  if (deleting) {
-    return;
-  }
-
-  setDeletingPayment(null);
-};
+  };
 
   return (
     <>
-      <Toast
-        type={toast.type}
-        message={toast.message}
-        onClose={closeToast}
-      />
-
+      <Toast type={toast.type} message={toast.message} onClose={closeToast} />
 
       <ConfirmModal
-  isOpen={!!deletingPayment}
-  onClose={handleCancelDelete}
-  onConfirm={handleConfirmDelete}
-  title="Delete Payment"
-  message={`Are you sure you want to delete this payment of ${formatCurrency(
-    deletingPayment?.amount,
-  )}? This action cannot be undone.`}
-  confirmText="Delete"
-  cancelText="Cancel"
-  loading={deleting}
-  loadingText="Deleting..."
-/>
+        isOpen={!!deletingPayment}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete Payment"
+        message={`Are you sure you want to delete this payment of ${formatCurrency(
+          deletingPayment?.amount,
+        )}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={deleting}
+        loadingText="Deleting..."
+      />
 
       <div className="space-y-6">
-
         {/* Header */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -572,12 +442,9 @@ const handleCancelDelete = () => {
         {/* Form */}
         {showForm && (
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-
             <div className="mb-5">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {editingPayment
-                  ? "Edit Payment"
-                  : "Record Payment"}
+                {editingPayment ? "Edit Payment" : "Record Payment"}
               </h2>
 
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -591,11 +458,7 @@ const handleCancelDelete = () => {
               payment={editingPayment}
               issuedInvoices={issuedInvoices}
               payments={payments}
-              onSubmit={
-                editingPayment
-                  ? handleUpdate
-                  : handleCreate
-              }
+              onSubmit={editingPayment ? handleUpdate : handleCreate}
               onCancel={closeForm}
               formLoading={formLoading}
             />
@@ -604,7 +467,6 @@ const handleCancelDelete = () => {
 
         {/* Summary */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Total Collected
@@ -620,7 +482,7 @@ const handleCancelDelete = () => {
               Payments Count
             </p>
 
-            <p className="mt-2 text-2xl font-bold text-green-600">
+            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
               {totalPaymentCount}
             </p>
           </div>
@@ -630,10 +492,8 @@ const handleCancelDelete = () => {
               Outstanding Receivables
             </p>
 
-            <p className="mt-2 text-2xl font-bold text-amber-500">
-              {formatCurrency(
-                outstandingReceivables,
-              )}
+            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+              {formatCurrency(outstandingReceivables)}
             </p>
           </div>
 
@@ -642,49 +502,32 @@ const handleCancelDelete = () => {
               Collected This Month
             </p>
 
-            <p className="mt-2 text-2xl font-bold text-blue-600">
-              {formatCurrency(
-                collectedThisMonth,
-              )}
+            <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+              {formatCurrency(collectedThisMonth)}
             </p>
           </div>
-
         </div>
 
         {/* Filters */}
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-
             <input
               type="search"
               value={searchTerm}
-              onChange={(event) =>
-                setSearchTerm(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search payments..."
               className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
 
             <select
               value={selectedCustomer}
-              onChange={(event) =>
-                setSelectedCustomer(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setSelectedCustomer(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             >
-              <option value="all">
-                All Customers
-              </option>
+              <option value="all">All Customers</option>
 
               {customers.map((customer) => (
-                <option
-                  key={customer._id}
-                  value={customer._id}
-                >
+                <option key={customer._id} value={customer._id}>
                   {customer.name}
                 </option>
               ))}
@@ -692,59 +535,35 @@ const handleCancelDelete = () => {
 
             <select
               value={selectedMethod}
-              onChange={(event) =>
-                setSelectedMethod(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setSelectedMethod(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             >
-              <option value="all">
-                All Methods
-              </option>
+              <option value="all">All Methods</option>
 
-              <option value="cash">
-                Cash
-              </option>
+              <option value="cash">Cash</option>
 
-              <option value="bank_transfer">
-                Bank Transfer
-              </option>
+              <option value="bank_transfer">Bank Transfer</option>
 
-              <option value="gcash">
-                GCash
-              </option>
+              <option value="gcash">GCash</option>
 
-              <option value="maya">
-                Maya
-              </option>
+              <option value="maya">Maya</option>
 
-              <option value="check">
-                Check
-              </option>
+              <option value="check">Check</option>
 
-              <option value="other">
-                Other
-              </option>
+              <option value="other">Other</option>
             </select>
 
             <input
               type="date"
               value={selectedDate}
-              onChange={(event) =>
-                setSelectedDate(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setSelectedDate(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             />
-
           </div>
         </div>
 
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-
           {loading ? (
             <div className="px-6 py-12 text-center">
               <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -765,32 +584,19 @@ const handleCancelDelete = () => {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1000px] text-left text-sm">
-
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                     <tr>
-                      <th className="px-6 py-3 font-semibold">
-                        Invoice No.
-                      </th>
+                      <th className="px-6 py-3 font-semibold">Invoice No.</th>
 
-                      <th className="px-6 py-3 font-semibold">
-                        Customer
-                      </th>
+                      <th className="px-6 py-3 font-semibold">Customer</th>
 
-                      <th className="px-6 py-3 font-semibold">
-                        Reference
-                      </th>
+                      <th className="px-6 py-3 font-semibold">Reference</th>
 
-                      <th className="px-6 py-3 font-semibold">
-                        Amount
-                      </th>
+                      <th className="px-6 py-3 font-semibold">Amount</th>
 
-                      <th className="px-6 py-3 font-semibold">
-                        Method
-                      </th>
+                      <th className="px-6 py-3 font-semibold">Method</th>
 
-                      <th className="px-6 py-3 font-semibold">
-                        Date
-                      </th>
+                      <th className="px-6 py-3 font-semibold">Date</th>
 
                       {canManagePayments && (
                         <th className="px-6 py-3 text-right font-semibold">
@@ -801,58 +607,46 @@ const handleCancelDelete = () => {
                   </thead>
 
                   <tbody>
-                    {filteredPayments.map(
-                      (payment) => (
+                    {[...filteredPayments]
+                      .sort(
+                        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+                      )
+                      .map((payment) => (
                         <tr
                           key={payment._id}
                           className="border-t border-slate-100 dark:border-slate-800"
                         >
                           <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-                            {payment.invoiceId
-                              ?.invoiceNumber ||
-                              "—"}
+                            {payment.invoiceId?.invoiceNumber || "—"}
                           </td>
 
                           <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                            {payment.invoiceId
-                              ?.customerId?.name ||
+                            {payment.invoiceId?.customerId?.name ||
                               "Unknown Customer"}
                           </td>
 
                           <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
-                            {payment.referenceNumber ||
-                              "—"}
+                            {payment.referenceNumber || "—"}
                           </td>
 
                           <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
-                            {formatCurrency(
-                              payment.amount,
-                            )}
+                            {formatCurrency(payment.amount)}
                           </td>
 
                           <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                            {formatPaymentMethod(
-                              payment.paymentMethod,
-                            )}
+                            {formatPaymentMethod(payment.paymentMethod)}
                           </td>
 
                           <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                            {formatDate(
-                              payment.paymentDate,
-                            )}
+                            {formatDate(payment.paymentDate)}
                           </td>
 
                           {canManagePayments && (
                             <td className="px-6 py-4">
                               <div className="flex justify-end gap-2">
-
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    openView(
-                                      payment,
-                                    )
-                                  }
+                                  onClick={() => openView(payment)}
                                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                                   aria-label="View payment"
                                 >
@@ -861,14 +655,8 @@ const handleCancelDelete = () => {
 
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    openEditForm(
-                                      payment,
-                                    )
-                                  }
-                                  disabled={
-                                    formLoading
-                                  }
+                                  onClick={() => openEditForm(payment)}
+                                  disabled={formLoading}
                                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                                   aria-label="Edit payment"
                                 >
@@ -877,50 +665,36 @@ const handleCancelDelete = () => {
 
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    handleDelete(
-                                      payment,
-                                    )
-                                  }
-                                  disabled={
-                                    formLoading
-                                  }
+                                  onClick={() => handleDelete(payment)}
+                                  disabled={formLoading}
                                   className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30"
                                   aria-label="Delete payment"
                                 >
                                   <FaTrash className="h-3.5 w-3.5" />
                                 </button>
-
                               </div>
                             </td>
                           )}
                         </tr>
-                      ),
-                    )}
+                      ))}
                   </tbody>
                 </table>
               </div>
 
               <div className="border-t border-slate-200 px-6 py-3 dark:border-slate-800">
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Showing{" "}
-                  {filteredPayments.length}{" "}
-                  {filteredPayments.length === 1
-                    ? "payment"
-                    : "payments"}
+                  Showing {filteredPayments.length}{" "}
+                  {filteredPayments.length === 1 ? "payment" : "payments"}
                 </p>
               </div>
             </>
           )}
-
         </div>
 
         {/* View Payment Modal */}
         {viewingPayment && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-
             <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-
               {/* Modal Header */}
               <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-800">
                 <div>
@@ -929,9 +703,7 @@ const handleCancelDelete = () => {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    {viewingPayment.invoiceId
-                      ?.invoiceNumber ||
-                      "Payment"}
+                    {viewingPayment.invoiceId?.invoiceNumber || "Payment"}
                   </p>
                 </div>
 
@@ -947,7 +719,6 @@ const handleCancelDelete = () => {
 
               {/* Modal Body */}
               <div className="space-y-6 p-6">
-
                 {/* Payment Information */}
                 <div>
                   <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -955,17 +726,13 @@ const handleCancelDelete = () => {
                   </h3>
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
                     <div>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Invoice Number
                       </p>
 
                       <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {viewingPayment
-                          .invoiceId
-                          ?.invoiceNumber ||
-                          "—"}
+                        {viewingPayment.invoiceId?.invoiceNumber || "—"}
                       </p>
                     </div>
 
@@ -975,10 +742,7 @@ const handleCancelDelete = () => {
                       </p>
 
                       <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {viewingPayment
-                          .invoiceId
-                          ?.customerId?.name ||
-                          "—"}
+                        {viewingPayment.invoiceId?.customerId?.name || "—"}
                       </p>
                     </div>
 
@@ -988,9 +752,7 @@ const handleCancelDelete = () => {
                       </p>
 
                       <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
-                        {formatDate(
-                          viewingPayment.paymentDate,
-                        )}
+                        {formatDate(viewingPayment.paymentDate)}
                       </p>
                     </div>
 
@@ -1000,9 +762,7 @@ const handleCancelDelete = () => {
                       </p>
 
                       <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {formatPaymentMethod(
-                          viewingPayment.paymentMethod,
-                        )}
+                        {formatPaymentMethod(viewingPayment.paymentMethod)}
                       </p>
                     </div>
 
@@ -1012,9 +772,7 @@ const handleCancelDelete = () => {
                       </p>
 
                       <p className="mt-1 text-sm text-slate-900 dark:text-slate-100">
-                        {viewingPayment
-                          .referenceNumber ||
-                          "—"}
+                        {viewingPayment.referenceNumber || "—"}
                       </p>
                     </div>
 
@@ -1024,12 +782,9 @@ const handleCancelDelete = () => {
                       </p>
 
                       <p className="mt-1 text-lg font-bold text-green-600">
-                        {formatCurrency(
-                          viewingPayment.amount,
-                        )}
+                        {formatCurrency(viewingPayment.amount)}
                       </p>
                     </div>
-
                   </div>
                 </div>
 
@@ -1040,18 +795,13 @@ const handleCancelDelete = () => {
                   </h3>
 
                   <div className="grid gap-4 md:grid-cols-3">
-
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Invoice Total
                       </p>
 
                       <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                        {formatCurrency(
-                          viewingPayment
-                            .invoiceId
-                            ?.totalAmount,
-                        )}
+                        {formatCurrency(viewingPayment.invoiceId?.totalAmount)}
                       </p>
                     </div>
 
@@ -1062,10 +812,7 @@ const handleCancelDelete = () => {
 
                       <p className="mt-1 font-semibold text-green-600">
                         {formatCurrency(
-                          getInvoiceTotalPaid(
-                            viewingPayment
-                              .invoiceId?._id,
-                          ),
+                          getInvoiceTotalPaid(viewingPayment.invoiceId?._id),
                         )}
                       </p>
                     </div>
@@ -1077,13 +824,10 @@ const handleCancelDelete = () => {
 
                       <p className="mt-1 font-semibold text-amber-500">
                         {formatCurrency(
-                          getInvoiceBalance(
-                            viewingPayment.invoiceId,
-                          ),
+                          getInvoiceBalance(viewingPayment.invoiceId),
                         )}
                       </p>
                     </div>
-
                   </div>
                 </div>
 
@@ -1097,7 +841,6 @@ const handleCancelDelete = () => {
                     {viewingPayment.notes || "—"}
                   </p>
                 </div>
-
               </div>
 
               {/* Modal Footer */}
@@ -1110,11 +853,9 @@ const handleCancelDelete = () => {
                   Close
                 </button>
               </div>
-
             </div>
           </div>
         )}
-
       </div>
     </>
   );

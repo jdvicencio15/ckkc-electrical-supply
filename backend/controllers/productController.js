@@ -1,6 +1,9 @@
 
 const Product = require("../models/Product");
 const Unit = require("../models/Unit");
+const Supplier = require("../models/Supplier");
+const SupplierPricing = require("../models/SupplierPricing");
+
 
 // VALIDATE UNIT REFERENCE
 const validateUnit = async (unitId) => {
@@ -68,9 +71,44 @@ const getProductById = async (req, res, next) => {
 // CREATE PRODUCT
 const createProduct = async (req, res, next) => {
   try {
-    await validateUnit(req.body.unitId);
+    const { initialSupplierPricing, ...productData } = req.body;
 
-    const product = await Product.create(req.body);
+    await validateUnit(productData.unitId);
+
+    // VALIDATE INITIAL SUPPLIER PRICING
+    let supplier = null;
+
+    if (initialSupplierPricing) {
+      supplier = await Supplier.findById(
+        initialSupplierPricing.supplierId
+      );
+
+      if (!supplier) {
+        const error = new Error("Supplier not found");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (supplier.status !== "active") {
+        const error = new Error(
+          "This supplier is inactive and cannot be assigned to pricing."
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    // CREATE PRODUCT
+    const product = await Product.create(productData);
+
+    // CREATE INITIAL SUPPLIER PRICING
+    if (initialSupplierPricing) {
+      await SupplierPricing.create({
+        supplierId: supplier._id,
+        productId: product._id,
+        unitCost: Number(initialSupplierPricing.unitCost),
+      });
+    }
 
     await product.populate([
       { path: "categoryId", select: "name" },
@@ -85,7 +123,6 @@ const createProduct = async (req, res, next) => {
     next(error);
   }
 };
-
 // UPDATE PRODUCT
 const updateProduct = async (req, res, next) => {
   try {

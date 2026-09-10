@@ -417,7 +417,14 @@ const handleCancelDelete = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredQuotations.map((quotation) => (
+                 [...filteredQuotations]
+  .sort((a, b) => {
+    const sequenceA = Number(a.quotationNumber?.split("-").pop());
+    const sequenceB = Number(b.quotationNumber?.split("-").pop());
+
+    return sequenceB - sequenceA;
+  })
+  .map((quotation) => (
                     <tr
                       key={quotation._id}
                       className="border-t border-slate-100 dark:border-slate-800"
@@ -430,12 +437,12 @@ const handleCancelDelete = () => {
                       </td>
 
                       {/* CUSTOMER */}
-                      <td className="px-6 py-4">
+                     <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                         {quotation.customerId?.name || "—"}
                       </td>
 
                       {/* ITEMS */}
-                      <td className="px-6 py-4">
+                     <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                         {quotation.items?.length || 0}
                       </td>
 
@@ -477,7 +484,7 @@ const handleCancelDelete = () => {
                       </td>
 
                       {/* DATE */}
-                      <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                         {quotation.quotationDate
                           ? new Date(
                               quotation.quotationDate

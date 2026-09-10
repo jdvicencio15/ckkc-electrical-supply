@@ -18,6 +18,7 @@ import {
   FaUserShield,
   FaCog,
   FaChevronDown,
+  FaRuler,
 } from "react-icons/fa";
 
 import { useAuth } from "../../context/AuthContext";
@@ -37,6 +38,12 @@ const navigation = [
     icon: FaBox,
     module: "products",
   },
+  {
+  label: "Units",
+  path: "/units",
+  icon: FaRuler,
+  module: "units",
+},
   {
     label: "Categories",
     path: "/categories",
@@ -298,14 +305,14 @@ function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 flex w-64 flex-col border-r border-green-800 bg-gradient-to-b from-green-700 to-emerald-800">
       {/* Brand */}
-      <div className="flex h-16 items-center border-b border-white/10 px-6">
+     <div className="flex h-14 items-center border-b border-white/10 px-6">
         <h1 className="text-xl font-bold text-white">
           CKKC
         </h1>
       </div>
 
       {/* Navigation */}
-      <nav className="space-y-0.5 overflow-y-auto p-3">
+     <nav className="space-y-0.5 overflow-y-auto p-2.5">
         {filteredNavigation.map((item) => {
           const Icon = item.icon;
 
@@ -330,7 +337,7 @@ function Sidebar() {
                   onClick={() =>
                     toggleMenu(item.label)
                   }
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                     isParentActive
                       ? "bg-white/10 text-white"
                       : "text-green-50 hover:bg-white/10 hover:text-white"
@@ -366,7 +373,7 @@ function Sidebar() {
                           className={({
                             isActive,
                           }) =>
-                            `block rounded-lg px-3 py-2 text-sm transition ${
+                            `block rounded-lg px-3 py-1.5 text-sm transition ${
                               isActive
                                 ? "bg-white text-green-700 shadow-sm"
                                 : "text-green-100 hover:bg-white/10 hover:text-white"
@@ -391,7 +398,7 @@ function Sidebar() {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                `flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                   isActive
                     ? "bg-white text-green-700 shadow-sm"
                     : "text-green-50 hover:bg-white/10 hover:text-white"

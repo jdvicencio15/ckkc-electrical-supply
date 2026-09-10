@@ -37,13 +37,15 @@ const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
 
-    // Create user
-    const user = await User.create({
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,
-    });
+   // Create user
+const user = await User.create({
+  firstName,
+  lastName,
+  email,
+  password: hashedPassword,
+  role: "sales",
+  isActive: false,
+});
 
     logger.info("Registration successful");
 
@@ -215,16 +217,18 @@ const forgotPassword = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error(
-      "Password reset request failed due to server error"
-    );
+  logger.error(
+    `Password reset request failed: ${error.message}`
+  );
 
-    return res.status(500).json({
-      success: false,
-      message:
-        "Something went wrong. Please try again later.",
-    });
-  }
+  console.error(error);
+
+  return res.status(500).json({
+    success: false,
+    message:
+      "Something went wrong. Please try again later.",
+  });
+}
 };
 
 // Reset Password

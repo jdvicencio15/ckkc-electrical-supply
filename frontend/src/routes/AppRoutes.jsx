@@ -41,8 +41,6 @@ import BalanceSheet from "../pages/reports/BalanceSheet";
 
 import PermissionRoute from "./PermissionRoute";
 
-
-
 import Reports from "../pages/Reports";
 import Users from "../pages/Users";
 import RolesPermissions from "../pages/RolesPermissions";
@@ -67,6 +65,7 @@ function AppRoutes() {
 
           <Route path="/reset-password/:token" element={<ResetPassword />} />
         </Route>
+
         {/* Protected Application Routes */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
@@ -76,10 +75,16 @@ function AppRoutes() {
 
             <Route path="/categories" element={<Categories />} />
 
-            <Route path="/units" element={<Units />} />
+            {/* Units */}
+            <Route element={<PermissionRoute module="units" action="view" />}>
+              <Route path="/units" element={<Units />} />
+            </Route>
 
-            <Route path="/units/new" element={<UnitCreate />} />
-            <Route path="/units/:id/edit" element={<UnitEdit />} />
+            <Route element={<PermissionRoute module="units" action="full" />}>
+              <Route path="/units/new" element={<UnitCreate />} />
+
+              <Route path="/units/:id/edit" element={<UnitEdit />} />
+            </Route>
 
             <Route path="/sales" element={<Sales />} />
 
@@ -119,6 +124,7 @@ function AppRoutes() {
               element={<TrialBalance />}
             />
 
+            {/* Reports */}
             <Route path="/reports" element={<Reports />} />
 
             <Route path="/reports/sales" element={<SalesReport />} />
@@ -134,15 +140,12 @@ function AppRoutes() {
               element={<IncomeStatement />}
             />
 
-            <Route
-  path="/reports/balance-sheet"
-  element={<BalanceSheet />}
-            />
+            <Route path="/reports/balance-sheet" element={<BalanceSheet />} />
 
-
-           <Route element={<PermissionRoute module="users" action="view" />}>
-  <Route path="/users" element={<Users />} />
-</Route>
+            {/* Users */}
+            <Route element={<PermissionRoute module="users" action="view" />}>
+              <Route path="/users" element={<Users />} />
+            </Route>
 
             <Route path="/roles-permissions" element={<RolesPermissions />} />
 
@@ -153,6 +156,7 @@ function AppRoutes() {
             <Route path="/contact-support" element={<ContactSupport />} />
           </Route>
         </Route>
+
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>

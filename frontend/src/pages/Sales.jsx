@@ -577,7 +577,9 @@ const handleCancelConfirmation = () => {
                   </thead>
 
                   <tbody>
-                    {filteredSales.map((sale) => (
+                    {[...filteredSales]
+  .sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate))
+  .map((sale) => (
                       <tr
                         key={sale._id}
                         className="border-t border-slate-100 dark:border-slate-800"

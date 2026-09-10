@@ -2,6 +2,7 @@ const permissions = {
   "admin-owner": {
     dashboard: "full",
     products: "full",
+    units: "full",
     categories: "full",
     sales: "full",
     purchases: "full",
@@ -20,7 +21,8 @@ const permissions = {
 
  sales: {
   dashboard: "view",
-  products: "view",
+   products: "view",
+  units: "view",
   categories: "view",
   sales: "full",
   purchases: "none",
@@ -40,6 +42,7 @@ const permissions = {
 purchasing: {
   dashboard: "view",
   products: "full",
+  units: "full",
   categories: "full",
   sales: "none",
   purchases: "full",
@@ -59,6 +62,7 @@ purchasing: {
   accounting: {
     dashboard: "view",
     products: "none",
+    units: "none",
     categories: "none",
     sales: "view",
     purchases: "view",

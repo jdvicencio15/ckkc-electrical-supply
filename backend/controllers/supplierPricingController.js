@@ -52,9 +52,13 @@ const getSupplierPricingById = async (req, res, next) => {
 const createSupplierPricing = async (req, res, next) => {
   try {
     const {
-      supplierId,
-      productId,
-    } = req.body;
+  supplierId,
+  productId,
+  unitCost,
+  effectiveFrom,
+  status,
+} = req.body;
+
 
     await checkReferenceExists(
       Supplier,
@@ -68,9 +72,13 @@ const createSupplierPricing = async (req, res, next) => {
       "Product"
     );
 
-    const supplierPricing = await SupplierPricing.create(
-      req.body
-    );
+    const supplierPricing = await SupplierPricing.create({
+  supplierId,
+  productId,
+  unitCost,
+  effectiveFrom,
+  status,
+});
 
     const populatedPricing =
       await SupplierPricing.findById(
@@ -93,12 +101,48 @@ const createSupplierPricing = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
 // UPDATE SUPPLIER PRICING
 const updateSupplierPricing = async (req, res, next) => {
   try {
+    const {
+      supplierId,
+      productId,
+      unitCost,
+      effectiveFrom,
+      status,
+    } = req.body;
+
+    // Validate references if they are being updated
+    if (supplierId !== undefined) {
+      await checkReferenceExists(
+        Supplier,
+        supplierId,
+        "Supplier"
+      );
+    }
+
+    if (productId !== undefined) {
+      await checkReferenceExists(
+        Product,
+        productId,
+        "Product"
+      );
+    }
+
+    const updateData = {
+      supplierId,
+      productId,
+      unitCost,
+      effectiveFrom,
+      status,
+    };
+
     const supplierPricing = await SupplierPricing.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true,

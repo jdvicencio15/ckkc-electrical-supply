@@ -338,7 +338,9 @@ const handleCancelDelete = () => {
                 </thead>
 
                 <tbody>
-                  {filteredCategories.map((category) => (
+                {[...filteredCategories]
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map((category) => (
                     <tr
                       key={category._id}
                       className="border-b border-slate-100 last:border-0 dark:border-slate-800"

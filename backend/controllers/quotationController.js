@@ -1,10 +1,10 @@
 const Quotation = require("../models/Quotation");
-const ClientPO = require("../models/ClientPO");
 const Customer = require("../models/Customer");
 const Product = require("../models/Product");
+const Supplier = require("../models/Supplier");
+const SupplierPricing = require("../models/SupplierPricing");
 
 const {
-  checkReferenceExists,
   checkReferencesExist,
 } = require("../utils/referenceValidator");
 
@@ -94,6 +94,34 @@ const calculateQuotationTotals = ({
   };
 };
 
+
+const applySupplierPricing = async (items) => {
+  const calculatedItems = [];
+
+  for (const item of items) {
+    let supplierCost = Number(item.supplierCostAtQuotation);
+
+    if (item.supplierId) {
+      const pricing = await SupplierPricing.findOne({
+        supplierId: item.supplierId,
+        productId: item.productId,
+        status: "active",
+      }).select("unitCost");
+
+      if (pricing) {
+        supplierCost = Number(pricing.unitCost);
+      }
+    }
+
+    calculatedItems.push({
+      ...item,
+      supplierCostAtQuotation: supplierCost,
+    });
+  }
+
+  return calculatedItems;
+};
+
 // GET ALL QUOTATIONS
 const getQuotations = async (req, res, next) => {
   try {
@@ -169,40 +197,73 @@ const createQuotation = async (req, res, next) => {
       throw error;
     }
 
-    // PRODUCTS
-    await checkReferencesExist(
-      Product,
-      items.map((item) => item.productId),
-      "Product"
+   // PRODUCTS
+await checkReferencesExist(
+  Product,
+  items.map((item) => item.productId),
+  "Product"
+);
+
+const products = await Product.find({
+  _id: {
+    $in: items.map((item) => item.productId),
+  },
+}).select("_id status");
+
+const inactiveProduct = products.find(
+  (product) => product.status !== "active"
+);
+
+if (inactiveProduct) {
+  const error = new Error(
+    "Cannot add inactive product to Quotation"
+  );
+  error.statusCode = 400;
+  throw error;
+}
+
+// SUPPLIERS
+const supplierIds = items
+  .map((item) => item.supplierId)
+  .filter(Boolean);
+
+if (supplierIds.length > 0) {
+  const suppliers = await Supplier.find({
+    _id: { $in: supplierIds },
+  }).select("_id status");
+
+  if (suppliers.length !== supplierIds.length) {
+    const error = new Error("One or more suppliers not found");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const inactiveSupplier = suppliers.find(
+    (supplier) => supplier.status !== "active"
+  );
+
+  if (inactiveSupplier) {
+    const error = new Error(
+      "Cannot assign an inactive supplier to Quotation"
     );
-
-    const products = await Product.find({
-      _id: {
-        $in: items.map((item) => item.productId),
-      },
-    }).select("_id status");
-
-    const inactiveProduct = products.find(
-      (product) => product.status !== "active"
-    );
-
-    if (inactiveProduct) {
-      const error = new Error(
-        "Cannot add inactive product to Quotation"
-      );
-      error.statusCode = 400;
-      throw error;
+    error.statusCode = 400;
+    throw error;
+  }
     }
 
-    const {
-      calculatedItems,
-      subtotal,
-      total,
-    } = calculateQuotationTotals({
-      items,
-      laborCost,
-      otherDirectCosts,
-    });
+    const itemsWithSupplierPricing =
+  await applySupplierPricing(items);
+
+const {
+  calculatedItems,
+  subtotal,
+  total,
+} = calculateQuotationTotals({
+  items: itemsWithSupplierPricing,
+  laborCost,
+  otherDirectCosts,
+});
+
 
     // GENERATE DOCUMENT NUMBER
     const quotationNumber = await generateDocumentNumber(

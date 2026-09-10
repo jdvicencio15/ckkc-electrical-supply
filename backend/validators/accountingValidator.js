@@ -141,15 +141,34 @@ const journalEntryValidator = [
     .isMongoId()
     .withMessage("Valid account ID is required"),
 
-  body("entries.*.debit")
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage("Debit must be a valid non-negative number"),
+body("entries.*.debit")
+  .optional()
+  .isFloat({ min: 0 })
+  .withMessage("Debit must be a valid non-negative number")
+  .custom((value) => {
+    const decimalPlaces = String(value).split(".")[1]?.length || 0;
 
-  body("entries.*.credit")
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage("Credit must be a valid non-negative number"),
+    if (decimalPlaces > 2) {
+      throw new Error("Debit must not exceed 2 decimal places");
+    }
+
+    return true;
+  }),
+
+ body("entries.*.credit")
+  .optional()
+  .isFloat({ min: 0 })
+  .withMessage("Credit must be a valid non-negative number")
+  .custom((value) => {
+    const decimalPlaces = String(value).split(".")[1]?.length || 0;
+
+    if (decimalPlaces > 2) {
+      throw new Error("Credit must not exceed 2 decimal places");
+    }
+
+    return true;
+  }),
+
 ];
 
 const journalEntryUpdateValidator = [
@@ -195,15 +214,35 @@ const journalEntryUpdateValidator = [
     .isMongoId()
     .withMessage("Valid account ID is required"),
 
-  body("entries.*.debit")
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage("Debit must be a valid non-negative number"),
+body("entries.*.debit")
+  .optional()
+  .isFloat({ min: 0 })
+  .withMessage("Debit must be a valid non-negative number")
+  .custom((value) => {
+    const decimalPlaces = String(value).split(".")[1]?.length || 0;
 
-  body("entries.*.credit")
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage("Credit must be a valid non-negative number"),
+    if (decimalPlaces > 2) {
+      throw new Error("Debit must not exceed 2 decimal places");
+    }
+
+    return true;
+  }),
+
+
+body("entries.*.credit")
+  .optional()
+  .isFloat({ min: 0 })
+  .withMessage("Credit must be a valid non-negative number")
+  .custom((value) => {
+    const decimalPlaces = String(value).split(".")[1]?.length || 0;
+
+    if (decimalPlaces > 2) {
+      throw new Error("Credit must not exceed 2 decimal places");
+    }
+
+    return true;
+  }),
+
 ];
 
 module.exports = {

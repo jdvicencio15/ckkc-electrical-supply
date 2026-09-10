@@ -3,6 +3,10 @@ const mongoose = require("mongoose");
 const ChartOfAccount = require("../models/chartOfAccount");
 const JournalEntry = require("../models/journalEntry");
 
+const {
+  validateAccountingSource,
+} = require("../utils/accountingSourceValidator");
+
 /*
 |--------------------------------------------------------------------------
 | Chart of Accounts
@@ -40,7 +44,7 @@ const getAccountById = async (req, res, next) => {
 
     const account = await ChartOfAccount.findById(id).populate(
       "parentAccount",
-      "accountCode accountName accountType"
+      "accountCode accountName accountType",
     );
 
     if (!account) {
@@ -70,6 +74,8 @@ const createAccount = async (req, res, next) => {
       description,
       isActive,
     } = req.body;
+
+    await validateAccountingSource(sourceType, sourceId);
 
     // Prevent duplicate account codes
     const existingAccount = await ChartOfAccount.findOne({
@@ -167,54 +173,52 @@ const updateAccount = async (req, res, next) => {
       }
     }
 
- // Validate parent account
-if (parentAccount) {
-  if (!mongoose.Types.ObjectId.isValid(parentAccount)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid parent account ID",
-    });
-  }
+    // Validate parent account
+    if (parentAccount) {
+      if (!mongoose.Types.ObjectId.isValid(parentAccount)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid parent account ID",
+        });
+      }
 
-  // Prevent account from being its own parent
-  if (parentAccount === id) {
-    return res.status(400).json({
-      success: false,
-      message: "An account cannot be its own parent",
-    });
-  }
+      // Prevent account from being its own parent
+      if (parentAccount === id) {
+        return res.status(400).json({
+          success: false,
+          message: "An account cannot be its own parent",
+        });
+      }
 
-  const parent = await ChartOfAccount.findById(parentAccount);
+      const parent = await ChartOfAccount.findById(parentAccount);
 
-  if (!parent) {
-    return res.status(404).json({
-      success: false,
-      message: "Parent account not found",
-    });
-  }
+      if (!parent) {
+        return res.status(404).json({
+          success: false,
+          message: "Parent account not found",
+        });
+      }
 
-  // Prevent circular account hierarchy
-  let currentParentId = parent.parentAccount;
+      // Prevent circular account hierarchy
+      let currentParentId = parent.parentAccount;
 
-  while (currentParentId) {
-    if (currentParentId.toString() === id) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot create a circular account hierarchy",
-      });
+      while (currentParentId) {
+        if (currentParentId.toString() === id) {
+          return res.status(400).json({
+            success: false,
+            message: "Cannot create a circular account hierarchy",
+          });
+        }
+
+        const currentParent = await ChartOfAccount.findById(currentParentId);
+
+        if (!currentParent) {
+          break;
+        }
+
+        currentParentId = currentParent.parentAccount;
+      }
     }
-
-    const currentParent = await ChartOfAccount.findById(
-      currentParentId
-    );
-
-    if (!currentParent) {
-      break;
-    }
-
-    currentParentId = currentParent.parentAccount;
-  }
-}
 
     account.accountCode = accountCode ?? account.accountCode;
     account.accountName = accountName ?? account.accountName;
@@ -222,8 +226,7 @@ if (parentAccount) {
     account.parentAccount =
       parentAccount !== undefined ? parentAccount : account.parentAccount;
     account.description = description ?? account.description;
-    account.isActive =
-      isActive !== undefined ? isActive : account.isActive;
+    account.isActive = isActive !== undefined ? isActive : account.isActive;
     account.updatedBy = req.user._id;
 
     await account.save();
@@ -260,16 +263,16 @@ const deleteAccount = async (req, res, next) => {
     }
 
     // Prevent deactivating an account with active child accounts
-const activeChildren = await ChartOfAccount.exists({
-  parentAccount: id,
-  isActive: true,
-});
+    const activeChildren = await ChartOfAccount.exists({
+      parentAccount: id,
+      isActive: true,
+    });
 
-if (activeChildren) {
-  return res.status(400).json({
-    success: false,
-    message: "Cannot deactivate an account with active child accounts",
-  });
+    if (activeChildren) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot deactivate an account with active child accounts",
+      });
     }
 
     // Don't physically delete accounts.
@@ -344,10 +347,7 @@ const validateJournalLines = (entries) => {
 const getJournalEntries = async (req, res, next) => {
   try {
     const journalEntries = await JournalEntry.find()
-      .populate(
-        "entries.account",
-        "accountCode accountName accountType"
-      )
+      .populate("entries.account", "accountCode accountName accountType")
       .populate("createdBy", "name email")
       .populate("updatedBy", "name email")
       .sort({ date: -1, createdAt: -1 });
@@ -375,10 +375,7 @@ const getJournalEntryById = async (req, res, next) => {
     }
 
     const journalEntry = await JournalEntry.findById(id)
-      .populate(
-        "entries.account",
-        "accountCode accountName accountType"
-      )
+      .populate("entries.account", "accountCode accountName accountType")
       .populate("createdBy", "name email")
       .populate("updatedBy", "name email");
 
@@ -401,14 +398,13 @@ const getJournalEntryById = async (req, res, next) => {
 // POST /api/accounting/journal-entries
 const createJournalEntry = async (req, res, next) => {
   try {
-    const {
-      date,
-      reference,
-      description,
-      sourceType,
-      sourceId,
-      entries,
-    } = req.body;
+    const { date, reference, description, sourceType, sourceId, entries } =
+      req.body;
+
+    await validateAccountingSource(
+  sourceType,
+  sourceId
+    );
 
     const validationError = validateJournalLines(entries);
 
@@ -445,11 +441,8 @@ const createJournalEntry = async (req, res, next) => {
     });
 
     const populatedEntry = await JournalEntry.findById(
-      journalEntry._id
-    ).populate(
-      "entries.account",
-      "accountCode accountName accountType"
-    );
+      journalEntry._id,
+    ).populate("entries.account", "accountCode accountName accountType");
 
     res.status(201).json({
       success: true,
@@ -482,14 +475,23 @@ const updateJournalEntry = async (req, res, next) => {
       });
     }
 
-    const {
-      date,
-      reference,
-      description,
-      sourceType,
-      sourceId,
-      entries,
-    } = req.body;
+    const { date, reference, description, sourceType, sourceId, entries } =
+      req.body;
+
+    const nextSourceType =
+  sourceType !== undefined
+    ? sourceType
+    : journalEntry.sourceType;
+
+const nextSourceId =
+  sourceId !== undefined
+    ? sourceId
+    : journalEntry.sourceId;
+
+await validateAccountingSource(
+  nextSourceType,
+  nextSourceId
+);
 
     if (entries !== undefined) {
       const validationError = validateJournalLines(entries);
@@ -508,10 +510,7 @@ const updateJournalEntry = async (req, res, next) => {
         isActive: true,
       }).select("_id");
 
-      if (
-        accounts.length !==
-        new Set(accountIds.map(String)).size
-      ) {
+      if (accounts.length !== new Set(accountIds.map(String)).size) {
         return res.status(400).json({
           success: false,
           message: "One or more accounts are invalid or inactive",
@@ -523,22 +522,16 @@ const updateJournalEntry = async (req, res, next) => {
 
     journalEntry.date = date ?? journalEntry.date;
     journalEntry.reference = reference ?? journalEntry.reference;
-    journalEntry.description =
-      description ?? journalEntry.description;
-    journalEntry.sourceType =
-      sourceType ?? journalEntry.sourceType;
-    journalEntry.sourceId =
-      sourceId ?? journalEntry.sourceId;
+    journalEntry.description = description ?? journalEntry.description;
+    journalEntry.sourceType = sourceType ?? journalEntry.sourceType;
+    journalEntry.sourceId = sourceId ?? journalEntry.sourceId;
     journalEntry.updatedBy = req.user._id;
 
     await journalEntry.save();
 
     const populatedEntry = await JournalEntry.findById(
-      journalEntry._id
-    ).populate(
-      "entries.account",
-      "accountCode accountName accountType"
-    );
+      journalEntry._id,
+    ).populate("entries.account", "accountCode accountName accountType");
 
     res.status(200).json({
       success: true,
@@ -609,10 +602,8 @@ const getGeneralLedger = async (req, res, next) => {
         });
       }
 
-      selectedAccount = await ChartOfAccount.findById(
-        accountId
-      ).select(
-        "_id accountCode accountName accountType isActive"
+      selectedAccount = await ChartOfAccount.findById(accountId).select(
+        "_id accountCode accountName accountType isActive",
       );
 
       if (!selectedAccount) {
@@ -691,18 +682,12 @@ const getGeneralLedger = async (req, res, next) => {
         const previousEntries = await JournalEntry.find({
           date: { $lt: start },
         })
-          .populate(
-            "entries.account",
-            "accountCode accountName accountType"
-          )
+          .populate("entries.account", "accountCode accountName accountType")
           .sort({ date: 1, createdAt: 1 });
 
         for (const journalEntry of previousEntries) {
           for (const entry of journalEntry.entries) {
-            if (
-              entry.account &&
-              entry.account._id.toString() === accountId
-            ) {
+            if (entry.account && entry.account._id.toString() === accountId) {
               const debit = Number(entry.debit || 0);
               const credit = Number(entry.credit || 0);
 
@@ -725,13 +710,8 @@ const getGeneralLedger = async (req, res, next) => {
       |--------------------------------------------------------------------------
       */
 
-      const journalEntries = await JournalEntry.find(
-        periodMatch
-      )
-        .populate(
-          "entries.account",
-          "accountCode accountName accountType"
-        )
+      const journalEntries = await JournalEntry.find(periodMatch)
+        .populate("entries.account", "accountCode accountName accountType")
         .sort({ date: 1, createdAt: 1 });
 
       const transactions = [];
@@ -740,10 +720,7 @@ const getGeneralLedger = async (req, res, next) => {
 
       for (const journalEntry of journalEntries) {
         for (const entry of journalEntry.entries) {
-          if (
-            !entry.account ||
-            entry.account._id.toString() !== accountId
-          ) {
+          if (!entry.account || entry.account._id.toString() !== accountId) {
             continue;
           }
 
@@ -774,12 +751,12 @@ const getGeneralLedger = async (req, res, next) => {
 
       const totalDebit = transactions.reduce(
         (sum, entry) => sum + entry.debit,
-        0
+        0,
       );
 
       const totalCredit = transactions.reduce(
         (sum, entry) => sum + entry.credit,
-        0
+        0,
       );
 
       return res.status(200).json({
@@ -787,15 +764,11 @@ const getGeneralLedger = async (req, res, next) => {
         count: transactions.length,
         data: {
           account: selectedAccount,
-          openingBalance: Number(
-            openingBalance.toFixed(2)
-          ),
+          openingBalance: Number(openingBalance.toFixed(2)),
           transactions,
           totalDebit: Number(totalDebit.toFixed(2)),
           totalCredit: Number(totalCredit.toFixed(2)),
-          endingBalance: Number(
-            runningBalance.toFixed(2)
-          ),
+          endingBalance: Number(runningBalance.toFixed(2)),
         },
       });
     }
@@ -806,13 +779,8 @@ const getGeneralLedger = async (req, res, next) => {
     |--------------------------------------------------------------------------
     */
 
-    const journalEntries = await JournalEntry.find(
-      periodMatch
-    )
-      .populate(
-        "entries.account",
-        "accountCode accountName accountType"
-      )
+    const journalEntries = await JournalEntry.find(periodMatch)
+      .populate("entries.account", "accountCode accountName accountType")
       .sort({ date: 1, createdAt: 1 });
 
     const ledger = [];
@@ -856,6 +824,28 @@ const getTrialBalance = async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
 
+    if (startDate) {
+      const start = new Date(startDate);
+
+      if (isNaN(start.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid startDate",
+        });
+      }
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+
+      if (isNaN(end.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid endDate",
+        });
+      }
+    }
+
     const match = {};
 
     if (startDate || endDate) {
@@ -874,7 +864,7 @@ const getTrialBalance = async (req, res, next) => {
 
     const journalEntries = await JournalEntry.find(match).populate(
       "entries.account",
-      "accountCode accountName accountType"
+      "accountCode accountName accountType",
     );
 
     const balances = new Map();
@@ -905,19 +895,14 @@ const getTrialBalance = async (req, res, next) => {
         credit: Number(item.credit.toFixed(2)),
       }))
       .sort((a, b) =>
-        a.account.accountCode.localeCompare(
-          b.account.accountCode
-        )
+        a.account.accountCode.localeCompare(b.account.accountCode),
       );
 
-    const totalDebit = trialBalance.reduce(
-      (sum, item) => sum + item.debit,
-      0
-    );
+    const totalDebit = trialBalance.reduce((sum, item) => sum + item.debit, 0);
 
     const totalCredit = trialBalance.reduce(
       (sum, item) => sum + item.credit,
-      0
+      0,
     );
 
     res.status(200).json({
@@ -926,8 +911,7 @@ const getTrialBalance = async (req, res, next) => {
         accounts: trialBalance,
         totalDebit: Number(totalDebit.toFixed(2)),
         totalCredit: Number(totalCredit.toFixed(2)),
-        isBalanced:
-          Math.abs(totalDebit - totalCredit) <= 0.01,
+        isBalanced: Math.abs(totalDebit - totalCredit) <= 0.01,
       },
     });
   } catch (error) {

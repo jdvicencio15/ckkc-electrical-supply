@@ -241,63 +241,63 @@ const financialSummary = useMemo(() => {
       )}
 
       {/* Financial Summary */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Total Assets
-          </p>
+<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <p className="text-sm text-slate-500 dark:text-slate-400">
+      Total Assets
+    </p>
 
-          <p className="mt-2 text-2xl font-bold text-blue-600">
-            {loading
-              ? "..."
-              : formatCurrency(
-                  financialSummary.assets
-                )}
-          </p>
-        </div>
+    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+      {loading
+        ? "..."
+        : formatCurrency(
+            financialSummary.assets
+          )}
+    </p>
+  </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Total Liabilities
-          </p>
+  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <p className="text-sm text-slate-500 dark:text-slate-400">
+      Total Liabilities
+    </p>
 
-          <p className="mt-2 text-2xl font-bold text-amber-500">
-            {loading
-              ? "..."
-              : formatCurrency(
-                  financialSummary.liabilities
-                )}
-          </p>
-        </div>
+    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+      {loading
+        ? "..."
+        : formatCurrency(
+            financialSummary.liabilities
+          )}
+    </p>
+  </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Total Revenue
-          </p>
+  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <p className="text-sm text-slate-500 dark:text-slate-400">
+      Total Revenue
+    </p>
 
-          <p className="mt-2 text-2xl font-bold text-emerald-600">
-            {loading
-              ? "..."
-              : formatCurrency(
-                  financialSummary.revenue
-                )}
-          </p>
-        </div>
+    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+      {loading
+        ? "..."
+        : formatCurrency(
+            financialSummary.revenue
+          )}
+    </p>
+  </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Total Expenses
-          </p>
+  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <p className="text-sm text-slate-500 dark:text-slate-400">
+      Total Expenses
+    </p>
 
-          <p className="mt-2 text-2xl font-bold text-red-500">
-            {loading
-              ? "..."
-              : formatCurrency(
-                  financialSummary.expenses
-                )}
-          </p>
-        </div>
-      </div>
+    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+      {loading
+        ? "..."
+        : formatCurrency(
+            financialSummary.expenses
+          )}
+    </p>
+  </div>
+</div>
 
       {/* Net Income */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -406,7 +406,7 @@ const financialSummary = useMemo(() => {
 
         {/* Account Balances */}
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 px-6 py-4">
+         <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">

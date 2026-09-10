@@ -13,6 +13,7 @@ import unitService from "../services/unitService";
 import Toast from "../components/common/Toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import { useAuth } from "../context/AuthContext";
+import { hasPermission } from "../utils/permissions";
 
 function Units() {
   const { user } = useAuth();
@@ -36,8 +37,11 @@ function Units() {
     message: "",
   });
 
-  const canManageUnits =
-    user?.role === "owner" || user?.role === "admin";
+const canManageUnits = hasPermission(
+  user?.role,
+  "units",
+  "full"
+);
 
   const loadUnits = async () => {
     const response = await unitService.getUnits();

@@ -8,6 +8,12 @@ const quotationItemSchema = new mongoose.Schema(
       required: true,
     },
 
+    supplierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      required: false,
+    },
+
     description: {
       type: String,
       required: true,
@@ -17,7 +23,7 @@ const quotationItemSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       required: true,
-     min: 0.01,
+      min: 0.01,
     },
 
     supplierCostAtQuotation: {
@@ -37,7 +43,7 @@ const quotationItemSchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const quotationSchema = new mongoose.Schema(
@@ -63,14 +69,7 @@ const quotationSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "draft",
-        "sent",
-        "accepted",
-        "rejected",
-        "expired",
-        "cancelled",
-      ],
+      enum: ["draft", "sent", "accepted", "rejected", "expired", "cancelled"],
       default: "draft",
     },
 
@@ -120,7 +119,7 @@ const quotationSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Quotation", quotationSchema);

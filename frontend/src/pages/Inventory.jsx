@@ -352,9 +352,11 @@ const handleStockSuccess = async () => {
                 </thead>
 
                 <tbody>
-                  {filteredProducts.map((product) => {
-                    const stockStatus =
-                      getStockStatus(product);
+                 {[...filteredProducts]
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map((product) => {
+    const stockStatus =
+      getStockStatus(product);
 
                     return (
                       <tr

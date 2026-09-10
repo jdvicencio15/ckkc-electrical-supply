@@ -20,6 +20,7 @@ import {
   FaUserCog,
   FaHeadset,
   FaSignOutAlt,
+  FaTrash,
 } from "react-icons/fa";
 
 const notificationIcons = {
@@ -174,33 +175,53 @@ function Header() {
    * If notification has a link:
    *   navigate to that module.
    */
-const handleNotificationClick = async (notification) => {
-  try {
-    if (!notification.isRead) {
-      await notificationService.markAsRead(notification._id);
+  const handleNotificationClick = async (notification) => {
+    try {
+      if (!notification.isRead) {
+        await notificationService.markAsRead(notification._id);
+
+        setNotifications((current) =>
+          current.map((item) =>
+            item._id === notification._id
+              ? { ...item, isRead: true }
+              : item
+          )
+        );
+
+        setUnreadCount((current) => Math.max(0, current - 1));
+      }
+
+      setShowNotifications(false);
+
+      if (notification.link) {
+        navigate(notification.link);
+      }
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+
+      toast.error("Failed to update notification");
+    }
+  };
+
+  const handleDeleteNotification = async (notification) => {
+    try {
+      await notificationService.deleteNotification(notification._id);
 
       setNotifications((current) =>
-        current.map((item) =>
-          item._id === notification._id
-            ? { ...item, isRead: true }
-            : item
-        )
+        current.filter((item) => item._id !== notification._id)
       );
 
-      setUnreadCount((current) => Math.max(0, current - 1));
+      if (!notification.isRead) {
+        setUnreadCount((current) => Math.max(0, current - 1));
+      }
+
+      toast.success("Notification deleted");
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+
+      toast.error("Failed to delete notification");
     }
-
-    setShowNotifications(false);
-
-    if (notification.link) {
-      navigate(notification.link);
-    }
-  } catch (error) {
-    console.error("Failed to mark notification as read:", error);
-
-    toast.error("Failed to update notification");
-  }
-};
+  };
 
   /*
    * Mark all notifications as read.
@@ -244,29 +265,29 @@ const handleNotificationClick = async (notification) => {
 
         {/* Notifications */}
         <div className="relative">
-         <button
-  type="button"
-  onClick={() => {
-    const nextState = !showNotifications;
+          <button
+            type="button"
+            onClick={() => {
+              const nextState = !showNotifications;
 
-    setShowNotifications(nextState);
-    setShowProfile(false);
+              setShowNotifications(nextState);
+              setShowProfile(false);
 
-    if (nextState) {
-      fetchNotifications();
-    }
-  }}
-  className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-  aria-label="Notifications"
->
-  <FaBell className="h-4 w-4" />
+              if (nextState) {
+                fetchNotifications();
+              }
+            }}
+            className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            aria-label="Notifications"
+          >
+            <FaBell className="h-4 w-4" />
 
-  {unreadCount > 0 && (
-    <span className="absolute right-1.5 top-1.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-slate-900">
-      {unreadCount > 99 ? "99+" : unreadCount}
-    </span>
-  )}
-</button>
+            {unreadCount > 0 && (
+              <span className="absolute right-1.5 top-1.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white dark:ring-slate-900">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
 
           {showNotifications && (
             <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
@@ -323,70 +344,70 @@ const handleNotificationClick = async (notification) => {
                       );
 
                       return (
-                        <button
+                        <div
                           key={notification._id}
-                          type="button"
-                          onClick={() =>
-                            handleNotificationClick(notification)
-                          }
-                          className={`flex w-full gap-3 px-4 py-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 ${
-                            !notification.isRead
+                          className={`flex w-full gap-2 px-4 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-800 ${!notification.isRead
                               ? "bg-green-50/50 dark:bg-green-950/10"
                               : ""
-                          }`}
+                            }`}
                         >
-                          {/* Icon */}
-                          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 dark:bg-green-950/40">
-                            <Icon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          {/* Notification Content */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleNotificationClick(notification)
+                            }
+                            className="flex min-w-0 flex-1 gap-3 text-left"
+                          >
+                            {/* Icon */}
+                            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 dark:bg-green-950/40">
+                              <Icon className="h-4 w-4 text-green-600 dark:text-green-400" />
 
-                            {!notification.isRead && (
-                              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-green-500 ring-2 ring-white dark:ring-slate-900" />
-                            )}
-                          </div>
+                              {!notification.isRead && (
+                                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-green-500 ring-2 ring-white dark:ring-slate-900" />
+                              )}
+                            </div>
 
-                          {/* Content */}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
+                            {/* Content */}
+                            <div className="min-w-0 flex-1">
                               <p
-                                className={`text-sm ${
-                                  notification.isRead
+                                className={`text-sm ${notification.isRead
                                     ? "font-medium"
                                     : "font-semibold"
-                                } text-slate-900 dark:text-slate-100`}
+                                  } text-slate-900 dark:text-slate-100`}
                               >
                                 {notification.title}
                               </p>
+
+                              <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                                {notification.message}
+                              </p>
+
+                              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                                {formatNotificationTime(
+                                  notification.createdAt
+                                )}
+                              </p>
                             </div>
+                          </button>
 
-                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                              {notification.message}
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                              {formatNotificationTime(
-                                notification.createdAt
-                              )}
-                            </p>
-                          </div>
-                        </button>
+                          {/* Delete Notification */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDeleteNotification(notification)
+                            }
+                            className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                            aria-label={`Delete notification: ${notification.title}`}
+                            title="Delete notification"
+                          >
+                            <FaTrash className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
                 )}
-              </div>
-
-              {/* Footer */}
-              <div className="border-t border-slate-200 p-3 text-center dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNotifications(false);
-                    navigate("/notifications");
-                  }}
-                  className="text-sm font-medium text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
-                >
-                  View all notifications
-                </button>
               </div>
             </div>
           )}
@@ -413,7 +434,7 @@ const handleNotificationClick = async (notification) => {
         {/* User */}
         <div className="hidden text-right sm:block">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-           {roleLabels[user?.role] || "Admin"}
+            {roleLabels[user?.role] || "Admin"}
           </p>
         </div>
 
@@ -486,5 +507,4 @@ const handleNotificationClick = async (notification) => {
     </header>
   );
 }
-
 export default Header;
