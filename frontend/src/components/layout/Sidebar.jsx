@@ -22,8 +22,10 @@ import {
 } from "react-icons/fa";
 
 import { useAuth } from "../../context/AuthContext";
+import { useSettings } from "../../context/SettingsContext";
 import { hasPermission } from "../../utils/permissions";
 import dashboardService from "../../services/dashboardService";
+import { formatCurrency } from "../../utils/currency";
 
 const navigation = [
   {
@@ -39,11 +41,11 @@ const navigation = [
     module: "products",
   },
   {
-  label: "Units",
-  path: "/units",
-  icon: FaRuler,
-  module: "units",
-},
+    label: "Units",
+    path: "/units",
+    icon: FaRuler,
+    module: "units",
+  },
   {
     label: "Categories",
     path: "/categories",
@@ -155,6 +157,8 @@ const navigation = [
 function Sidebar() {
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+  const { settings, systemName } = useSettings();
+  const logoUrl = settings?.appearance?.logo?.url;
 
   const [openMenus, setOpenMenus] = useState({
     Accounting: location.pathname.startsWith("/accounting"),
@@ -177,15 +181,11 @@ function Sidebar() {
       try {
         setSummaryLoading(true);
 
-        const response =
-          await dashboardService.getTodaySummary();
+        const response = await dashboardService.getTodaySummary();
 
         setTodaySummary(response.summary || null);
       } catch (error) {
-        console.error(
-          "Failed to load today's summary:",
-          error
-        );
+        console.error("Failed to load today's summary:", error);
         setTodaySummary(null);
       } finally {
         setSummaryLoading(false);
@@ -200,34 +200,17 @@ function Sidebar() {
   }
 
   const filteredNavigation = navigation.filter((item) => {
-    return hasPermission(
-      user?.role,
-      item.module,
-      "view"
-    );
+    return hasPermission(user?.role, item.module, "view");
   });
-
-  const formatCurrency = (value) => {
-    return `₱${Number(value || 0).toLocaleString(
-      "en-PH",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    )}`;
-  };
 
   const getSummaryItems = () => {
     if (!todaySummary) return [];
 
-    if (
-      user?.role === "owner" ||
-      user?.role === "admin"
-    ) {
+    if (user?.role === "owner" || user?.role === "admin") {
       return [
         {
           label: "Sales",
-          value: formatCurrency(todaySummary.sales),
+          value: formatCurrency(todaySummary.sales, settings?.currency),
         },
         {
           label: "Released Orders",
@@ -235,7 +218,7 @@ function Sidebar() {
         },
         {
           label: "Profit",
-          value: formatCurrency(todaySummary.profit),
+          value: formatCurrency(todaySummary.profit, settings?.currency),
         },
         {
           label: "Low Stock Products",
@@ -248,7 +231,7 @@ function Sidebar() {
       return [
         {
           label: "Sales",
-          value: formatCurrency(todaySummary.sales),
+          value: formatCurrency(todaySummary.sales, settings?.currency),
         },
         {
           label: "Orders",
@@ -265,7 +248,7 @@ function Sidebar() {
       return [
         {
           label: "Purchases",
-          value: formatCurrency(todaySummary.purchases),
+          value: formatCurrency(todaySummary.purchases, settings?.currency),
         },
         {
           label: "Pending POs",
@@ -282,17 +265,15 @@ function Sidebar() {
       return [
         {
           label: "Sales",
-          value: formatCurrency(todaySummary.sales),
+          value: formatCurrency(todaySummary.sales, settings?.currency),
         },
         {
           label: "Payments",
-          value: formatCurrency(todaySummary.payments),
+          value: formatCurrency(todaySummary.payments, settings?.currency),
         },
         {
           label: "Receivables",
-          value: formatCurrency(
-            todaySummary.receivables
-          ),
+          value: formatCurrency(todaySummary.receivables, settings?.currency),
         },
       ];
     }
@@ -304,39 +285,45 @@ function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 flex w-64 flex-col border-r border-green-800 bg-gradient-to-b from-green-700 to-emerald-800">
-      {/* Brand */}
-     <div className="flex h-14 items-center border-b border-white/10 px-6">
-        <h1 className="text-xl font-bold text-white">
-          CKKC
-        </h1>
-      </div>
+   {/* Brand */}
+<div className="flex h-20 items-center gap-4 border-b border-white/10 px-6">
+  {logoUrl ? (
+    <img
+      src={logoUrl}
+      alt={`${systemName} logo`}
+      className="h-13 w-13 shrink-0 rounded-lg object-contain"
+    />
+  ) : (
+    <div className="flex h-15 w-15 shrink-0 items-center justify-center rounded-lg border border-green-400/30 bg-green-500/15 text-lg font-bold text-green-400">
+      {systemName?.charAt(0)?.toUpperCase() || "A"}
+    </div>
+  )}
+
+  <h1 className="truncate text-5xl font-bold tracking-tight text-white">
+    {systemName}
+  </h1>
+</div>
 
       {/* Navigation */}
-     <nav className="space-y-0.5 overflow-y-auto p-2.5">
+      <nav className="space-y-0.5 overflow-y-auto p-2.5">
         {filteredNavigation.map((item) => {
           const Icon = item.icon;
 
-          const hasChildren =
-            item.children &&
-            item.children.length > 0;
+          const hasChildren = item.children && item.children.length > 0;
 
           // =========================
           // Parent Menu
           // =========================
           if (hasChildren) {
-            const isParentActive =
-              location.pathname.startsWith(item.path);
+            const isParentActive = location.pathname.startsWith(item.path);
 
-            const isOpen =
-              openMenus[item.label];
+            const isOpen = openMenus[item.label];
 
             return (
               <div key={item.path}>
                 <button
                   type="button"
-                  onClick={() =>
-                    toggleMenu(item.label)
-                  }
+                  onClick={() => toggleMenu(item.label)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                     isParentActive
                       ? "bg-white/10 text-white"
@@ -345,15 +332,11 @@ function Sidebar() {
                 >
                   <Icon className="h-4 w-4 shrink-0" />
 
-                  <span className="flex-1 text-left">
-                    {item.label}
-                  </span>
+                  <span className="flex-1 text-left">{item.label}</span>
 
                   <FaChevronDown
                     className={`h-3 w-3 transition-transform ${
-                      isOpen
-                        ? "rotate-180"
-                        : ""
+                      isOpen ? "rotate-180" : ""
                     }`}
                   />
                 </button>
@@ -361,29 +344,22 @@ function Sidebar() {
                 {/* Submenu */}
                 {isOpen && (
                   <div className="ml-4 mt-1 space-y-0.5 border-l border-white/20 pl-3">
-                    {item.children.map(
-                      (child) => (
-                        <NavLink
-                          key={child.path}
-                          to={child.path}
-                          end={
-                            child.path ===
-                            "/accounting"
-                          }
-                          className={({
-                            isActive,
-                          }) =>
-                            `block rounded-lg px-3 py-1.5 text-sm transition ${
-                              isActive
-                                ? "bg-white text-green-700 shadow-sm"
-                                : "text-green-100 hover:bg-white/10 hover:text-white"
-                            }`
-                          }
-                        >
-                          {child.label}
-                        </NavLink>
-                      )
-                    )}
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        end={child.path === "/accounting"}
+                        className={({ isActive }) =>
+                          `block rounded-lg px-3 py-1.5 text-sm transition ${
+                            isActive
+                              ? "bg-white text-green-700 shadow-sm"
+                              : "text-green-100 hover:bg-white/10 hover:text-white"
+                          }`
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
                   </div>
                 )}
               </div>
@@ -434,9 +410,7 @@ function Sidebar() {
                     key={item.label}
                     className="flex items-center justify-between text-xs"
                   >
-                    <span className="text-green-100">
-                      {item.label}
-                    </span>
+                    <span className="text-green-100">{item.label}</span>
 
                     <span className="font-semibold text-white">
                       {item.value}
@@ -446,8 +420,7 @@ function Sidebar() {
               )}
             </div>
 
-            {(user?.role === "owner" ||
-              user?.role === "admin") && (
+            {(user?.role === "owner" || user?.role === "admin") && (
               <NavLink
                 to="/reports"
                 className="mt-4 inline-block text-xs font-medium text-green-100 transition hover:text-white"
@@ -461,9 +434,7 @@ function Sidebar() {
 
       {/* Developer Credit */}
       <div className="mt-auto px-4 pb-3 text-left">
-        <p className="text-[10px] text-green-200">
-          Developer:
-        </p>
+        <p className="text-[10px] text-green-200">Developer:</p>
 
         <p className="text-[11px] font-semibold tracking-wide text-white">
           JDVR

@@ -2,6 +2,13 @@
 import API from "./axios";
 
 const settingsApi = {
+
+  getPublicConfig: async () => {
+  const response = await API.get("/settings/public");
+
+  return response.data;
+},
+
   getSettings: async () => {
     const response = await API.get("/settings");
 
@@ -33,7 +40,12 @@ const settingsApi = {
 
     return response.data;
   },
+
+
+
 };
+
+
 
 export default settingsApi;
 

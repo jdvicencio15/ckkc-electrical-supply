@@ -179,6 +179,19 @@ accountingTax: {
     default: false,
   },
 
+  vatRate: {
+    type: Number,
+    default: 12,
+    min: 0,
+    max: 100,
+  },
+
+  pricingMode: {
+    type: String,
+    enum: ["inclusive", "exclusive"],
+    default: "inclusive",
+  },
+
   withholdingTaxEnabled: {
     type: Boolean,
     default: false,

@@ -29,6 +29,36 @@ const getSettings = async (req, res) => {
   }
 };
 
+// GET PUBLIC APPLICATION CONFIG
+const getPublicConfig = async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+
+    // Create default settings if none exist
+    if (!settings) {
+      settings = await Settings.create({});
+    }
+
+    return res.status(200).json({
+      success: true,
+      config: {
+        businessName: settings.businessName,
+        systemName: settings.appearance.systemName,
+        logo: settings.appearance.logo,
+      },
+    });
+  } catch (error) {
+    logger.error(
+      `Get public application config error: ${error.message}`
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve application configuration.",
+    });
+  }
+};
+
 // UPDATE SETTINGS
 const updateSettings = async (req, res) => {
   try {
@@ -202,7 +232,7 @@ if (
     );
     }
 
-    
+
 
 
   if (
@@ -254,10 +284,20 @@ if (
   }
 }
 
-  if (accountingTax !== undefined) {
+ if (accountingTax !== undefined) {
   if (accountingTax.vatEnabled !== undefined) {
     settings.accountingTax.vatEnabled =
       accountingTax.vatEnabled;
+  }
+
+  if (accountingTax.vatRate !== undefined) {
+    settings.accountingTax.vatRate =
+      Number(accountingTax.vatRate);
+  }
+
+  if (accountingTax.pricingMode !== undefined) {
+    settings.accountingTax.pricingMode =
+      accountingTax.pricingMode;
   }
 
   if (
@@ -484,6 +524,7 @@ const removeLogo = async (req, res) => {
 
 module.exports = {
   getSettings,
+  getPublicConfig,
   updateSettings,
   uploadLogo,
   removeLogo,

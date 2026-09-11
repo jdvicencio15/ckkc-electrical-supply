@@ -18,10 +18,13 @@ import Toast from "../components/common/Toast";
 import { useAuth } from "../context/AuthContext";
 import ConfirmModal from "../components/ui/ConfirmModal";
 
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
+
 
 function Invoices() {
   const { user } = useAuth();
-
+  const { settings } = useSettings();
   const [searchParams] = useSearchParams();
 
   const [invoices, setInvoices] = useState([]);
@@ -33,7 +36,7 @@ function Invoices() {
 const [searchTerm, setSearchTerm] = useState(
   searchParams.get("search") || ""
   );
-  
+
   const [selectedCustomer, setSelectedCustomer] =
     useState("all");
   const [selectedStatus, setSelectedStatus] =
@@ -445,14 +448,7 @@ const handleCancelConfirmation = () => {
     });
   };
 
-  const formatCurrency = (value) =>
-    `₱${Number(value || 0).toLocaleString(
-      "en-PH",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      },
-    )}`;
+
 
   const formatDate = (date) => {
     if (!date) {
@@ -740,8 +736,9 @@ const handleCancelConfirmation = () => {
 
                           <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
                             {formatCurrency(
-                              invoice.totalAmount,
-                            )}
+  invoice.totalAmount,
+  settings?.currency,
+)}
                           </td>
 
                           <td className="px-6 py-4">
@@ -1081,12 +1078,14 @@ const handleCancelConfirmation = () => {
                               <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">
                                 {formatCurrency(
                                   item.unitPrice,
+                                  settings?.currency,
                                 )}
                               </td>
 
                               <td className="px-4 py-3 text-right font-medium text-slate-900 dark:text-slate-100">
                                 {formatCurrency(
                                   amount,
+                                  settings?.currency,
                                 )}
                               </td>
                             </tr>
@@ -1109,6 +1108,7 @@ const handleCancelConfirmation = () => {
                     <span className="text-sm text-slate-900 dark:text-slate-100">
                       {formatCurrency(
                         viewingInvoice.subtotal,
+                         settings?.currency,
                       )}
                     </span>
                   </div>
@@ -1121,6 +1121,7 @@ const handleCancelConfirmation = () => {
                     <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
                       {formatCurrency(
                         viewingInvoice.totalAmount,
+                        settings?.currency,
                       )}
                     </span>
                   </div>

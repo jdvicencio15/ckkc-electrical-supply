@@ -1,7 +1,10 @@
 import { useNavigate } from "react-router-dom";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function RecentTransactions({ sales }) {
   const navigate = useNavigate();
+  const { settings } = useSettings();
 
   const transactions = sales
     .slice()
@@ -11,10 +14,8 @@ function RecentTransactions({ sales }) {
   const statusStyles = {
     released:
       "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400",
-    pending:
-      "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-    cancelled:
-      "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
+    pending: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
+    cancelled: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
   };
 
   return (
@@ -69,11 +70,10 @@ function RecentTransactions({ sales }) {
                   </td>
 
                   <td className="py-4 text-sm font-medium text-slate-900 dark:text-slate-100">
-                    ₱
-                    {(transaction.totalAmount || 0).toLocaleString("en-PH", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    {formatCurrency(
+                      transaction.totalAmount || 0,
+                      settings?.currency,
+                    )}
                   </td>
 
                   <td className="py-4 text-right">

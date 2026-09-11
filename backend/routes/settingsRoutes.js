@@ -4,6 +4,7 @@ const router = express.Router();
 
 const {
   getSettings,
+  getPublicConfig,
   updateSettings,
   uploadLogo,
   removeLogo,
@@ -15,6 +16,13 @@ const upload = require("../middleware/upload");
 
 const settingsValidator = require("../validators/settingsValidator");
 const validationMiddleware = require("../middleware/validationMiddleware");
+
+// GET PUBLIC APPLICATION CONFIG
+router.get(
+  "/public",
+  getPublicConfig
+);
+
 
 // GET SETTINGS
 router.get(

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
 import supplierService from "../../services/supplierService";
 import supplierPricingService from "../../services/supplierPricingService";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 const initialItem = {
   productId: "",
@@ -30,6 +32,8 @@ function SaleForm({
   onCancel,
   submitting,
 }) {
+  const { settings } = useSettings();
+
   const [formData, setFormData] = useState(initialForm);
   const [suppliers, setSuppliers] = useState([]);
   const [supplierPricings, setSupplierPricings] = useState([]);
@@ -223,11 +227,7 @@ function SaleForm({
     });
   };
 
-  const formatCurrency = (value) =>
-    `₱${value.toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -505,14 +505,14 @@ function SaleForm({
                     <span className="text-slate-500 dark:text-slate-400">
                       Item Total:{" "}
                       <strong className="text-slate-900 dark:text-slate-100">
-                        {formatCurrency(itemTotal)}
+                        {formatCurrency(itemTotal, settings?.currency)}
                       </strong>
                     </span>
 
                     <span className="text-slate-500 dark:text-slate-400">
                       Profit:{" "}
                       <strong className="text-green-600 dark:text-green-400">
-                        {formatCurrency(itemProfit)}
+                        {formatCurrency(itemProfit, settings?.currency)}
                       </strong>
                     </span>
                   </div>
@@ -577,7 +577,7 @@ function SaleForm({
             <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
 
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {formatCurrency(totals.subtotal)}
+              {formatCurrency(totals.subtotal, settings?.currency)}
             </span>
           </div>
 
@@ -587,7 +587,7 @@ function SaleForm({
             </span>
 
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {formatCurrency(totals.totalCost)}
+              {formatCurrency(totals.totalCost, settings?.currency)}
             </span>
           </div>
 
@@ -597,7 +597,7 @@ function SaleForm({
             </span>
 
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {formatCurrency(Number(formData.directExpenses || 0))}
+              {formatCurrency(Number(formData.directExpenses || 0),settings?.currency)}
             </span>
           </div>
 
@@ -607,7 +607,7 @@ function SaleForm({
             </span>
 
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {formatCurrency(Number(formData.commission || 0))}
+              {formatCurrency(Number(formData.commission || 0),  settings?.currency)}
             </span>
           </div>
 
@@ -618,7 +618,7 @@ function SaleForm({
               </span>
 
               <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {formatCurrency(totals.totalAmount)}
+                {formatCurrency(totals.totalAmount,settings?.currency)}
               </span>
             </div>
           </div>
@@ -629,7 +629,7 @@ function SaleForm({
             </span>
 
             <span className="text-lg font-bold text-green-600 dark:text-green-400">
-              {formatCurrency(totals.totalProfit)}
+              {formatCurrency(totals.totalProfit,settings?.currency)}
             </span>
           </div>
         </div>

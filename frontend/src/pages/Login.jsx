@@ -3,9 +3,11 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import { useSettings } from "../context/SettingsContext";
 
 function Login() {
   const { login } = useAuth();
+  const { businessName, systemName } = useSettings();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -65,13 +67,13 @@ function Login() {
             {/* Brand */}
             <div className="mb-8 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-green-400/30 bg-green-500/15 text-lg font-bold text-green-400 shadow-lg shadow-green-950/20">
-                C
-              </div>
+  {systemName?.charAt(0)?.toUpperCase() || "A"}
+</div>
 
-              <div>
-                <p className="text-lg font-semibold tracking-tight text-white">
-                  CKKC Electrical Supply
-                </p>
+<div>
+  <p className="text-lg font-semibold tracking-tight text-white">
+    {businessName}
+  </p>
 
                 <p className="text-xs text-slate-400">
                   Business Management System
@@ -222,9 +224,9 @@ function Login() {
             </div>
 
             {/* Footer */}
-            <p className="mt-6 text-center text-xs text-slate-500">
-              © 2026 CKKC Electrical Supply. All rights reserved.
-            </p>
+           <p className="mt-6 text-center text-xs text-slate-500">
+  © {new Date().getFullYear()} {businessName}. All rights reserved.
+</p>
           </div>
         </div>
       </div>

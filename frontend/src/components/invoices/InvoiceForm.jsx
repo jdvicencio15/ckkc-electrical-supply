@@ -1,5 +1,6 @@
-
 import { useEffect, useMemo, useState } from "react";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function InvoiceForm({
   invoice = null,
@@ -8,6 +9,8 @@ function InvoiceForm({
   onCancel,
   formLoading = false,
 }) {
+  const { settings } = useSettings();
+
   const isEditMode = Boolean(invoice);
 
   const [formData, setFormData] = useState({
@@ -20,6 +23,25 @@ function InvoiceForm({
 
   const [selectedSale, setSelectedSale] = useState(null);
 
+  const calculateDueDate = (invoiceDate, paymentTerms) => {
+  if (!invoiceDate) return "";
+
+  const date = new Date(`${invoiceDate}T00:00:00`);
+
+  const days = {
+    "Due on Receipt": 0,
+    "7 Days": 7,
+    "15 Days": 15,
+    "30 Days": 30,
+    "45 Days": 45,
+    "60 Days": 60,
+  };
+
+  date.setDate(date.getDate() + (days[paymentTerms] ?? 0));
+
+  return date.toISOString().slice(0, 10);
+  };
+
   useEffect(() => {
     if (invoice) {
       setFormData({
@@ -28,33 +50,32 @@ function InvoiceForm({
         invoiceDate: invoice.invoiceDate
           ? invoice.invoiceDate.slice(0, 10)
           : "",
-        dueDate: invoice.dueDate
-          ? invoice.dueDate.slice(0, 10)
-          : "",
+        dueDate: invoice.dueDate ? invoice.dueDate.slice(0, 10) : "",
         status: invoice.status || "draft",
       });
 
       setSelectedSale(
-        typeof invoice.saleId === "object"
-          ? invoice.saleId
-          : null
+        typeof invoice.saleId === "object" ? invoice.saleId : null,
       );
 
       return;
     }
 
-    setFormData({
-      invoiceNumber: "",
-      saleId: "",
-      invoiceDate: new Date()
-        .toISOString()
-        .slice(0, 10),
-      dueDate: "",
-      status: "draft",
-    });
+  const invoiceDate = new Date().toISOString().slice(0, 10);
+
+setFormData({
+  invoiceNumber: "",
+  saleId: "",
+  invoiceDate,
+  dueDate: calculateDueDate(
+    invoiceDate,
+    settings?.salesInvoicing?.defaultPaymentTerms,
+  ),
+  status: "draft",
+});
 
     setSelectedSale(null);
-  }, [invoice]);
+   }, [invoice, settings?.salesInvoicing?.defaultPaymentTerms]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -65,9 +86,7 @@ function InvoiceForm({
     }));
 
     if (name === "saleId") {
-      const sale = releasedSales.find(
-        (item) => item._id === value
-      );
+      const sale = releasedSales.find((item) => item._id === value);
 
       setSelectedSale(sale || null);
     }
@@ -80,10 +99,8 @@ function InvoiceForm({
   const invoiceSubtotal = useMemo(() => {
     return previewItems.reduce(
       (total, item) =>
-        total +
-        Number(item.quantity || 0) *
-          Number(item.unitPrice || 0),
-      0
+        total + Number(item.quantity || 0) * Number(item.unitPrice || 0),
+      0,
     );
   }, [previewItems]);
 
@@ -103,10 +120,8 @@ function InvoiceForm({
     e.preventDefault();
 
     const submitData = {
-      invoiceDate:
-        formData.invoiceDate || undefined,
-      dueDate:
-        formData.dueDate || undefined,
+      invoiceDate: formData.invoiceDate || undefined,
+      dueDate: formData.dueDate || undefined,
     };
 
     if (isEditMode) {
@@ -119,16 +134,11 @@ function InvoiceForm({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-6"
-    >
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* Invoice Information */}
       <div>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          {isEditMode
-            ? "Edit Invoice"
-            : "Create Invoice"}
+          {isEditMode ? "Edit Invoice" : "Create Invoice"}
         </h2>
 
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -140,31 +150,28 @@ function InvoiceForm({
 
       {/* Basic Fields */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-
         {/* Invoice Number */}
-      <div>
-  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-    Invoice Number
-  </label>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Invoice Number
+          </label>
 
-  <input
-    type="text"
-    value={
-      isEditMode
-        ? formData.invoiceNumber
-        : "Auto-generated on save"
-    }
-    readOnly
-    disabled={formLoading}
-    className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-  />
+          <input
+            type="text"
+            value={
+              isEditMode ? formData.invoiceNumber : "Auto-generated on save"
+            }
+            readOnly
+            disabled={formLoading}
+            className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+          />
 
-  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-    {isEditMode
-      ? "Document number cannot be changed."
-      : "The invoice number will be generated automatically."}
-  </p>
-</div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {isEditMode
+              ? "Document number cannot be changed."
+              : "The invoice number will be generated automatically."}
+          </p>
+        </div>
 
         {/* Released Sale */}
         <div>
@@ -188,15 +195,10 @@ function InvoiceForm({
               disabled={formLoading}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
             >
-              <option value="">
-                Select released sale
-              </option>
+              <option value="">Select released sale</option>
 
               {releasedSales.map((sale) => (
-                <option
-                  key={sale._id}
-                  value={sale._id}
-                >
+                <option key={sale._id} value={sale._id}>
                   {sale.salesNumber}
                 </option>
               ))}
@@ -250,17 +252,11 @@ function InvoiceForm({
               disabled={formLoading}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
             >
-              <option value="draft">
-                Draft
-              </option>
+              <option value="draft">Draft</option>
 
-              <option value="issued">
-                Issued
-              </option>
+              <option value="issued">Issued</option>
 
-              <option value="cancelled">
-                Cancelled
-              </option>
+              <option value="cancelled">Cancelled</option>
             </select>
           ) : (
             <input
@@ -276,21 +272,19 @@ function InvoiceForm({
       {/* Billing Snapshot */}
       {(selectedSale || isEditMode) && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
-
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Billing Details
             </h3>
 
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Billing information is captured from the
-              released sale and cannot be manually modified.
+              Billing information is captured from the released sale and cannot
+              be manually modified.
             </p>
           </div>
 
           {/* Sale Information */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-
             <div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Sale Number
@@ -318,9 +312,7 @@ function InvoiceForm({
 
               <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
                 {previewSaleDate
-                  ? new Date(
-                      previewSaleDate
-                    ).toLocaleDateString("en-PH")
+                  ? new Date(previewSaleDate).toLocaleDateString("en-PH")
                   : "—"}
               </p>
             </div>
@@ -355,59 +347,40 @@ function InvoiceForm({
                 </thead>
 
                 <tbody>
-                  {previewItems.map(
-                    (item, index) => {
-                      const amount =
-                        Number(item.quantity || 0) *
-                        Number(item.unitPrice || 0);
+                  {previewItems.map((item, index) => {
+                    const amount =
+                      Number(item.quantity || 0) * Number(item.unitPrice || 0);
 
-                      return (
-                        <tr
-                          key={
-                            item.productId?._id ||
-                            item.productId ||
-                            index
-                          }
-                          className="border-b border-slate-100 dark:border-slate-800"
-                        >
-                          <td className="px-3 py-3 text-slate-900 dark:text-slate-100">
-                            {item.productId?.name ||
-                              "—"}
-                          </td>
+                    return (
+                      <tr
+                        key={item.productId?._id || item.productId || index}
+                        className="border-b border-slate-100 dark:border-slate-800"
+                      >
+                        <td className="px-3 py-3 text-slate-900 dark:text-slate-100">
+                          {item.productId?.name || "—"}
+                        </td>
 
-                          <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                            {item.description || "—"}
-                          </td>
+                        <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
+                          {item.description || "—"}
+                        </td>
 
-                          <td className="px-3 py-3 text-right text-slate-900 dark:text-slate-100">
-                            {item.quantity}
-                          </td>
+                        <td className="px-3 py-3 text-right text-slate-900 dark:text-slate-100">
+                          {item.quantity}
+                        </td>
 
-                          <td className="px-3 py-3 text-right text-slate-900 dark:text-slate-100">
-                            ₱
-                            {Number(
-                              item.unitPrice || 0
-                            ).toLocaleString(
-                              "en-PH",
-                              {
-                                minimumFractionDigits: 2,
-                              }
-                            )}
-                          </td>
+                        <td className="px-3 py-3 text-right text-slate-900 dark:text-slate-100">
+                          {formatCurrency(
+                            item.unitPrice || 0,
+                            settings?.currency,
+                          )}
+                        </td>
 
-                          <td className="px-3 py-3 text-right font-medium text-slate-900 dark:text-slate-100">
-                            ₱
-                            {amount.toLocaleString(
-                              "en-PH",
-                              {
-                                minimumFractionDigits: 2,
-                              }
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    }
-                  )}
+                        <td className="px-3 py-3 text-right font-medium text-slate-900 dark:text-slate-100">
+                          {formatCurrency(amount, settings?.currency)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -421,13 +394,7 @@ function InvoiceForm({
               </p>
 
               <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
-                ₱
-                {invoiceSubtotal.toLocaleString(
-                  "en-PH",
-                  {
-                    minimumFractionDigits: 2,
-                  }
-                )}
+                {formatCurrency(invoiceSubtotal, settings?.currency)}
               </p>
             </div>
           </div>
@@ -436,7 +403,6 @@ function InvoiceForm({
 
       {/* Actions */}
       <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
-
         <button
           type="button"
           onClick={onCancel}
@@ -448,17 +414,14 @@ function InvoiceForm({
 
         <button
           type="submit"
-          disabled={
-            formLoading ||
-            (!isEditMode && !formData.saleId)
-          }
+          disabled={formLoading || (!isEditMode && !formData.saleId)}
           className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {formLoading
             ? "Saving..."
             : isEditMode
-            ? "Update Invoice"
-            : "Create Invoice"}
+              ? "Update Invoice"
+              : "Create Invoice"}
         </button>
       </div>
     </form>
@@ -466,4 +429,3 @@ function InvoiceForm({
 }
 
 export default InvoiceForm;
-

@@ -8,9 +8,12 @@ import { Link } from "react-router-dom";
 
 import reportsApi from "../../api/reportsApi";
 import exportToCsv from "../../utils/exportCsv";
-
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function SalesReport() {
+  const { settings } = useSettings();
+
   const [sales, setSales] = useState([]);
   const [summary, setSummary] = useState({
     totalSales: 0,
@@ -25,11 +28,7 @@ function SalesReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const formatCurrency = (value) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+
 
   const formatDate = (date) => {
     if (!date) {
@@ -237,7 +236,7 @@ const handleExportCsv = () => {
           </div>
 
           <p className="mt-2 text-2xl font-bold text-green-600">
-            {formatCurrency(summary.totalSales)}
+            {formatCurrency(summary.totalSales, settings?.currency)}
           </p>
         </div>
 
@@ -247,7 +246,7 @@ const handleExportCsv = () => {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {formatCurrency(summary.totalAmount)}
+          {formatCurrency(summary.totalAmount, settings?.currency)}
           </p>
         </div>
 
@@ -257,7 +256,7 @@ const handleExportCsv = () => {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-blue-600">
-            {formatCurrency(summary.totalCost)}
+           {formatCurrency(summary.totalCost, settings?.currency)}
           </p>
         </div>
 
@@ -267,7 +266,7 @@ const handleExportCsv = () => {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-green-600">
-            {formatCurrency(summary.totalProfit)}
+           {formatCurrency(summary.totalProfit, settings?.currency)}
           </p>
         </div>
 
@@ -354,15 +353,15 @@ const handleExportCsv = () => {
                       </td>
 
                       <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
-                        {formatCurrency(sale.subtotal)}
+                       {formatCurrency(sale.subtotal, settings?.currency)}
                       </td>
 
                       <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">
-                        {formatCurrency(sale.totalCost)}
+                       {formatCurrency(sale.totalCost, settings?.currency)}
                       </td>
 
                       <td className="px-6 py-4 text-right font-semibold text-green-600">
-                        {formatCurrency(sale.totalProfit)}
+                       {formatCurrency(sale.totalProfit, settings?.currency)}
                       </td>
                     </tr>
                   ))}
@@ -378,15 +377,15 @@ const handleExportCsv = () => {
                     </td>
 
                     <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100">
-                      {formatCurrency(summary.totalSales)}
+                    {formatCurrency(summary.totalSales, settings?.currency)}
                     </td>
 
                     <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100">
-                      {formatCurrency(summary.totalCost)}
+                     {formatCurrency(summary.totalCost, settings?.currency)}
                     </td>
 
                     <td className="px-6 py-4 text-right font-bold text-green-600">
-                      {formatCurrency(summary.totalProfit)}
+                     {formatCurrency(summary.totalProfit, settings?.currency)}
                     </td>
                   </tr>
                 </tfoot>

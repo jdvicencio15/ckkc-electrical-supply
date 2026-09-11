@@ -126,16 +126,17 @@ const createInvoice = async (req, res, next) => {
       unitPrice: item.unitPrice,
     }));
 
-    // CALCULATE INVOICE SUBTOTAL
-    const subtotal = items.reduce(
-      (total, item) =>
-        total +
-        Number(item.quantity) * Number(item.unitPrice),
-      0
-    );
+  // SNAPSHOT SALE FINANCIAL TOTALS INTO INVOICE
+const subtotal = Number(sale.subtotal || 0);
+const taxRate = Number(sale.taxRate || 0);
+const taxAmount = Number(sale.taxAmount || 0);
+const pricingMode = sale.pricingMode || "inclusive";
+const netAmount = Number(sale.netAmount || subtotal);
 
-    // INVOICE TOTAL
-    const totalAmount = subtotal;
+
+
+// INVOICE TOTAL
+const totalAmount = Number(sale.totalAmount || subtotal);
 
     // GENERATE DOCUMENT NUMBER
     const invoiceNumber = await generateDocumentNumber(
@@ -143,18 +144,22 @@ const createInvoice = async (req, res, next) => {
     );
 
     // CREATE INVOICE AS DRAFT
-    const invoice = await Invoice.create({
-      invoiceNumber,
-      saleId: sale._id,
-      customerId: sale.customerId,
-      invoiceDate,
-      dueDate,
-      status: "draft",
-      items,
-      subtotal,
-      totalAmount,
-      createdBy: req.user._id,
-    });
+   const invoice = await Invoice.create({
+  invoiceNumber,
+  saleId: sale._id,
+  customerId: sale.customerId,
+  invoiceDate,
+  dueDate,
+  status: "draft",
+  items,
+  subtotal,
+  taxRate,
+  taxAmount,
+  pricingMode,
+  netAmount,
+  totalAmount,
+  createdBy: req.user._id,
+});
 
     // CHECK INVOICE NOTIFICATION SETTING
 const settings = await Settings.findOne().select(

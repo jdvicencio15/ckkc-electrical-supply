@@ -2,6 +2,13 @@
 import settingsApi from "../api/settingsApi";
 
 const settingsService = {
+  getPublicConfig: async () => {
+  const data =
+    await settingsApi.getPublicConfig();
+
+  return data;
+  },
+  
   getSettings: async () => {
     const data = await settingsApi.getSettings();
 

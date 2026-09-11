@@ -3,6 +3,7 @@ const InventoryMovement = require("../models/InventoryMovement");
 const Sale = require("../models/Sale");
 const Purchase = require("../models/Purchase");
 const JournalEntry = require("../models/journalEntry");
+const { roundMoney } = require("../utils/money");
 
 // GET REPORT SUMMARY
 const getReportSummary = async (req, res, next) => {
@@ -51,10 +52,14 @@ const getReportSummary = async (req, res, next) => {
       "subtotal totalAmount totalCost totalProfit"
     );
 
-    const totalSales = sales.reduce(
-      (sum, sale) => sum + (sale.subtotal || 0),
-      0
-    );
+   const totalSales = roundMoney(
+  sales.reduce(
+    (sum, sale) => sum + (sale.subtotal || 0),
+    0
+  )
+);
+
+
 
     // PURCHASES
     const purchasesFilter = {
@@ -80,10 +85,12 @@ const getReportSummary = async (req, res, next) => {
       "totalAmount"
     );
 
-    const totalPurchases = purchases.reduce(
-      (sum, purchase) => sum + (purchase.totalAmount || 0),
-      0
-    );
+ const totalPurchases = roundMoney(
+  purchases.reduce(
+    (sum, purchase) => sum + (purchase.totalAmount || 0),
+    0
+  )
+);
 
     // ACCOUNTING EXPENSES
     const journalEntries = await JournalEntry.find(filter)
@@ -110,7 +117,12 @@ const getReportSummary = async (req, res, next) => {
       });
     });
 
-    const netProfit = totalRevenue - totalExpenses;
+    totalRevenue = roundMoney(totalRevenue);
+    totalExpenses = roundMoney(totalExpenses);
+
+   const netProfit = roundMoney(
+  totalRevenue - totalExpenses
+);
 
     res.status(200).json({
       success: true,
@@ -158,26 +170,30 @@ const getSalesReport = async (req, res, next) => {
         select: "name",
       })
       .select(
-        "salesNumber customerId saleDate status subtotal totalAmount totalCost totalProfit"
-      )
+  "salesNumber customerId saleDate status subtotal taxRate taxAmount pricingMode netAmount totalAmount totalCost totalProfit"
+)
       .sort({ saleDate: -1 });
 
-    const summary = sales.reduce(
-      (acc, sale) => {
-        acc.totalSales += sale.subtotal || 0;
-        acc.totalAmount += sale.totalAmount || 0;
-        acc.totalCost += sale.totalCost || 0;
-        acc.totalProfit += sale.totalProfit || 0;
+ const summary = sales.reduce(
+  (acc, sale) => {
+    acc.totalSales += sale.subtotal || 0;
+    acc.totalTax += sale.taxAmount || 0;
+    acc.totalNetSales += sale.netAmount || 0;
+    acc.totalAmount += sale.totalAmount || 0;
+    acc.totalCost += sale.totalCost || 0;
+    acc.totalProfit += sale.totalProfit || 0;
 
-        return acc;
-      },
-      {
-        totalSales: 0,
-        totalAmount: 0,
-        totalCost: 0,
-        totalProfit: 0,
-      }
-    );
+    return acc;
+  },
+  {
+    totalSales: 0,
+    totalTax: 0,
+    totalNetSales: 0,
+    totalAmount: 0,
+    totalCost: 0,
+    totalProfit: 0,
+  }
+);
 
     res.status(200).json({
       success: true,

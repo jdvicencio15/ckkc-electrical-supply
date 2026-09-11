@@ -3,8 +3,10 @@ import { FaArrowLeft, FaFileInvoiceDollar } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import reportsApi from "../../api/reportsApi";
 import exportToCsv from "../../utils/exportCsv";
-
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 const IncomeStatement = () => {
+    const { settings } = useSettings();
   const [revenue, setRevenue] = useState([]);
   const [expenses, setExpenses] = useState([]);
 
@@ -105,11 +107,7 @@ const handleExportCsv = () => {
   exportToCsv("income-statement.csv", headers, rows);
 };
 
-const formatCurrency = (value) =>
-  Number(value || 0).toLocaleString("en-PH", {
-    style: "currency",
-    currency: "PHP",
-  });
+
   return (
     <div className="space-y-6">
    {/* Header */}
@@ -205,7 +203,7 @@ const formatCurrency = (value) =>
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(summary.totalRevenue)}
+           {formatCurrency(summary.totalRevenue, settings?.currency)}
           </p>
         </div>
 
@@ -215,7 +213,7 @@ const formatCurrency = (value) =>
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(summary.totalExpenses)}
+           {formatCurrency(summary.totalExpenses, settings?.currency)}
           </p>
         </div>
 
@@ -225,7 +223,7 @@ const formatCurrency = (value) =>
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(summary.netIncome)}
+           {formatCurrency(summary.netIncome, settings?.currency)}
           </p>
         </div>
       </div>
@@ -276,14 +274,14 @@ const formatCurrency = (value) =>
                       </div>
 
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(account.total)}
+                       {formatCurrency(account.total, settings?.currency)}
                       </p>
                     </div>
                   ))}
 
                   <div className="flex justify-between pt-2 font-bold text-gray-900 dark:text-white">
                     <span>Total Revenue</span>
-                    <span>{formatCurrency(summary.totalRevenue)}</span>
+                    <span>{formatCurrency(summary.totalRevenue, settings?.currency)}</span>
                   </div>
                 </div>
               )}
@@ -324,7 +322,7 @@ const formatCurrency = (value) =>
 
                   <div className="flex justify-between pt-2 font-bold text-gray-900 dark:text-white">
                     <span>Total Expenses</span>
-                    <span>{formatCurrency(summary.totalExpenses)}</span>
+                    <span>{formatCurrency(summary.totalExpenses, settings?.currency)}</span>
                   </div>
                 </div>
               )}
@@ -338,7 +336,7 @@ const formatCurrency = (value) =>
                 </span>
 
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(summary.netIncome)}
+                 {formatCurrency(summary.netIncome, settings?.currency)}
                 </span>
               </div>
 

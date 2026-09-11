@@ -25,6 +25,20 @@ const clientPOItemSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+
+    unitId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Unit",
+  required: true,
+},
+
+unitCode: {
+  type: String,
+  required: true,
+  trim: true,
+  uppercase: true,
+    },
+
   },
   { _id: false }
 );

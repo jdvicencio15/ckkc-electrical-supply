@@ -10,27 +10,25 @@ import accountingApi from "../../api/accountingApi";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Select from "../../components/ui/Select";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function GeneralLedger() {
+  const { settings } = useSettings();
   const [accounts, setAccounts] = useState([]);
   const [ledger, setLedger] = useState([]);
 
-const [selectedAccount, setSelectedAccount] =
-  useState("");
+  const [selectedAccount, setSelectedAccount] = useState("");
 
-const [appliedAccount, setAppliedAccount] =
-  useState("");
+  const [appliedAccount, setAppliedAccount] = useState("");
 
-const [selectedAccountInfo, setSelectedAccountInfo] =
-  useState(null);
+  const [selectedAccountInfo, setSelectedAccountInfo] = useState(null);
 
   const [openingBalance, setOpeningBalance] = useState(0);
   const [endingBalance, setEndingBalance] = useState(0);
 
-  const [backendTotalDebit, setBackendTotalDebit] =
-    useState(0);
-  const [backendTotalCredit, setBackendTotalCredit] =
-    useState(0);
+  const [backendTotalDebit, setBackendTotalDebit] = useState(0);
+  const [backendTotalCredit, setBackendTotalCredit] = useState(0);
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -38,7 +36,7 @@ const [selectedAccountInfo, setSelectedAccountInfo] =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
- const isSpecificAccount = Boolean(appliedAccount);
+  const isSpecificAccount = Boolean(appliedAccount);
 
   const accountOptions = useMemo(() => {
     return [
@@ -48,9 +46,7 @@ const [selectedAccountInfo, setSelectedAccountInfo] =
       },
       ...accounts
         .filter((account) => account.isActive)
-        .sort((a, b) =>
-          a.accountCode.localeCompare(b.accountCode)
-        )
+        .sort((a, b) => a.accountCode.localeCompare(b.accountCode))
         .map((account) => ({
           value: account._id,
           label: `${account.accountCode} - ${account.accountName}`,
@@ -61,27 +57,18 @@ const [selectedAccountInfo, setSelectedAccountInfo] =
   const fetchData = async (filters = {}) => {
     try {
       setLoading(true);
-        setError("");
+      setError("");
 
+      const [accountsResponse, ledgerResponse] = await Promise.all([
+        accountingApi.getAccounts(),
+        accountingApi.getGeneralLedger(filters),
+      ]);
 
-      const [accountsResponse, ledgerResponse] =
-        await Promise.all([
-          accountingApi.getAccounts(),
-          accountingApi.getGeneralLedger(filters),
-        ]);
-
-      const accountData =
-        accountsResponse?.data ||
-        accountsResponse ||
-        [];
+      const accountData = accountsResponse?.data || accountsResponse || [];
 
       setAccounts(accountData);
 
-      const responseData =
-        ledgerResponse?.data ||
-        ledgerResponse ||
-            [];
-
+      const responseData = ledgerResponse?.data || ledgerResponse || [];
 
       /*
        * Specific account response:
@@ -95,34 +82,21 @@ const [selectedAccountInfo, setSelectedAccountInfo] =
        *   endingBalance
        * }
        */
-      if (
-        filters.accountId &&
-        !Array.isArray(responseData)
-      ) {
-        setSelectedAccountInfo(
-          responseData.account || null
-        );
+      if (filters.accountId && !Array.isArray(responseData)) {
+        setSelectedAccountInfo(responseData.account || null);
 
-        setOpeningBalance(
-          Number(responseData.openingBalance || 0)
-        );
+        setOpeningBalance(Number(responseData.openingBalance || 0));
 
-        setEndingBalance(
-          Number(responseData.endingBalance || 0)
-        );
+        setEndingBalance(Number(responseData.endingBalance || 0));
 
-        setBackendTotalDebit(
-          Number(responseData.totalDebit || 0)
-        );
+        setBackendTotalDebit(Number(responseData.totalDebit || 0));
 
-        setBackendTotalCredit(
-          Number(responseData.totalCredit || 0)
-        );
+        setBackendTotalCredit(Number(responseData.totalCredit || 0));
 
         setLedger(
           Array.isArray(responseData.transactions)
             ? responseData.transactions
-            : []
+            : [],
         );
 
         return;
@@ -142,18 +116,11 @@ const [selectedAccountInfo, setSelectedAccountInfo] =
       setBackendTotalDebit(0);
       setBackendTotalCredit(0);
 
-      setLedger(
-        Array.isArray(responseData)
-          ? responseData
-          : []
-      );
+      setLedger(Array.isArray(responseData) ? responseData : []);
     } catch (err) {
       console.error(err);
 
-      setError(
-        err.response?.data?.message ||
-          "Failed to load general ledger."
-      );
+      setError(err.response?.data?.message || "Failed to load general ledger.");
 
       setLedger([]);
       setSelectedAccountInfo(null);
@@ -170,57 +137,43 @@ const [selectedAccountInfo, setSelectedAccountInfo] =
     fetchData();
   }, []);
 
-const handleApplyFilter = async () => {
-  if (
-    startDate &&
-    endDate &&
-    startDate > endDate
-  ) {
-    setError(
-      "Start date cannot be later than end date."
-    );
-    return;
-  }
+  const handleApplyFilter = async () => {
+    if (startDate && endDate && startDate > endDate) {
+      setError("Start date cannot be later than end date.");
+      return;
+    }
 
-  setAppliedAccount(selectedAccount);
+    setAppliedAccount(selectedAccount);
 
-  await fetchData({
-    ...(selectedAccount && {
-      accountId: selectedAccount,
-    }),
-    ...(startDate && {
-      startDate,
-    }),
-    ...(endDate && {
-      endDate,
-    }),
-  });
-};
+    await fetchData({
+      ...(selectedAccount && {
+        accountId: selectedAccount,
+      }),
+      ...(startDate && {
+        startDate,
+      }),
+      ...(endDate && {
+        endDate,
+      }),
+    });
+  };
 
-const handleClearFilter = async () => {
-  setSelectedAccount("");
-  setAppliedAccount("");
-  setStartDate("");
-  setEndDate("");
+  const handleClearFilter = async () => {
+    setSelectedAccount("");
+    setAppliedAccount("");
+    setStartDate("");
+    setEndDate("");
 
-  await fetchData();
-};
+    await fetchData();
+  };
 
   const totalDebit = useMemo(() => {
     if (isSpecificAccount) {
       return backendTotalDebit;
     }
 
-    return ledger.reduce(
-      (total, entry) =>
-        total + Number(entry.debit || 0),
-      0
-    );
-  }, [
-    ledger,
-    isSpecificAccount,
-    backendTotalDebit,
-  ]);
+    return ledger.reduce((total, entry) => total + Number(entry.debit || 0), 0);
+  }, [ledger, isSpecificAccount, backendTotalDebit]);
 
   const totalCredit = useMemo(() => {
     if (isSpecificAccount) {
@@ -228,36 +181,19 @@ const handleClearFilter = async () => {
     }
 
     return ledger.reduce(
-      (total, entry) =>
-        total + Number(entry.credit || 0),
-      0
+      (total, entry) => total + Number(entry.credit || 0),
+      0,
     );
-  }, [
-    ledger,
-    isSpecificAccount,
-    backendTotalCredit,
-  ]);
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(amount || 0));
-  };
+  }, [ledger, isSpecificAccount, backendTotalCredit]);
 
   const formatDate = (date) => {
     if (!date) return "-";
 
-    return new Date(date).toLocaleDateString(
-      "en-PH",
-      {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }
-    );
+    return new Date(date).toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   return (
@@ -285,24 +221,22 @@ const handleClearFilter = async () => {
         <Button
           type="button"
           variant="secondary"
-     onClick={() =>
-  fetchData({
-    ...(appliedAccount && {
-      accountId: appliedAccount,
-    }),
-    ...(startDate && {
-      startDate,
-    }),
-    ...(endDate && {
-      endDate,
-    }),
-  })
-}
+          onClick={() =>
+            fetchData({
+              ...(appliedAccount && {
+                accountId: appliedAccount,
+              }),
+              ...(startDate && {
+                startDate,
+              }),
+              ...(endDate && {
+                endDate,
+              }),
+            })
+          }
           disabled={loading}
         >
-          <FaSyncAlt
-            className={loading ? "animate-spin" : ""}
-          />
+          <FaSyncAlt className={loading ? "animate-spin" : ""} />
           Refresh
         </Button>
       </div>
@@ -321,9 +255,7 @@ const handleClearFilter = async () => {
           <Select
             label="Account"
             value={selectedAccount}
-            onChange={(e) =>
-              setSelectedAccount(e.target.value)
-            }
+            onChange={(e) => setSelectedAccount(e.target.value)}
             options={accountOptions}
           />
 
@@ -331,18 +263,14 @@ const handleClearFilter = async () => {
             label="Start Date"
             type="date"
             value={startDate}
-            onChange={(e) =>
-              setStartDate(e.target.value)
-            }
+            onChange={(e) => setStartDate(e.target.value)}
           />
 
           <Input
             label="End Date"
             type="date"
             value={endDate}
-            onChange={(e) =>
-              setEndDate(e.target.value)
-            }
+            onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
 
@@ -356,11 +284,7 @@ const handleClearFilter = async () => {
             Clear
           </Button>
 
-          <Button
-            type="button"
-            onClick={handleApplyFilter}
-            disabled={loading}
-          >
+          <Button type="button" onClick={handleApplyFilter} disabled={loading}>
             <FaFilter />
             Apply Filter
           </Button>
@@ -377,44 +301,41 @@ const handleClearFilter = async () => {
       )}
 
       {/* Specific Account Header */}
-      {isSpecificAccount &&
-        selectedAccountInfo && (
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Account
-                </p>
+      {isSpecificAccount && selectedAccountInfo && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Account
+              </p>
 
-                <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
-                  {selectedAccountInfo.accountCode} -{" "}
-                  {selectedAccountInfo.accountName}
-                </h2>
+              <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
+                {selectedAccountInfo.accountCode} -{" "}
+                {selectedAccountInfo.accountName}
+              </h2>
 
-                <p className="mt-1 text-sm capitalize text-slate-500 dark:text-slate-400">
-                  {selectedAccountInfo.accountType}
-                </p>
-              </div>
+              <p className="mt-1 text-sm capitalize text-slate-500 dark:text-slate-400">
+                {selectedAccountInfo.accountType}
+              </p>
+            </div>
 
-              <div className="rounded-lg bg-slate-50 px-5 py-3 dark:bg-slate-800">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Beginning Balance
-                </p>
+            <div className="rounded-lg bg-slate-50 px-5 py-3 dark:bg-slate-800">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Beginning Balance
+              </p>
 
-                <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
-                  {formatCurrency(openingBalance)}
-                </p>
-              </div>
+              <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
+                {formatCurrency(totalDebit, settings?.currency)}
+              </p>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
       {/* Summary */}
       <div
         className={`grid grid-cols-1 gap-4 ${
-          isSpecificAccount
-            ? "md:grid-cols-4"
-            : "md:grid-cols-3"
+          isSpecificAccount ? "md:grid-cols-4" : "md:grid-cols-3"
         }`}
       >
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -433,7 +354,7 @@ const handleClearFilter = async () => {
           </p>
 
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-            {formatCurrency(totalDebit)}
+            {formatCurrency(totalDebit, settings?.currency)}
           </p>
         </div>
 
@@ -443,7 +364,7 @@ const handleClearFilter = async () => {
           </p>
 
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-            {formatCurrency(totalCredit)}
+            {formatCurrency(totalCredit, settings?.currency)}
           </p>
         </div>
 
@@ -454,7 +375,7 @@ const handleClearFilter = async () => {
             </p>
 
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {formatCurrency(endingBalance)}
+              {formatCurrency(endingBalance, settings?.currency)}
             </p>
           </div>
         )}
@@ -478,8 +399,7 @@ const handleClearFilter = async () => {
 
             {isSpecificAccount && (
               <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Ending:{" "}
-                {formatCurrency(endingBalance)}
+                Ending: {formatCurrency(endingBalance, settings?.currency)}
               </div>
             )}
           </div>
@@ -545,13 +465,11 @@ const handleClearFilter = async () => {
                     {!isSpecificAccount && (
                       <td className="px-5 py-4">
                         <div className="font-medium text-slate-900 dark:text-white">
-                          {entry.account?.accountName ||
-                            "Unknown Account"}
+                          {entry.account?.accountName || "Unknown Account"}
                         </div>
 
                         <div className="text-xs text-slate-500">
-                          {entry.account?.accountCode ||
-                            "-"}
+                          {entry.account?.accountCode || "-"}
                         </div>
                       </td>
                     )}
@@ -566,19 +484,19 @@ const handleClearFilter = async () => {
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
                       {Number(entry.debit || 0) > 0
-                        ? formatCurrency(entry.debit)
+                        ? formatCurrency(entry.debit, settings?.currency)
                         : "-"}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
                       {Number(entry.credit || 0) > 0
-                        ? formatCurrency(entry.credit)
+                        ? formatCurrency(entry.credit, settings?.currency)
                         : "-"}
                     </td>
 
                     {isSpecificAccount && (
                       <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white">
-                        {formatCurrency(entry.balance)}
+                        {formatCurrency(entry.balance, settings?.currency)}
                       </td>
                     )}
                   </tr>
@@ -588,25 +506,23 @@ const handleClearFilter = async () => {
               <tfoot className="border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                 <tr>
                   <td
-                    colSpan={
-                      isSpecificAccount ? 4 : 4
-                    }
+                    colSpan={isSpecificAccount ? 4 : 4}
                     className="px-5 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white"
                   >
                     Total
                   </td>
 
                   <td className="px-5 py-4 text-right text-sm font-bold text-slate-900 dark:text-white">
-                    {formatCurrency(totalDebit)}
+                    {formatCurrency(totalDebit, settings?.currency)}
                   </td>
 
                   <td className="px-5 py-4 text-right text-sm font-bold text-slate-900 dark:text-white">
-                    {formatCurrency(totalCredit)}
+                    {formatCurrency(totalCredit, settings?.currency)}
                   </td>
 
                   {isSpecificAccount && (
                     <td className="px-5 py-4 text-right text-sm font-bold text-slate-900 dark:text-white">
-                      {formatCurrency(endingBalance)}
+                      {formatCurrency(endingBalance, settings?.currency)}
                     </td>
                   )}
                 </tr>

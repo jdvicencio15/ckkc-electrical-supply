@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react";
-
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 function PaymentForm({
   payment = null,
   issuedInvoices = [],
@@ -9,6 +10,7 @@ function PaymentForm({
   onCancel,
   formLoading = false,
 }) {
+  const { settings } = useSettings();
   const isEditMode = Boolean(payment);
 
   const [formData, setFormData] = useState({
@@ -404,12 +406,10 @@ function PaymentForm({
               </p>
 
               <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
-                ₱
-                {Number(
-                  selectedInvoice.totalAmount || 0
-                ).toLocaleString("en-PH", {
-                  minimumFractionDigits: 2,
-                })}
+               {formatCurrency(
+  selectedInvoice.totalAmount || 0,
+  settings?.currency,
+)}
               </p>
             </div>
 
@@ -419,10 +419,10 @@ function PaymentForm({
               </p>
 
               <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
-                ₱
-                {totalPaid.toLocaleString("en-PH", {
-                  minimumFractionDigits: 2,
-                })}
+              {formatCurrency(
+  totalPaid,
+  settings?.currency,
+)}
               </p>
             </div>
 
@@ -432,13 +432,10 @@ function PaymentForm({
               </p>
 
               <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">
-                ₱
-                {remainingBalance.toLocaleString(
-                  "en-PH",
-                  {
-                    minimumFractionDigits: 2,
-                  }
-                )}
+               {formatCurrency(
+  remainingBalance,
+  settings?.currency,
+)}
               </p>
             </div>
           </div>

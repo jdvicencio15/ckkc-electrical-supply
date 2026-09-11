@@ -10,10 +10,12 @@ import Toast from "../components/common/Toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
 
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
 
 function Payments() {
   const { user } = useAuth();
-
+  const { settings } = useSettings();
   const [searchParams] = useSearchParams();
 
   const [payments, setPayments] = useState([]);
@@ -236,11 +238,6 @@ function Payments() {
       .reduce((total, payment) => total + Number(payment.amount || 0), 0);
   }, [payments]);
 
-  const formatCurrency = (value) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
 
   const formatDate = (date) => {
     if (!date) {
@@ -406,8 +403,9 @@ function Payments() {
         onConfirm={handleConfirmDelete}
         title="Delete Payment"
         message={`Are you sure you want to delete this payment of ${formatCurrency(
-          deletingPayment?.amount,
-        )}? This action cannot be undone.`}
+  deletingPayment?.amount,
+  settings?.currency,
+)}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         loading={deleting}
@@ -473,7 +471,8 @@ function Payments() {
             </p>
 
             <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {formatCurrency(totalCollected)}
+              {formatCurrency(totalCollected,
+                settings?.currency,)}
             </p>
           </div>
 
@@ -493,7 +492,9 @@ function Payments() {
             </p>
 
             <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {formatCurrency(outstandingReceivables)}
+              {formatCurrency(outstandingReceivables,
+                settings?.currency,
+              )}
             </p>
           </div>
 
@@ -503,7 +504,9 @@ function Payments() {
             </p>
 
             <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {formatCurrency(collectedThisMonth)}
+              {formatCurrency(collectedThisMonth,
+                settings?.currency,
+              )}
             </p>
           </div>
         </div>
@@ -630,7 +633,9 @@ function Payments() {
                           </td>
 
                           <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
-                            {formatCurrency(payment.amount)}
+                            {formatCurrency(payment.amount,
+                              settings?.currency,
+                            )}
                           </td>
 
                           <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
@@ -782,7 +787,9 @@ function Payments() {
                       </p>
 
                       <p className="mt-1 text-lg font-bold text-green-600">
-                        {formatCurrency(viewingPayment.amount)}
+                        {formatCurrency(viewingPayment.amount,
+                          settings?.currency,
+                        )}
                       </p>
                     </div>
                   </div>
@@ -801,7 +808,10 @@ function Payments() {
                       </p>
 
                       <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-                        {formatCurrency(viewingPayment.invoiceId?.totalAmount)}
+                        {formatCurrency(
+  viewingPayment.invoiceId?.totalAmount,
+  settings?.currency,
+)}
                       </p>
                     </div>
 
@@ -812,8 +822,9 @@ function Payments() {
 
                       <p className="mt-1 font-semibold text-green-600">
                         {formatCurrency(
-                          getInvoiceTotalPaid(viewingPayment.invoiceId?._id),
-                        )}
+  viewingPayment.invoiceId?.totalAmount,
+  settings?.currency,
+)}
                       </p>
                     </div>
 
@@ -823,9 +834,10 @@ function Payments() {
                       </p>
 
                       <p className="mt-1 font-semibold text-amber-500">
-                        {formatCurrency(
-                          getInvoiceBalance(viewingPayment.invoiceId),
-                        )}
+                       {formatCurrency(
+  getInvoiceBalance(viewingPayment.invoiceId),
+  settings?.currency,
+)}
                       </p>
                     </div>
                   </div>

@@ -12,8 +12,13 @@ import Toast from "../components/common/Toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import { useAuth } from "../context/AuthContext";
 
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
+
 function Purchases() {
   const { user } = useAuth();
+   const { settings } = useSettings();
+
 
   const [searchParams] = useSearchParams();
 
@@ -495,16 +500,12 @@ const handleCancelConfirmation = () => {
                         {purchase.items?.length || 0}
                       </td>
 
-                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
-                        ₱
-                        {Number(purchase.totalAmount || 0).toLocaleString(
-                          "en-PH",
-                          {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          },
-                        )}
-                      </td>
+                     <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
+  {formatCurrency(
+    purchase.totalAmount || 0,
+    settings?.currency
+  )}
+</td>
 
                       <td className="px-6 py-4">
   <span

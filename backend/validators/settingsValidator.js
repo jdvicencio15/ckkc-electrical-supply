@@ -223,6 +223,19 @@ body("salesInvoicing.supplierPOStartingNumber")
       "Fiscal year start month must be an integer between 1 and 12"
     ),
 
+  body("accountingTax.vatRate")
+  .optional()
+  .isFloat({ min: 0, max: 100 })
+  .withMessage("VAT rate must be between 0 and 100"),
+
+body("accountingTax.pricingMode")
+  .optional()
+  .isIn(["inclusive", "exclusive"])
+  .withMessage(
+    "Pricing mode must be either inclusive or exclusive"
+  ),
+
+  
   // =========================
   // System Preferences
   // =========================

@@ -3,8 +3,12 @@ import { FaArrowLeft, FaReceipt } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import reportsApi from "../../api/reportsApi";
 import exportToCsv from "../../utils/exportCsv";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 const ExpenseReport = () => {
+  const { settings } = useSettings();
+
   const [transactions, setTransactions] = useState([]);
   const [breakdown, setBreakdown] = useState([]);
   const [summary, setSummary] = useState({
@@ -64,11 +68,7 @@ const ExpenseReport = () => {
     fetchReport(params);
   };
 
-  const formatCurrency = (value) =>
-    Number(value || 0).toLocaleString("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    });
+
 
   const formatDate = (date) =>
     new Date(date).toLocaleDateString("en-PH", {
@@ -202,7 +202,7 @@ const ExpenseReport = () => {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(summary.totalExpenses)}
+         {formatCurrency(summary.totalExpenses, settings?.currency)}
           </p>
         </div>
 
@@ -279,7 +279,7 @@ const ExpenseReport = () => {
                     </td>
 
                     <td className="px-5 py-4 text-right font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(expense.total)}
+                     {formatCurrency(expense.total, settings?.currency)}
                     </td>
                   </tr>
                 ))}
@@ -292,7 +292,7 @@ const ExpenseReport = () => {
                   </td>
 
                   <td className="px-5 py-4 text-right font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(summary.totalExpenses)}
+                   {formatCurrency(summary.totalExpenses, settings?.currency)}
                   </td>
                 </tr>
               </tfoot>
@@ -385,15 +385,15 @@ const ExpenseReport = () => {
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-gray-700 dark:text-gray-300">
-                      {formatCurrency(transaction.debit)}
+                     {formatCurrency(transaction.debit, settings?.currency)}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-gray-700 dark:text-gray-300">
-                      {formatCurrency(transaction.credit)}
+                   {formatCurrency(transaction.credit, settings?.currency)}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(transaction.amount)}
+                     {formatCurrency(transaction.amount, settings?.currency)}
                     </td>
                   </tr>
                 ))}
@@ -409,7 +409,7 @@ const ExpenseReport = () => {
                   </td>
 
                   <td className="px-5 py-4 text-right font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(summary.totalExpenses)}
+                {formatCurrency(summary.totalExpenses, settings?.currency)}
                   </td>
                 </tr>
               </tfoot>

@@ -73,7 +73,8 @@ const createProduct = async (req, res, next) => {
   try {
     const { initialSupplierPricing, ...productData } = req.body;
 
-    await validateUnit(productData.unitId);
+    const unit = await validateUnit(productData.unitId);
+    productData.unit = unit.code;
 
     // VALIDATE INITIAL SUPPLIER PRICING
     let supplier = null;
@@ -123,13 +124,18 @@ const createProduct = async (req, res, next) => {
     next(error);
   }
 };
+
+
 // UPDATE PRODUCT
 const updateProduct = async (req, res, next) => {
   try {
     // currentStock must not be manually changed through Product CRUD.
     const { currentStock, ...updateData } = req.body;
 
-    await validateUnit(updateData.unitId);
+    if (updateData.unitId !== undefined) {
+      const unit = await validateUnit(updateData.unitId);
+      updateData.unit = unit.code;
+    }
 
     const product = await Product.findByIdAndUpdate(
       req.params.id,

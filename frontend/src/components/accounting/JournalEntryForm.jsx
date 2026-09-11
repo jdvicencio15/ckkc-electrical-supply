@@ -4,6 +4,8 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import Modal from "../ui/Modal";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 const createEmptyLine = () => ({
   account: "",
@@ -18,6 +20,9 @@ function JournalEntryForm({
   onClose,
   submitting = false,
 }) {
+
+  const { settings } = useSettings();
+
   const isEditing = Boolean(journalEntry);
 
   const [formData, setFormData] = useState({
@@ -107,14 +112,6 @@ function JournalEntryForm({
     totalCredit > 0 &&
     Math.abs(totalDebit - totalCredit) <= 0.01;
 
-  const formatAmount = (amount) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -526,7 +523,7 @@ function JournalEntryForm({
               </p>
 
               <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {formatAmount(totalDebit)}
+               {formatCurrency(totalDebit, settings?.currency)}
               </p>
             </div>
 
@@ -536,7 +533,7 @@ function JournalEntryForm({
               </p>
 
               <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {formatAmount(totalCredit)}
+                {formatCurrency(totalCredit, settings?.currency)}
               </p>
             </div>
           </div>

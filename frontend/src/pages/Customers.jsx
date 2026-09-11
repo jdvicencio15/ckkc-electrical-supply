@@ -6,11 +6,12 @@ import CustomerForm from "../components/customers/CustomerForm";
 import Toast from "../components/common/Toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import { useSearchParams } from "react-router-dom";
-
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
 
 function Customers() {
   const [searchParams] = useSearchParams();
-
+const { settings } = useSettings();
   const [customers, setCustomers] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -382,15 +383,12 @@ const handleCancelDelete = () => {
                         {customer.totalOrders ?? 0}
                       </td>
 
-                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-                        ₱
-                        {Number(
-                          customer.totalPurchases ?? 0
-                        ).toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
+                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
+  {formatCurrency(
+    customer.totalPurchases ?? 0,
+    settings?.currency
+  )}
+</td>
 
                       <td className="px-6 py-4">
                         <span

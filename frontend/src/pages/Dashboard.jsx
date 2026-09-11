@@ -15,7 +15,14 @@ import SalesByCategory from "../components/dashboard/SalesByCategory";
 import RecentTransactions from "../components/dashboard/RecentTransactions";
 import QuickActions from "../components/dashboard/QuickActions";
 
+
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
+
+
 function Dashboard() {
+
+   const { settings } = useSettings();
 
   const currentDate = new Date();
 
@@ -132,14 +139,14 @@ function Dashboard() {
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Sales"
-          value={
-            loading
-              ? "Loading..."
-              : `₱${totalSales.toLocaleString("en-PH", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`
-          }
+         value={
+  loading
+    ? "Loading..."
+    : formatCurrency(
+        totalSales,
+        settings?.currency
+      )
+}
           icon={FaMoneyBillWave}
           description="This month"
         />
@@ -154,13 +161,13 @@ function Dashboard() {
         <StatCard
           title="Net Profit"
           value={
-            loading
-              ? "Loading..."
-              : `₱${netProfit.toLocaleString("en-PH", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`
-          }
+  loading
+    ? "Loading..."
+    : formatCurrency(
+        netProfit,
+        settings?.currency
+      )
+}
           icon={FaChartLine}
           description="This month"
         />

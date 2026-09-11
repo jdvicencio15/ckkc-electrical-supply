@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
 
 import {
   FaEdit,
@@ -21,7 +23,7 @@ import ConfirmModal from "../components/ui/ConfirmModal";
 
 function Sales() {
   const { user } = useAuth();
-
+  const { settings } = useSettings();
   const [searchParams] = useSearchParams();
 
   const [sales, setSales] = useState([]);
@@ -336,11 +338,7 @@ const handleCancelConfirmation = () => {
     });
   };
 
-  const formatCurrency = (value) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+
 
   const formatDate = (date) => {
     if (!date) {
@@ -598,9 +596,10 @@ const handleCancelConfirmation = () => {
                         </td>
 
                         <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
-                          {formatCurrency(
-                            sale.totalAmount,
-                          )}
+                       {formatCurrency(
+  sale.totalAmount,
+  settings?.currency
+)}
                         </td>
 
                         <td className="px-6 py-4">

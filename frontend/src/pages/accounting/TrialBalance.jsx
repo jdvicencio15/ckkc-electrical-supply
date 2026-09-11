@@ -8,8 +8,12 @@ import {
 
 import accountingApi from "../../api/accountingApi";
 import Button from "../../components/ui/Button";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function TrialBalance() {
+  const { settings } = useSettings();
+
   const [accounts, setAccounts] = useState([]);
 
   const [totalDebit, setTotalDebit] = useState(0);
@@ -24,33 +28,21 @@ function TrialBalance() {
       setLoading(true);
       setError("");
 
-      const response =
-        await accountingApi.getTrialBalance();
+      const response = await accountingApi.getTrialBalance();
 
       const data = response?.data || {};
 
-      setAccounts(
-        Array.isArray(data.accounts)
-          ? data.accounts
-          : []
-      );
+      setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
 
-      setTotalDebit(
-        Number(data.totalDebit || 0)
-      );
+      setTotalDebit(Number(data.totalDebit || 0));
 
-      setTotalCredit(
-        Number(data.totalCredit || 0)
-      );
+      setTotalCredit(Number(data.totalCredit || 0));
 
       setIsBalanced(Boolean(data.isBalanced));
     } catch (err) {
       console.error(err);
 
-      setError(
-        err.response?.data?.message ||
-          "Failed to load trial balance."
-      );
+      setError(err.response?.data?.message || "Failed to load trial balance.");
 
       setAccounts([]);
       setTotalDebit(0);
@@ -66,19 +58,8 @@ function TrialBalance() {
   }, []);
 
   const difference = useMemo(() => {
-    return Number(
-      Math.abs(totalDebit - totalCredit).toFixed(2)
-    );
+    return Number(Math.abs(totalDebit - totalCredit).toFixed(2));
   }, [totalDebit, totalCredit]);
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(amount || 0));
-  };
 
   return (
     <div className="space-y-6">
@@ -96,7 +77,8 @@ function TrialBalance() {
               </h1>
 
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Review account balances and verify that total debits equal total credits.
+                Review account balances and verify that total debits equal total
+                credits.
               </p>
             </div>
           </div>
@@ -108,9 +90,7 @@ function TrialBalance() {
           onClick={fetchTrialBalance}
           disabled={loading}
         >
-          <FaSyncAlt
-            className={loading ? "animate-spin" : ""}
-          />
+          <FaSyncAlt className={loading ? "animate-spin" : ""} />
           Refresh
         </Button>
       </div>
@@ -163,7 +143,8 @@ function TrialBalance() {
                 {isBalanced
                   ? "Total debit and credit balances are equal."
                   : `Difference: ${formatCurrency(
-                      difference
+                      difference,
+                      settings?.currency,
                     )}`}
               </p>
             </div>
@@ -174,9 +155,7 @@ function TrialBalance() {
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Accounts
-          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Accounts</p>
 
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
             {accounts.length}
@@ -189,7 +168,7 @@ function TrialBalance() {
           </p>
 
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-            {formatCurrency(totalDebit)}
+            {formatCurrency(totalDebit, settings?.currency)}
           </p>
         </div>
 
@@ -199,7 +178,7 @@ function TrialBalance() {
           </p>
 
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-            {formatCurrency(totalCredit)}
+            {formatCurrency(totalCredit, settings?.currency)}
           </p>
         </div>
       </div>
@@ -261,25 +240,23 @@ function TrialBalance() {
 
                     <td className="px-5 py-4">
                       <div className="font-medium text-slate-900 dark:text-white">
-                        {item.account?.accountName ||
-                          "Unknown Account"}
+                        {item.account?.accountName || "Unknown Account"}
                       </div>
 
                       <div className="text-xs capitalize text-slate-500">
-                        {item.account?.accountType ||
-                          "-"}
+                        {item.account?.accountType || "-"}
                       </div>
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
                       {Number(item.debit || 0) > 0
-                        ? formatCurrency(item.debit)
+                        ? formatCurrency(item.debit, settings?.currency)
                         : "-"}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
                       {Number(item.credit || 0) > 0
-                        ? formatCurrency(item.credit)
+                        ? formatCurrency(item.credit, settings?.currency)
                         : "-"}
                     </td>
                   </tr>
@@ -296,11 +273,11 @@ function TrialBalance() {
                   </td>
 
                   <td className="px-5 py-4 text-right text-sm font-bold text-slate-900 dark:text-white">
-                    {formatCurrency(totalDebit)}
+                    {formatCurrency(totalDebit, settings?.currency)}
                   </td>
 
                   <td className="px-5 py-4 text-right text-sm font-bold text-slate-900 dark:text-white">
-                    {formatCurrency(totalCredit)}
+                    {formatCurrency(totalCredit, settings?.currency)}
                   </td>
                 </tr>
               </tfoot>

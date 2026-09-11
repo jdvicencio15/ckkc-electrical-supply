@@ -1,9 +1,14 @@
 import Modal from "../ui/Modal";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function JournalEntryDetails({
   journalEntry,
   onClose,
 }) {
+
+  const { settings } = useSettings();
+
   if (!journalEntry) {
     return null;
   }
@@ -42,14 +47,6 @@ function JournalEntryDetails({
     );
   };
 
-  const formatAmount = (amount) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(amount || 0));
-  };
 
   return (
     <Modal
@@ -146,13 +143,13 @@ function JournalEntryDetails({
 
                     <td className="whitespace-nowrap px-4 py-3 text-right text-slate-700 dark:text-slate-300">
                       {Number(line.debit || 0) > 0
-                        ? formatAmount(line.debit)
+                        ? formatCurrency(line.debit, settings?.currency)
                         : "—"}
                     </td>
 
                     <td className="whitespace-nowrap px-4 py-3 text-right text-slate-700 dark:text-slate-300">
                       {Number(line.credit || 0) > 0
-                        ? formatAmount(line.credit)
+                        ? formatCurrency(line.credit, settings?.currency)
                         : "—"}
                     </td>
                   </tr>
@@ -167,11 +164,11 @@ function JournalEntryDetails({
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
-                    {formatAmount(totalDebit)}
+                    {formatCurrency(totalDebit, settings?.currency)}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
-                    {formatAmount(totalCredit)}
+                    {formatCurrency(totalCredit, settings?.currency)}
                   </td>
                 </tr>
               </tfoot>

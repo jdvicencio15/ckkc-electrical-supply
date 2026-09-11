@@ -1,4 +1,10 @@
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
+
 function SalesByCategory({ sales, products }) {
+
+  const { settings } = useSettings();
+
   const categories = [
     "Electrical Supplies",
     "Lighting",
@@ -70,12 +76,11 @@ function SalesByCategory({ sales, products }) {
               </span>
 
               <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                ₱
-                {category.sales.toLocaleString("en-PH", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
+  {formatCurrency(
+    category.sales,
+    settings?.currency
+  )}
+</span>
             </div>
 
             <div className="h-2 overflow-hidden rounded-full bg-green-50 dark:bg-slate-700">

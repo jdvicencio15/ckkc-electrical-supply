@@ -3,8 +3,11 @@ import { FaArrowLeft, FaBalanceScale } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import reportsApi from "../../api/reportsApi";
 import exportToCsv from "../../utils/exportCsv";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 const BalanceSheet = () => {
+  const { settings } = useSettings();
   const [assets, setAssets] = useState([]);
   const [liabilities, setLiabilities] = useState([]);
   const [equity, setEquity] = useState([]);
@@ -45,14 +48,11 @@ const BalanceSheet = () => {
             totalLiabilitiesAndEquity: 0,
             difference: 0,
             isBalanced: false,
-          }
+          },
         );
       }
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to load balance sheet."
-      );
+      setError(err.response?.data?.message || "Failed to load balance sheet.");
     } finally {
       setLoading(false);
     }
@@ -72,131 +72,93 @@ const BalanceSheet = () => {
     fetchReport(params);
   };
 
-  const formatCurrency = (value) =>
-    Number(value || 0).toLocaleString("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    });
+  const handleExportCsv = () => {
+    const headers = ["Section", "Account Code", "Account", "Amount"];
 
+    const rows = [
+      ...assets.map((account) => [
+        "Assets",
+        account.accountCode,
+        account.accountName,
+        account.balance,
+      ]),
 
-    const handleExportCsv = () => {
-  const headers = [
-    "Section",
-    "Account Code",
-    "Account",
-    "Amount",
-  ];
+      ["Assets", "", "Total Assets", summary.totalAssets],
 
-  const rows = [
-    ...assets.map((account) => [
-      "Assets",
-      account.accountCode,
-      account.accountName,
-      account.balance,
-    ]),
+      ...liabilities.map((account) => [
+        "Liabilities",
+        account.accountCode,
+        account.accountName,
+        account.balance,
+      ]),
 
-    [
-      "Assets",
-      "",
-      "Total Assets",
-      summary.totalAssets,
-    ],
+      ["Liabilities", "", "Total Liabilities", summary.totalLiabilities],
 
-    ...liabilities.map((account) => [
-      "Liabilities",
-      account.accountCode,
-      account.accountName,
-      account.balance,
-    ]),
+      ...equity.map((account) => [
+        "Equity",
+        account.accountCode,
+        account.accountName,
+        account.balance,
+      ]),
 
-    [
-      "Liabilities",
-      "",
-      "Total Liabilities",
-      summary.totalLiabilities,
-    ],
+      ["Equity", "", "Current Net Income", currentNetIncome],
 
-    ...equity.map((account) => [
-      "Equity",
-      account.accountCode,
-      account.accountName,
-      account.balance,
-    ]),
+      ["Equity", "", "Total Equity", summary.totalEquity],
 
-    [
-      "Equity",
-      "",
-      "Current Net Income",
-      currentNetIncome,
-    ],
+      [
+        "Balance Check",
+        "",
+        "Liabilities + Equity",
+        summary.totalLiabilitiesAndEquity,
+      ],
 
-    [
-      "Equity",
-      "",
-      "Total Equity",
-      summary.totalEquity,
-    ],
+      ["Balance Check", "", "Difference", summary.difference],
+    ];
 
-    [
-      "Balance Check",
-      "",
-      "Liabilities + Equity",
-      summary.totalLiabilitiesAndEquity,
-    ],
-
-    [
-      "Balance Check",
-      "",
-      "Difference",
-      summary.difference,
-    ],
-  ];
-
-  exportToCsv("balance-sheet.csv", headers, rows);
-};
-
+    exportToCsv("balance-sheet.csv", headers, rows);
+  };
 
   return (
     <div className="space-y-6">
-    {/* Header */}
-<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-  <div>
-    <div className="mb-3">
-      <Link
-        to="/reports"
-        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400"
-      >
-        <FaArrowLeft className="h-3 w-3" />
-        Back to Reports
-      </Link>
-    </div>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="mb-3">
+            <Link
+              to="/reports"
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400"
+            >
+              <FaArrowLeft className="h-3 w-3" />
+              Back to Reports
+            </Link>
+          </div>
 
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400">
-        <FaBalanceScale className="h-4 w-4" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400">
+              <FaBalanceScale className="h-4 w-4" />
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                Balance Sheet
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Review assets, liabilities, and equity.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Export Button */}
+        <button
+          onClick={handleExportCsv}
+          disabled={loading || !summary}
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          Export CSV
+        </button>
       </div>
-
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Balance Sheet
-        </h1>
-
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Review assets, liabilities, and equity.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  {/* Export Button */}
-  <button
-    onClick={handleExportCsv}
-    disabled={loading || !summary}
-    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-  >
-    Export CSV
-  </button>
-</div>
 
       {/* Filter */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -241,7 +203,7 @@ const BalanceSheet = () => {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(summary.totalAssets)}
+            {formatCurrency(summary.totalAssets, settings?.currency)}
           </p>
         </div>
 
@@ -251,7 +213,7 @@ const BalanceSheet = () => {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(summary.totalLiabilities)}
+            {formatCurrency(summary.totalLiabilities, settings?.currency)}
           </p>
         </div>
 
@@ -261,7 +223,7 @@ const BalanceSheet = () => {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(summary.totalEquity)}
+            {formatCurrency(summary.totalEquity, settings?.currency)}
           </p>
         </div>
       </div>
@@ -300,7 +262,7 @@ const BalanceSheet = () => {
           </div>
 
           <div className="text-sm font-semibold">
-            Difference: {formatCurrency(summary.difference)}
+            Difference: {formatCurrency(summary.difference, settings?.currency)}
           </div>
         </div>
       </div>
@@ -351,7 +313,7 @@ const BalanceSheet = () => {
                       </div>
 
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(account.balance)}
+                        {formatCurrency(account.balance, settings?.currency)}
                       </p>
                     </div>
                   ))}
@@ -359,7 +321,7 @@ const BalanceSheet = () => {
                   <div className="flex justify-between pt-2 font-bold text-gray-900 dark:text-white">
                     <span>Total Assets</span>
                     <span>
-                      {formatCurrency(summary.totalAssets)}
+                      {formatCurrency(summary.totalAssets, settings?.currency)}
                     </span>
                   </div>
                 </div>
@@ -394,7 +356,7 @@ const BalanceSheet = () => {
                       </div>
 
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(account.balance)}
+                        {formatCurrency(account.balance, settings?.currency)}
                       </p>
                     </div>
                   ))}
@@ -402,7 +364,10 @@ const BalanceSheet = () => {
                   <div className="flex justify-between pt-2 font-bold text-gray-900 dark:text-white">
                     <span>Total Liabilities</span>
                     <span>
-                      {formatCurrency(summary.totalLiabilities)}
+                      {formatCurrency(
+                        summary.totalLiabilities,
+                        settings?.currency,
+                      )}
                     </span>
                   </div>
                 </div>
@@ -432,7 +397,7 @@ const BalanceSheet = () => {
                     </div>
 
                     <p className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(account.balance)}
+                      {formatCurrency(account.balance, settings?.currency)}
                     </p>
                   </div>
                 ))}
@@ -449,14 +414,14 @@ const BalanceSheet = () => {
                   </div>
 
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {formatCurrency(currentNetIncome)}
+                    {formatCurrency(currentNetIncome, settings?.currency)}
                   </p>
                 </div>
 
                 <div className="flex justify-between pt-2 font-bold text-gray-900 dark:text-white">
                   <span>Total Equity</span>
                   <span>
-                    {formatCurrency(summary.totalEquity)}
+                    {formatCurrency(summary.totalEquity, settings?.currency)}
                   </span>
                 </div>
               </div>
@@ -471,7 +436,8 @@ const BalanceSheet = () => {
 
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(
-                    summary.totalLiabilitiesAndEquity
+                    summary.totalLiabilitiesAndEquity,
+                    settings?.currency,
                   )}
                 </span>
               </div>
@@ -479,9 +445,7 @@ const BalanceSheet = () => {
               <div className="mt-2 flex justify-between text-sm text-gray-500 dark:text-gray-400">
                 <span>Total Assets</span>
 
-                <span>
-                  {formatCurrency(summary.totalAssets)}
-                </span>
+                <span> {formatCurrency(summary.totalAssets, settings?.currency)}</span>
               </div>
             </section>
           </div>

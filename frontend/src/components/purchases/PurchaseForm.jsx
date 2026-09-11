@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 const createEmptyItem = () => ({
   productId: "",
@@ -25,6 +27,9 @@ function PurchaseForm({
   onCancel,
   submitting,
 }) {
+
+  const { settings } = useSettings();
+
   const [formData, setFormData] = useState(initialForm);
 
   useEffect(() => {
@@ -343,13 +348,12 @@ function PurchaseForm({
                       Total Cost
                     </label>
 
-                    <div className="flex h-[42px] items-center rounded-lg bg-slate-50 px-3 text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
-                      ₱
-                      {itemTotal.toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
+                   <div className="flex h-[42px] items-center rounded-lg bg-slate-50 px-3 text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
+  {formatCurrency(
+    itemTotal,
+    settings?.currency
+  )}
+</div>
                   </div>
 
                   <div className="flex items-end justify-end md:col-span-1">
@@ -379,12 +383,11 @@ function PurchaseForm({
             </span>
 
             <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              ₱
-              {totalAmount.toLocaleString("en-PH", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
+  {formatCurrency(
+    totalAmount,
+    settings?.currency
+  )}
+</span>
           </div>
         </div>
       </div>

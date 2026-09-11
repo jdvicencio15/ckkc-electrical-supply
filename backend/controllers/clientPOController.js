@@ -3,6 +3,7 @@ const ClientPO = require("../models/ClientPO");
 const Customer = require("../models/Customer");
 const Quotation = require("../models/Quotation");
 const Product = require("../models/Product");
+
 const SupplierPO = require("../models/SupplierPO");
 const Purchase = require("../models/Purchase");
 
@@ -27,11 +28,12 @@ const CLIENT_PO_STATE_TRANSITIONS = {
 const getClientPOs = async (req, res, next) => {
   try {
     const clientPOs = await ClientPO.find()
-      .populate("customerId", "customerCode name")
-      .populate("quotationId", "quotationNumber")
-      .populate("items.productId", "sku name unit")
-      .populate("createdBy", "firstName lastName")
-      .populate("updatedBy", "firstName lastName")
+     .populate("customerId", "customerCode name")
+.populate("quotationId", "quotationNumber")
+.populate("items.productId", "sku name unit")
+.populate("items.unitId", "code name")
+.populate("createdBy", "firstName lastName")
+.populate("updatedBy", "firstName lastName")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -49,10 +51,11 @@ const getClientPOById = async (req, res, next) => {
   try {
     const clientPO = await ClientPO.findById(req.params.id)
       .populate("customerId", "customerCode name")
-      .populate("quotationId", "quotationNumber")
-      .populate("items.productId", "sku name unit")
-      .populate("createdBy", "firstName lastName")
-      .populate("updatedBy", "firstName lastName");
+.populate("quotationId", "quotationNumber")
+.populate("items.productId", "sku name unit")
+.populate("items.unitId", "code name")
+.populate("createdBy", "firstName lastName")
+.populate("updatedBy", "firstName lastName")
 
     if (!clientPO) {
       return res.status(404).json({
@@ -71,16 +74,15 @@ const getClientPOById = async (req, res, next) => {
 };
 
 // CREATE CLIENT PO
-
 const createClientPO = async (req, res, next) => {
   try {
-   const {
-  items,
-  customerId,
-  quotationId,
-  status,
-  ...clientPOData
-} = req.body;
+    const {
+      items,
+      customerId,
+      quotationId,
+      status,
+      ...clientPOData
+    } = req.body;
 
     // CUSTOMER
     const customer = await Customer.findById(customerId);
@@ -129,7 +131,7 @@ const createClientPO = async (req, res, next) => {
       }
     }
 
-    // PRODUCTS
+    // PRODUCTS + UOM SNAPSHOT
     await checkReferencesExist(
       Product,
       items.map((item) => item.productId),
@@ -140,7 +142,9 @@ const createClientPO = async (req, res, next) => {
       _id: {
         $in: items.map((item) => item.productId),
       },
-    }).select("_id status");
+    })
+      .select("_id status unitId")
+      .populate("unitId", "code status");
 
     const inactiveProduct = products.find(
       (product) => product.status !== "active"
@@ -154,30 +158,68 @@ const createClientPO = async (req, res, next) => {
       throw error;
     }
 
+    const productMap = new Map(
+      products.map((product) => [
+        product._id.toString(),
+        product,
+      ])
+    );
+
+    const clientPOItems = items.map((item) => {
+      const product = productMap.get(
+        item.productId.toString()
+      );
+
+      if (!product.unitId) {
+        const error = new Error(
+          `Product ${product._id} has no valid Unit assigned`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (product.unitId.status !== "active") {
+        const error = new Error(
+          `Unit assigned to product ${product._id} is inactive`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      return {
+        ...item,
+        unitId: product.unitId._id,
+        unitCode: product.unitId.code,
+      };
+    });
+
     // COMPUTE TOTAL ON BACKEND
-    const totalAmount = items.reduce(
+    const totalAmount = clientPOItems.reduce(
       (total, item) =>
         total + item.quantity * item.agreedUnitPrice,
       0
     );
+
     const poNumber = await generateDocumentNumber("clientPO");
 
- const clientPO = await ClientPO.create({
-  ...clientPOData,
-  poNumber,
-  customerId,
-  quotationId,
-  items,
-  totalAmount,
-  status: "received",
-  createdBy: req.user._id,
-});
+    // CREATE CLIENT PO
+    const clientPO = await ClientPO.create({
+      ...clientPOData,
+      poNumber,
+      customerId,
+      quotationId,
+      items: clientPOItems,
+      totalAmount,
+      status: "received",
+      createdBy: req.user._id,
+    });
 
     const populatedClientPO =
       await ClientPO.findById(clientPO._id)
         .populate("customerId", "customerCode name")
         .populate("quotationId", "quotationNumber")
         .populate("items.productId", "sku name unit")
+        .populate("items.unitId", "code name")
         .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
@@ -188,6 +230,7 @@ const createClientPO = async (req, res, next) => {
     next(error);
   }
 };
+
 
 // UPDATE CLIENT PO
 const updateClientPO = async (req, res, next) => {
@@ -288,32 +331,71 @@ const updateClientPO = async (req, res, next) => {
       }
     }
 
-    // PRODUCTS
-    if (items !== undefined) {
-      await checkReferencesExist(
-        Product,
-        items.map((item) => item.productId),
-        "Product"
+    // PRODUCTS + UOM SNAPSHOT
+let clientPOItems;
+
+if (items !== undefined) {
+  await checkReferencesExist(
+    Product,
+    items.map((item) => item.productId),
+    "Product"
+  );
+
+  const products = await Product.find({
+    _id: {
+      $in: items.map((item) => item.productId),
+    },
+  })
+    .select("_id status unitId")
+    .populate("unitId", "code status");
+
+  const inactiveProduct = products.find(
+    (product) => product.status !== "active"
+  );
+
+  if (inactiveProduct) {
+    const error = new Error(
+      "Cannot add inactive product to Client PO"
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const productMap = new Map(
+    products.map((product) => [
+      product._id.toString(),
+      product,
+    ])
+  );
+
+  clientPOItems = items.map((item) => {
+    const product = productMap.get(
+      item.productId.toString()
+    );
+
+    if (!product.unitId) {
+      const error = new Error(
+        `Product ${product._id} has no valid Unit assigned`
       );
-
-      const products = await Product.find({
-        _id: {
-          $in: items.map((item) => item.productId),
-        },
-      }).select("_id status");
-
-      const inactiveProduct = products.find(
-        (product) => product.status !== "active"
-      );
-
-      if (inactiveProduct) {
-        const error = new Error(
-          "Cannot add inactive product to Client PO"
-        );
-        error.statusCode = 400;
-        throw error;
-      }
+      error.statusCode = 400;
+      throw error;
     }
+
+    if (product.unitId.status !== "active") {
+      const error = new Error(
+        `Unit assigned to product ${product._id} is inactive`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    return {
+      ...item,
+      unitId: product.unitId._id,
+      unitCode: product.unitId.code,
+    };
+  });
+}
 
     // STATE TRANSITION
     if (
@@ -351,16 +433,16 @@ const updateClientPO = async (req, res, next) => {
       clientPO.status = status;
     }
 
-    if (items !== undefined) {
-      clientPO.items = items;
+  if (items !== undefined) {
+  clientPO.items = clientPOItems;
 
-      clientPO.totalAmount = items.reduce(
-        (total, item) =>
-          total +
-          item.quantity * item.agreedUnitPrice,
-        0
-      );
-    }
+  clientPO.totalAmount = clientPOItems.reduce(
+    (total, item) =>
+      total +
+      item.quantity * item.agreedUnitPrice,
+    0
+  );
+}
 
     clientPO.updatedBy = req.user._id;
 
@@ -371,6 +453,7 @@ const updateClientPO = async (req, res, next) => {
         .populate("customerId", "customerCode name")
         .populate("quotationId", "quotationNumber")
         .populate("items.productId", "sku name unit")
+        .populate("items.unitId", "code name")
         .populate("createdBy", "firstName lastName")
         .populate("updatedBy", "firstName lastName");
 

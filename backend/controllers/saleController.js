@@ -7,6 +7,7 @@ const Customer = require("../models/Customer");
 const ClientPO = require("../models/ClientPO");
 const Settings = require("../models/Settings");
 
+const { roundMoney } = require("../utils/money");
 
 const {
   generateDocumentNumber,
@@ -94,31 +95,74 @@ const createSale = async (req, res, next) => {
       "Product",
     );
 
-    // Calculate item totals
-    const calculatedItems = items.map((item) => {
-      const profit = (item.unitPrice - item.unitCost) * item.quantity;
 
-      return {
-        ...item,
-        profit,
-      };
-    });
+    const settings = await Settings.findOne().select(
+  "accountingTax"
+);
 
-    // Calculate totals
-    const subtotal = calculatedItems.reduce(
-      (total, item) => total + item.quantity * item.unitPrice,
-      0,
-    );
+const vatEnabled =
+  settings?.accountingTax?.vatEnabled === true;
 
-    const totalCost = calculatedItems.reduce(
-      (total, item) => total + item.quantity * item.unitCost,
-      0,
-    );
+const vatRate = vatEnabled
+  ? Number(settings?.accountingTax?.vatRate || 0)
+  : 0;
 
-    const totalAmount = subtotal + directExpenses + commission;
+const pricingMode =
+      settings?.accountingTax?.pricingMode || "inclusive";
 
-    const totalProfit =
-      subtotal - totalCost - directExpenses - commission;
+
+  // Calculate item totals
+const calculatedItems = items.map((item) => {
+  const profit = (item.unitPrice - item.unitCost) * item.quantity;
+
+  return {
+    ...item,
+    profit,
+  };
+});
+
+// Calculate totals
+const subtotal = roundMoney(
+  calculatedItems.reduce(
+    (total, item) => total + item.quantity * item.unitPrice,
+    0,
+  )
+);
+
+const totalCost = roundMoney(
+  calculatedItems.reduce(
+    (total, item) => total + item.quantity * item.unitCost,
+    0,
+  )
+);
+
+// VAT calculation
+let netAmount = subtotal;
+let taxAmount = 0;
+
+if (vatEnabled && vatRate > 0) {
+  if (pricingMode === "inclusive") {
+    netAmount = subtotal / (1 + vatRate / 100);
+    taxAmount = subtotal - netAmount;
+  } else {
+    netAmount = subtotal;
+    taxAmount = subtotal * (vatRate / 100);
+  }
+}
+
+netAmount = roundMoney(netAmount);
+taxAmount = roundMoney(taxAmount);
+
+// Total calculation
+const totalAmount = roundMoney(
+  pricingMode === "inclusive"
+    ? subtotal + directExpenses + commission
+    : subtotal + taxAmount + directExpenses + commission
+);
+
+const totalProfit = roundMoney(
+  netAmount - totalCost - directExpenses - commission
+);
 
     const salesNumber = await generateDocumentNumber("sales");
 
@@ -130,7 +174,14 @@ const createSale = async (req, res, next) => {
       saleDate,
       status,
       items: calculatedItems,
+
       subtotal,
+
+      taxRate: vatRate,
+      taxAmount,
+      pricingMode,
+      netAmount,
+
       directExpenses,
       commission,
       totalAmount,
@@ -239,38 +290,77 @@ const updateSale = async (req, res, next) => {
       sale.commission = commission;
     }
 
-    // Recalculate item totals when items are provided
-    if (items !== undefined) {
-      const calculatedItems = items.map((item) => {
-        const profit = (item.unitPrice - item.unitCost) * item.quantity;
+// Recalculate item totals when items are provided
+if (items !== undefined) {
+  const calculatedItems = items.map((item) => {
+    const profit = (item.unitPrice - item.unitCost) * item.quantity;
 
-        return {
-          ...item,
-          profit,
-        };
-      });
+    return {
+      ...item,
+      profit,
+    };
+  });
 
-      const subtotal = calculatedItems.reduce(
-        (total, item) => total + item.quantity * item.unitPrice,
-        0,
-      );
+  const subtotal = roundMoney(
+    calculatedItems.reduce(
+      (total, item) => total + item.quantity * item.unitPrice,
+      0,
+    )
+  );
 
-      const totalCost = calculatedItems.reduce(
-        (total, item) => total + item.quantity * item.unitCost,
-        0,
-      );
+  const totalCost = roundMoney(
+    calculatedItems.reduce(
+      (total, item) => total + item.quantity * item.unitCost,
+      0,
+    )
+  );
 
-      sale.items = calculatedItems;
-      sale.subtotal = subtotal;
-      sale.totalCost = totalCost;
-    }
+  sale.items = calculatedItems;
+  sale.subtotal = subtotal;
+  sale.totalCost = totalCost;
+}
 
-    // Always calculate totals using the CURRENT sale values
-    sale.totalAmount = sale.subtotal + sale.directExpenses + sale.commission;
+// Recalculate VAT using the SALE'S EXISTING TAX SNAPSHOT
+let netAmount = sale.subtotal;
+let taxAmount = 0;
 
-    sale.totalProfit =
-      sale.subtotal - sale.totalCost - sale.directExpenses - sale.commission;
+if (sale.taxRate > 0) {
+  if (sale.pricingMode === "inclusive") {
+    netAmount =
+      sale.subtotal / (1 + sale.taxRate / 100);
 
+    taxAmount =
+      sale.subtotal - netAmount;
+  } else {
+    netAmount = sale.subtotal;
+
+    taxAmount =
+      sale.subtotal * (sale.taxRate / 100);
+  }
+}
+
+sale.netAmount = roundMoney(netAmount);
+sale.taxAmount = roundMoney(taxAmount);
+
+// Recalculate total amount
+sale.totalAmount = roundMoney(
+  sale.pricingMode === "inclusive"
+    ? sale.subtotal +
+        sale.directExpenses +
+        sale.commission
+    : sale.subtotal +
+        sale.taxAmount +
+        sale.directExpenses +
+        sale.commission
+);
+
+// Recalculate profit using NET sales
+sale.totalProfit = roundMoney(
+  sale.netAmount -
+    sale.totalCost -
+    sale.directExpenses -
+    sale.commission
+);
     sale.updatedBy = req.user._id;
 
     await sale.save();

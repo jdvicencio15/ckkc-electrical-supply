@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useSettings } from "../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 
 import authService from "../services/authService";
@@ -8,7 +9,7 @@ import Input from "../components/ui/Input";
 
 function ForgotPassword() {
   const navigate = useNavigate();
-
+  const { businessName, systemName } = useSettings();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -60,12 +61,12 @@ function ForgotPassword() {
             {/* Brand */}
             <div className="mb-8 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-green-400/30 bg-green-500/15 text-lg font-bold text-green-400 shadow-lg shadow-green-950/20">
-                C
+               {systemName?.charAt(0)?.toUpperCase() || "A"}
               </div>
 
               <div>
                 <p className="text-lg font-semibold tracking-tight text-white">
-                  CKKC Electrical Supply
+                 {businessName}
                 </p>
 
                 <p className="text-xs text-slate-400">
@@ -182,7 +183,7 @@ function ForgotPassword() {
 
             {/* Footer */}
             <p className="mt-6 text-center text-xs text-slate-500">
-              © 2026 CKKC Electrical Supply. All rights reserved.
+             © {new Date().getFullYear()} {businessName}. All rights reserved.
             </p>
           </div>
         </div>

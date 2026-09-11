@@ -9,15 +9,22 @@ const productValidator = [
 
   body("categoryId").isMongoId().withMessage("Valid category is required"),
 
-  body("unit").trim().notEmpty().withMessage("Unit is required"),
-
   body("minimumStock")
     .optional()
     .isFloat({ min: 0 })
     .withMessage("Minimum stock must be 0 or greater"),
 
-  body("unitId").optional().isMongoId().withMessage("Invalid unit reference"),
 
+body("unit")
+  .optional()
+  .trim()
+  .notEmpty()
+  .withMessage("Unit cannot be empty"),
+
+body("unitId")
+  .isMongoId()
+    .withMessage("Valid unit is required"),
+  
   body("initialSupplierPricing")
     .optional()
     .isObject()

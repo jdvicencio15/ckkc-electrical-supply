@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import {
-  FaArrowLeft,
-  FaTruck,
-} from "react-icons/fa";
+import { FaArrowLeft, FaTruck } from "react-icons/fa";
 import { Link } from "react-router-dom";
 
 import reportsApi from "../../api/reportsApi";
 import exportToCsv from "../../utils/exportCsv";
-
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function PurchaseReport() {
+  const { settings } = useSettings();
+
   const [purchases, setPurchases] = useState([]);
 
   const [summary, setSummary] = useState({
@@ -21,12 +21,6 @@ function PurchaseReport() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const formatCurrency = (value) =>
-    `₱${Number(value || 0).toLocaleString("en-PH", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
 
   const formatDate = (date) => {
     if (!date) {
@@ -45,25 +39,20 @@ function PurchaseReport() {
       setLoading(true);
       setError("");
 
-      const response =
-        await reportsApi.getPurchasesReport(params);
+      const response = await reportsApi.getPurchasesReport(params);
 
       setPurchases(response.data?.purchases || []);
 
       setSummary(
         response.data?.summary || {
           totalPurchases: 0,
-        }
+        },
       );
     } catch (err) {
-      console.error(
-        "Failed to load purchase report:",
-        err
-      );
+      console.error("Failed to load purchase report:", err);
 
       setError(
-        err.response?.data?.message ||
-          "Failed to load purchase report."
+        err.response?.data?.message || "Failed to load purchase report.",
       );
     } finally {
       setLoading(false);
@@ -88,75 +77,71 @@ function PurchaseReport() {
     loadPurchasesReport(params);
   };
 
-
   const handleExportCsv = () => {
-  const headers = [
-    "Date",
-    "Purchase No.",
-    "Supplier",
-    "Status",
-    "Total Amount",
-  ];
+    const headers = [
+      "Date",
+      "Purchase No.",
+      "Supplier",
+      "Status",
+      "Total Amount",
+    ];
 
-  const rows = purchases.map((purchase) => [
-    new Date(purchase.purchaseDate).toLocaleDateString("en-PH"),
-    purchase.purchaseNumber,
-    purchase.supplierId?.name || "Unknown Supplier",
-    purchase.status,
-    purchase.totalAmount,
-  ]);
+    const rows = purchases.map((purchase) => [
+      new Date(purchase.purchaseDate).toLocaleDateString("en-PH"),
+      purchase.purchaseNumber,
+      purchase.supplierId?.name || "Unknown Supplier",
+      purchase.status,
+      purchase.totalAmount,
+    ]);
 
-  exportToCsv("purchase-report.csv", headers, rows);
+    exportToCsv("purchase-report.csv", headers, rows);
   };
-
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="mb-3">
+            <Link
+              to="/reports"
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
+            >
+              <FaArrowLeft className="h-3 w-3" />
+              Back to Reports
+            </Link>
+          </div>
 
-     {/* Header */}
-<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-  <div>
-    <div className="mb-3">
-      <Link
-        to="/reports"
-        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
-      >
-        <FaArrowLeft className="h-3 w-3" />
-        Back to Reports
-      </Link>
-    </div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400">
+              <FaTruck className="h-4 w-4" />
+            </div>
 
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400">
-        <FaTruck className="h-4 w-4" />
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                Purchase Report
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Review received purchases and supplier transactions.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Export Button */}
+        <button
+          onClick={handleExportCsv}
+          disabled={loading || purchases.length === 0}
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          Export CSV
+        </button>
       </div>
-
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Purchase Report
-        </h1>
-
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Review received purchases and supplier transactions.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  {/* Export Button */}
-  <button
-    onClick={handleExportCsv}
-    disabled={loading || purchases.length === 0}
-    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-  >
-    Export CSV
-  </button>
-</div>
 
       {/* Filters */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-3 md:grid-cols-3">
-
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-400">
               Start Date
@@ -165,9 +150,7 @@ function PurchaseReport() {
             <input
               type="date"
               value={startDate}
-              onChange={(event) =>
-                setStartDate(event.target.value)
-              }
+              onChange={(event) => setStartDate(event.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             />
           </div>
@@ -180,9 +163,7 @@ function PurchaseReport() {
             <input
               type="date"
               value={endDate}
-              onChange={(event) =>
-                setEndDate(event.target.value)
-              }
+              onChange={(event) => setEndDate(event.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             />
           </div>
@@ -194,12 +175,9 @@ function PurchaseReport() {
               disabled={loading}
               className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading
-                ? "Generating..."
-                : "Generate Report"}
+              {loading ? "Generating..." : "Generate Report"}
             </button>
           </div>
-
         </div>
       </div>
 
@@ -212,16 +190,13 @@ function PurchaseReport() {
 
       {/* Summary */}
       <div className="grid gap-4 sm:grid-cols-2">
-
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Total Purchases
           </p>
 
           <p className="mt-2 text-2xl font-bold text-blue-600">
-            {formatCurrency(
-              summary.totalPurchases
-            )}
+            {formatCurrency(summary.totalPurchases, settings?.currency)}
           </p>
         </div>
 
@@ -234,12 +209,10 @@ function PurchaseReport() {
             {purchases.length}
           </p>
         </div>
-
       </div>
 
       {/* Purchase Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-
         <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Purchase Transactions
@@ -272,17 +245,11 @@ function PurchaseReport() {
               <table className="w-full min-w-[700px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                   <tr>
-                    <th className="px-6 py-3 font-semibold">
-                      Date
-                    </th>
+                    <th className="px-6 py-3 font-semibold">Date</th>
 
-                    <th className="px-6 py-3 font-semibold">
-                      Purchase No.
-                    </th>
+                    <th className="px-6 py-3 font-semibold">Purchase No.</th>
 
-                    <th className="px-6 py-3 font-semibold">
-                      Supplier
-                    </th>
+                    <th className="px-6 py-3 font-semibold">Supplier</th>
 
                     <th className="px-6 py-3 text-right font-semibold">
                       Amount
@@ -297,9 +264,7 @@ function PurchaseReport() {
                       className="border-t border-slate-100 dark:border-slate-800"
                     >
                       <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                        {formatDate(
-                          purchase.purchaseDate
-                        )}
+                        {formatDate(purchase.purchaseDate)}
                       </td>
 
                       <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
@@ -307,13 +272,13 @@ function PurchaseReport() {
                       </td>
 
                       <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        {purchase.supplierId?.name ||
-                          "Unknown Supplier"}
+                        {purchase.supplierId?.name || "Unknown Supplier"}
                       </td>
 
                       <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
                         {formatCurrency(
-                          purchase.totalAmount
+                          purchase.totalAmount,
+                          settings?.currency,
                         )}
                       </td>
                     </tr>
@@ -331,7 +296,8 @@ function PurchaseReport() {
 
                     <td className="px-6 py-4 text-right font-bold text-blue-600">
                       {formatCurrency(
-                        summary.totalPurchases
+                        summary.totalPurchases,
+                        settings?.currency,
                       )}
                     </td>
                   </tr>
@@ -342,16 +308,12 @@ function PurchaseReport() {
             <div className="border-t border-slate-200 px-6 py-3 dark:border-slate-800">
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Showing {purchases.length}{" "}
-                {purchases.length === 1
-                  ? "purchase"
-                  : "purchases"}
+                {purchases.length === 1 ? "purchase" : "purchases"}
               </p>
             </div>
           </>
         )}
-
       </div>
-
     </div>
   );
 }

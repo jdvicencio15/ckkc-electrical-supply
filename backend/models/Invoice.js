@@ -86,6 +86,31 @@ const invoiceSchema = new mongoose.Schema(
       min: 0,
     },
 
+    taxRate: {
+  type: Number,
+  default: 0,
+  min: 0,
+  max: 100,
+},
+
+taxAmount: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
+
+pricingMode: {
+  type: String,
+  enum: ["inclusive", "exclusive"],
+  default: "inclusive",
+},
+
+netAmount: {
+  type: Number,
+  default: 0,
+  min: 0,
+    },
+
     totalAmount: {
       type: Number,
       default: 0,

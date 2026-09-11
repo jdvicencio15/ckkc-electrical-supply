@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import reportsApi from "../api/reportsApi";
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
 
 function Reports() {
   const [summary, setSummary] = useState({
@@ -11,17 +13,10 @@ function Reports() {
     revenue: 0,
     netProfit: 0,
   });
-
+  const { settings } = useSettings();
   const [period, setPeriod] = useState("thisMonth");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-    }).format(amount || 0);
-  };
 
   const getDateRange = (selectedPeriod) => {
     const now = new Date();
@@ -141,7 +136,9 @@ function Reports() {
           <p className="text-sm text-slate-500 dark:text-slate-400">Sales</p>
 
           <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {loading ? "Loading..." : formatCurrency(summary.sales)}
+            {loading
+              ? "Loading..."
+              : formatCurrency(summary.sales, settings?.currency)}
           </p>
         </div>
 
@@ -152,7 +149,9 @@ function Reports() {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {loading ? "Loading..." : formatCurrency(summary.purchases)}
+            {loading
+              ? "Loading..."
+              : formatCurrency(summary.purchases, settings?.currency)}
           </p>
         </div>
 
@@ -161,7 +160,9 @@ function Reports() {
           <p className="text-sm text-slate-500 dark:text-slate-400">Expenses</p>
 
           <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {loading ? "Loading..." : formatCurrency(summary.expenses)}
+            {loading
+              ? "Loading..."
+              : formatCurrency(summary.expenses, settings?.currency)}
           </p>
         </div>
 
@@ -172,7 +173,9 @@ function Reports() {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {loading ? "Loading..." : formatCurrency(summary.netProfit)}
+            {loading
+              ? "Loading..."
+              : formatCurrency(summary.netProfit, settings?.currency)}
           </p>
         </div>
       </div>

@@ -5,10 +5,12 @@ import quotationService from "../services/quotationService";
 import Toast from "../components/common/Toast";
 import QuotationForm from "../components/quotations/QuotationForm";
 import ConfirmModal from "../components/ui/ConfirmModal";
+import { useSettings } from "../context/SettingsContext";
+import { formatCurrency } from "../utils/currency";
 
 function Quotations() {
   const [quotations, setQuotations] = useState([]);
-
+   const { settings } = useSettings();
   const [searchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
@@ -447,15 +449,12 @@ const handleCancelDelete = () => {
                       </td>
 
                       {/* TOTAL */}
-                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-                        ₱
-                        {Number(
-                          quotation.total || 0
-                        ).toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
+                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
+  {formatCurrency(
+    quotation.total || 0,
+    settings?.currency
+  )}
+</td>
 
                       {/* STATUS */}
                       <td className="px-6 py-4">
