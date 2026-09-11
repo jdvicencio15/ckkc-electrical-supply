@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
+import supplierService from "../../services/supplierService";
+import supplierPricingService from "../../services/supplierPricingService";
 
 const initialItem = {
   productId: "",
+  supplierId: "",
   description: "",
   quantity: 1,
   unitPrice: 0,
   unitCost: 0,
 };
-
 const initialForm = {
-  salesNumber: "",
   customerId: "",
   clientPOId: "",
   saleDate: new Date().toISOString().split("T")[0],
@@ -30,11 +31,40 @@ function SaleForm({
   submitting,
 }) {
   const [formData, setFormData] = useState(initialForm);
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierPricings, setSupplierPricings] = useState([]);
+  const [loadingPricing, setLoadingPricing] = useState(true);
+
+  useEffect(() => {
+    const loadPricingReferences = async () => {
+      try {
+        setLoadingPricing(true);
+
+        const [supplierResponse, supplierPricingResponse] = await Promise.all([
+          supplierService.getSuppliers(),
+          supplierPricingService.getSupplierPricings(),
+        ]);
+
+        setSuppliers(
+          (supplierResponse.suppliers || []).filter(
+            (supplier) => supplier.status === "active",
+          ),
+        );
+
+        setSupplierPricings(supplierPricingResponse.supplierPricings || []);
+      } catch (error) {
+        console.error("Failed to load supplier pricing references:", error);
+      } finally {
+        setLoadingPricing(false);
+      }
+    };
+
+    loadPricingReferences();
+  }, []);
 
   useEffect(() => {
     if (sale) {
       setFormData({
-        salesNumber: sale.salesNumber || "",
         customerId: sale.customerId?._id || sale.customerId || "",
         clientPOId: sale.clientPOId?._id || sale.clientPOId || "",
         saleDate: sale.saleDate
@@ -45,6 +75,7 @@ function SaleForm({
           sale.items?.length > 0
             ? sale.items.map((item) => ({
                 productId: item.productId?._id || item.productId || "",
+                supplierId: "",
                 description: item.description || "",
                 quantity: item.quantity || 1,
                 unitPrice: item.unitPrice || 0,
@@ -84,10 +115,37 @@ function SaleForm({
           (product) => product._id === value,
         );
 
+        items[index].supplierId = "";
+        items[index].unitCost = 0;
+
         if (selectedProduct) {
           items[index].description = selectedProduct.name;
         }
       }
+
+      return {
+        ...current,
+        items,
+      };
+    });
+  };
+
+  const handleSupplierChange = (index, supplierId) => {
+    const selectedPricing = supplierPricings.find(
+      (pricing) =>
+        pricing.productId?._id === formData.items[index].productId &&
+        pricing.supplierId?._id === supplierId &&
+        pricing.status === "active",
+    );
+
+    setFormData((current) => {
+      const items = [...current.items];
+
+      items[index] = {
+        ...items[index],
+        supplierId,
+        unitCost: selectedPricing?.unitCost ?? 0,
+      };
 
       return {
         ...current,
@@ -119,15 +177,13 @@ function SaleForm({
   const totals = useMemo(() => {
     const subtotal = formData.items.reduce(
       (total, item) =>
-        total +
-        Number(item.quantity || 0) * Number(item.unitPrice || 0),
+        total + Number(item.quantity || 0) * Number(item.unitPrice || 0),
       0,
     );
 
     const totalCost = formData.items.reduce(
       (total, item) =>
-        total +
-        Number(item.quantity || 0) * Number(item.unitCost || 0),
+        total + Number(item.quantity || 0) * Number(item.unitCost || 0),
       0,
     );
 
@@ -136,8 +192,7 @@ function SaleForm({
 
     const totalAmount = subtotal + directExpenses + commission;
 
-    const totalProfit =
-      subtotal - totalCost - directExpenses - commission;
+    const totalProfit = subtotal - totalCost - directExpenses - commission;
 
     return {
       subtotal,
@@ -177,6 +232,7 @@ function SaleForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Basic Information */}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -185,14 +241,17 @@ function SaleForm({
 
           <input
             type="text"
-            name="salesNumber"
-            value={formData.salesNumber}
-            onChange={handleChange}
-            required
-            maxLength={50}
-            placeholder="e.g. SAL-001"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            value={sale ? sale.salesNumber : "Auto-generated on save"}
+            readOnly
+            disabled={submitting}
+            className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
           />
+
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {sale
+              ? "Document number cannot be changed."
+              : "The sales number will be generated automatically."}
+          </p>
         </div>
 
         <div>
@@ -283,12 +342,10 @@ function SaleForm({
         <div className="space-y-4">
           {formData.items.map((item, index) => {
             const itemTotal =
-              Number(item.quantity || 0) *
-              Number(item.unitPrice || 0);
+              Number(item.quantity || 0) * Number(item.unitPrice || 0);
 
             const itemProfit =
-              (Number(item.unitPrice || 0) -
-                Number(item.unitCost || 0)) *
+              (Number(item.unitPrice || 0) - Number(item.unitCost || 0)) *
               Number(item.quantity || 0);
 
             return (
@@ -305,11 +362,7 @@ function SaleForm({
                     <select
                       value={item.productId}
                       onChange={(event) =>
-                        handleItemChange(
-                          index,
-                          "productId",
-                          event.target.value,
-                        )
+                        handleItemChange(index, "productId", event.target.value)
                       }
                       required
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -317,14 +370,46 @@ function SaleForm({
                       <option value="">Select product</option>
 
                       {products.map((product) => (
-                        <option
-                          key={product._id}
-                          value={product._id}
-                        >
+                        <option key={product._id} value={product._id}>
                           {product.sku} — {product.name}
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                      Cost Supplier
+                    </label>
+
+                    <select
+                      value={item.supplierId}
+                      onChange={(event) =>
+                        handleSupplierChange(index, event.target.value)
+                      }
+                      disabled={submitting || loadingPricing || !item.productId}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    >
+                      <option value="">
+                        {!item.productId
+                          ? "Select product first"
+                          : loadingPricing
+                            ? "Loading suppliers..."
+                            : "No supplier"}
+                      </option>
+
+                      {suppliers.map((supplier) => (
+                        <option key={supplier._id} value={supplier._id}>
+                          {supplier.supplierCode
+                            ? `${supplier.supplierCode} — ${supplier.name}`
+                            : supplier.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                      Optional. Select a supplier to load its current cost.
+                    </p>
                   </div>
 
                   <div className="lg:col-span-2">
@@ -359,11 +444,7 @@ function SaleForm({
                       step="0.01"
                       value={item.quantity}
                       onChange={(event) =>
-                        handleItemChange(
-                          index,
-                          "quantity",
-                          event.target.value,
-                        )
+                        handleItemChange(index, "quantity", event.target.value)
                       }
                       required
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
@@ -381,11 +462,7 @@ function SaleForm({
                       step="0.01"
                       value={item.unitPrice}
                       onChange={(event) =>
-                        handleItemChange(
-                          index,
-                          "unitPrice",
-                          event.target.value,
-                        )
+                        handleItemChange(index, "unitPrice", event.target.value)
                       }
                       required
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
@@ -403,12 +480,20 @@ function SaleForm({
                       step="0.01"
                       value={item.unitCost}
                       onChange={(event) =>
-                        handleItemChange(
-                          index,
-                          "unitCost",
-                          event.target.value,
-                        )
+                        handleItemChange(index, "unitCost", event.target.value)
                       }
+                      disabled={
+  submitting ||
+  Boolean(
+    item.supplierId &&
+      supplierPricings.some(
+        (pricing) =>
+          pricing.productId?._id === item.productId &&
+          pricing.supplierId?._id === item.supplierId &&
+          pricing.status === "active",
+      ),
+  )
+}
                       required
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                     />
@@ -489,9 +574,7 @@ function SaleForm({
       <div className="rounded-xl bg-slate-50 p-5 dark:bg-slate-800/60">
         <div className="ml-auto max-w-md space-y-3">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-500 dark:text-slate-400">
-              Subtotal
-            </span>
+            <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
 
             <span className="font-medium text-slate-900 dark:text-slate-100">
               {formatCurrency(totals.subtotal)}
@@ -568,11 +651,7 @@ function SaleForm({
           disabled={submitting}
           className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting
-            ? "Saving..."
-            : sale
-              ? "Update Sale"
-              : "Create Sale"}
+          {submitting ? "Saving..." : sale ? "Update Sale" : "Create Sale"}
         </button>
       </div>
     </form>

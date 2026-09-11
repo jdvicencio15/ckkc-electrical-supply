@@ -55,7 +55,20 @@ const settingsSchema = new mongoose.Schema(
       },
     },
 
-  salesInvoicing: {
+salesInvoicing: {
+
+      salesPrefix: {
+    type: String,
+    trim: true,
+    default: "SAL-",
+  },
+
+  salesStartingNumber: {
+    type: Number,
+    default: 1,
+    min: 1,
+      },
+
   invoicePrefix: {
     type: String,
     trim: true,

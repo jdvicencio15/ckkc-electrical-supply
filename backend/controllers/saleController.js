@@ -5,7 +5,12 @@ const InventoryMovement = require("../models/InventoryMovement");
 
 const Customer = require("../models/Customer");
 const ClientPO = require("../models/ClientPO");
+const Settings = require("../models/Settings");
 
+
+const {
+  generateDocumentNumber,
+} = require("../services/documentNumberService");
 
 const {
   checkReferenceExists,
@@ -70,7 +75,6 @@ const getSaleById = async (req, res, next) => {
 const createSale = async (req, res, next) => {
   try {
     const {
-      salesNumber,
       customerId,
       clientPOId,
       saleDate,
@@ -115,6 +119,8 @@ const createSale = async (req, res, next) => {
 
     const totalProfit =
       subtotal - totalCost - directExpenses - commission;
+
+    const salesNumber = await generateDocumentNumber("sales");
 
     // CREATE SALE
     const sale = await Sale.create({
@@ -317,6 +323,15 @@ const releaseSale = async (req, res, next) => {
 
     const lowStockChecks = [];
 
+  const settings = await Settings.findOne()
+  .select(
+    "inventory.allowNegativeStock inventory.autoDeductStockOnSale"
+  )
+  .session(session);
+
+const autoDeductStock =
+  settings?.inventory?.autoDeductStockOnSale !== false;
+
     const sale = await Sale.findById(req.params.id).session(session);
 
     if (!sale) {
@@ -347,63 +362,72 @@ const releaseSale = async (req, res, next) => {
     }
 
     // CHECK STOCK FIRST
-    for (const item of sale.items) {
-      const product = await Product.findById(item.productId).session(session);
+ if (autoDeductStock) {
+  for (const item of sale.items) {
+    const product = await Product.findById(item.productId).session(session);
 
-      if (!product) {
-        await session.abortTransaction();
+    if (!product) {
+      await session.abortTransaction();
 
-        return res.status(404).json({
-          success: false,
-          message: `Product not found: ${item.productId}`,
-        });
-      }
-
-      if (product.currentStock < item.quantity) {
-        await session.abortTransaction();
-
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Required: ${item.quantity}`,
-        });
-      }
-    }
-
-     // DEDUCT STOCK + CREATE INVENTORY MOVEMENTS
-    for (const item of sale.items) {
-      const product = await Product.findById(item.productId).session(session);
-
-      const previousStock = product.currentStock;
-
-      product.currentStock -= item.quantity;
-
-      const newStock = product.currentStock;
-
-      lowStockChecks.push({
-        productId: product._id,
-        previousStock,
-        newStock,
+      return res.status(404).json({
+        success: false,
+        message: `Product not found: ${item.productId}`,
       });
-
-      await product.save({ session });
-
-      await InventoryMovement.create(
-        [
-          {
-            productId: item.productId,
-            type: "OUT",
-            quantity: item.quantity,
-            unitCost: item.unitCost,
-            referenceType: "SALE",
-            referenceId: sale._id,
-            date: sale.saleDate,
-            notes: `Released ${item.quantity} ${product.unit} of ${product.name}`,
-            createdBy: req.user._id,
-          },
-        ],
-        { session },
-      );
     }
+
+    if (
+      product.currentStock < item.quantity &&
+      settings?.inventory?.allowNegativeStock !== true
+    ) {
+      await session.abortTransaction();
+
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Required: ${item.quantity}`,
+      });
+    }
+  }
+}
+
+   // DEDUCT STOCK + CREATE INVENTORY MOVEMENTS
+if (autoDeductStock) {
+  for (const item of sale.items) {
+    const product = await Product.findById(item.productId).session(session);
+
+    const previousStock = product.currentStock;
+
+    product.currentStock -= item.quantity;
+
+    const newStock = product.currentStock;
+
+    lowStockChecks.push({
+      productId: product._id,
+      previousStock,
+      newStock,
+    });
+
+    await product.save({ session });
+
+    await InventoryMovement.create(
+      [
+        {
+          productId: item.productId,
+          type: "OUT",
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          referenceType: "SALE",
+          referenceId: sale._id,
+          date: sale.saleDate,
+          notes: `Released ${item.quantity} ${product.unit} of ${product.name}`,
+          createdBy: req.user._id,
+        },
+      ],
+      { session },
+    );
+  }
+}
+
+
     // UPDATE SALE STATUS
     sale.status = "released";
     sale.updatedBy = req.user._id;

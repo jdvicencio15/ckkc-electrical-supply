@@ -185,7 +185,25 @@ if (
       salesInvoicing.supplierPOStartingNumber
     );
     }
+
+if (
+  salesInvoicing.salesPrefix !== undefined
+) {
+  settings.salesInvoicing.salesPrefix =
+    salesInvoicing.salesPrefix.trim();
+}
+
+if (
+  salesInvoicing.salesStartingNumber !== undefined
+) {
+  settings.salesInvoicing.salesStartingNumber =
+    Number(
+      salesInvoicing.salesStartingNumber
+    );
+    }
+
     
+
 
   if (
     salesInvoicing.defaultPaymentTerms !== undefined

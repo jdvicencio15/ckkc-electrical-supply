@@ -27,6 +27,11 @@ const DOCUMENT_CONFIG = {
   startingNumberField: "supplierPOStartingNumber",
 },
 
+  sales: {
+  prefixField: "salesPrefix",
+  startingNumberField: "salesStartingNumber",
+  },
+  
 
 };
 

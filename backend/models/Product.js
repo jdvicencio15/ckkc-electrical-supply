@@ -51,7 +51,6 @@ const productSchema = new mongoose.Schema(
     currentStock: {
       type: Number,
       default: 0,
-      min: 0,
     },
 
     status: {

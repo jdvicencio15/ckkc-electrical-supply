@@ -1,13 +1,6 @@
 const { body } = require("express-validator");
 
 const saleValidator = [
-  body("salesNumber")
-    .trim()
-    .notEmpty()
-    .withMessage("Sales number is required")
-    .isLength({ max: 50 })
-    .withMessage("Sales number must not exceed 50 characters"),
-
   body("customerId")
     .notEmpty()
     .withMessage("Customer is required")
@@ -79,14 +72,6 @@ const saleValidator = [
 
 
 const saleUpdateValidator = [
-  body("salesNumber")
-    .optional()
-    .trim()
-    .notEmpty()
-    .withMessage("Sales number cannot be empty")
-    .isLength({ max: 50 })
-    .withMessage("Sales number must not exceed 50 characters"),
-
   body("customerId")
     .optional()
     .notEmpty()

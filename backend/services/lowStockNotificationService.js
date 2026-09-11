@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const Settings = require("../models/Settings");
 const {
   createNotificationsForRoles,
 } = require("./notificationService");
@@ -8,6 +9,17 @@ const checkAndCreateLowStockNotification = async ({
   previousStock,
   newStock,
 }) => {
+  // Respect Settings → Low Stock Notifications
+  const settings = await Settings.findOne().select(
+    "lowStockNotifications"
+  );
+
+  // Only explicitly disabled settings should stop notifications.
+  // If no settings document exists, preserve the current behavior.
+  if (settings && settings.lowStockNotifications === false) {
+    return null;
+  }
+
   const product = await Product.findById(productId).select(
     "_id sku name unit minimumStock currentStock"
   );

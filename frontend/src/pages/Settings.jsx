@@ -22,21 +22,36 @@ function Settings() {
       systemName: "CKKC",
     },
 
-  salesInvoicing: {
-   invoicePrefix: "INV-",
+salesInvoicing: {
+
+  invoicePrefix: "INV-",
+
   quotationPrefix: "QUO-",
+
   purchasePrefix: "PUR-",
+
   clientPOPrefix: "CPO-",
+
   supplierPOPrefix: "SPO-",
 
+  salesPrefix: "SAL-",
+
   invoiceStartingNumber: 1,
+
   quotationStartingNumber: 1,
+
   purchaseStartingNumber: 1,
+
   clientPOStartingNumber: 1,
+
   supplierPOStartingNumber: 1,
 
+  salesStartingNumber: 1,
+
   defaultPaymentTerms: "Due on Receipt",
+
   defaultTaxRate: 0,
+
   documentFooter: "",
 },
 
@@ -119,6 +134,9 @@ salesInvoicing: {
   supplierPOPrefix:
     settings?.salesInvoicing?.supplierPOPrefix || "SPO-",
 
+  salesPrefix:
+    settings?.salesInvoicing?.salesPrefix || "SAL-",
+
   invoiceStartingNumber:
     settings?.salesInvoicing?.invoiceStartingNumber || 1,
 
@@ -134,9 +152,13 @@ salesInvoicing: {
   supplierPOStartingNumber:
     settings?.salesInvoicing?.supplierPOStartingNumber || 1,
 
+  salesStartingNumber:
+    settings?.salesInvoicing?.salesStartingNumber || 1,
+
   defaultPaymentTerms:
     settings?.salesInvoicing?.defaultPaymentTerms ||
     "Due on Receipt",
+
 
   defaultTaxRate:
     settings?.salesInvoicing?.defaultTaxRate ?? 0,
@@ -382,7 +404,8 @@ salesInvoicing: {
     systemName: formData.appearance.systemName.trim(),
   },
 
- salesInvoicing: {
+salesInvoicing: {
+
   invoicePrefix:
     formData.salesInvoicing.invoicePrefix.trim(),
 
@@ -397,6 +420,9 @@ salesInvoicing: {
 
   supplierPOPrefix:
     formData.salesInvoicing.supplierPOPrefix.trim(),
+
+  salesPrefix:
+    formData.salesInvoicing.salesPrefix.trim(),
 
   invoiceStartingNumber: Number(
     formData.salesInvoicing.invoiceStartingNumber
@@ -416,6 +442,10 @@ salesInvoicing: {
 
   supplierPOStartingNumber: Number(
     formData.salesInvoicing.supplierPOStartingNumber
+  ),
+
+  salesStartingNumber: Number(
+    formData.salesInvoicing.salesStartingNumber
   ),
 
   defaultPaymentTerms:
@@ -520,6 +550,9 @@ salesInvoicing: {
   supplierPOPrefix:
     settings?.salesInvoicing?.supplierPOPrefix || "SPO-",
 
+  salesPrefix:
+    settings?.salesInvoicing?.salesPrefix || "SAL-",
+
   invoiceStartingNumber:
     settings?.salesInvoicing?.invoiceStartingNumber || 1,
 
@@ -534,6 +567,9 @@ salesInvoicing: {
 
   supplierPOStartingNumber:
     settings?.salesInvoicing?.supplierPOStartingNumber || 1,
+
+  salesStartingNumber:
+    settings?.salesInvoicing?.salesStartingNumber || 1,
 
   defaultPaymentTerms:
     settings?.salesInvoicing?.defaultPaymentTerms ||
@@ -1139,6 +1175,89 @@ salesInvoicing: {
           </div>
         </div>
 
+                {/* Sales */}
+<div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
+  <div className="mb-4">
+    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+      Sales
+    </h4>
+
+    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      Numbering for sales transactions.
+    </p>
+  </div>
+
+  <div className="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label
+        htmlFor="salesPrefix"
+        className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+      >
+        Prefix
+      </label>
+
+      <input
+        id="salesPrefix"
+        type="text"
+        value={formData.salesInvoicing.salesPrefix}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              salesPrefix: e.target.value,
+            },
+          }))
+        }
+        placeholder="SAL-"
+        disabled={submitting}
+        className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+      />
+    </div>
+
+    <div>
+      <label
+        htmlFor="salesStartingNumber"
+        className="mb-2 block text-xs font-medium text-slate-700 dark:text-slate-300"
+      >
+        Starting Number
+      </label>
+
+      <input
+        id="salesStartingNumber"
+        type="number"
+        min="1"
+        value={formData.salesInvoicing.salesStartingNumber}
+        onChange={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            salesInvoicing: {
+              ...prev.salesInvoicing,
+              salesStartingNumber: e.target.value,
+            },
+          }))
+        }
+        disabled={submitting}
+        className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500"
+      />
+    </div>
+  </div>
+
+  <div className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      Preview
+    </p>
+
+    <p className="mt-1 font-mono text-sm font-semibold text-green-600 dark:text-green-400">
+      CKKC-{formData.salesInvoicing.salesPrefix}
+      {new Date().getFullYear()}-
+      {String(
+        formData.salesInvoicing.salesStartingNumber || 1
+      ).padStart(6, "0")}
+    </p>
+  </div>
+                </div>
+
         {/* Purchase */}
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/50">
           <div className="mb-4">
@@ -1458,39 +1577,6 @@ salesInvoicing: {
   </div>
 
   <div className="divide-y divide-slate-100 dark:divide-slate-800">
-    {/* Low Stock Threshold */}
-    <div className="px-6 py-6">
-      <div className="max-w-md">
-        <label
-          htmlFor="lowStockThreshold"
-          className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300"
-        >
-          Low Stock Threshold
-        </label>
-
-        <input
-          id="lowStockThreshold"
-          type="number"
-          min="0"
-          value={formData.inventory.lowStockThreshold}
-          onChange={(e) =>
-            setFormData((prev) => ({
-              ...prev,
-              inventory: {
-                ...prev.inventory,
-                lowStockThreshold: e.target.value,
-              },
-            }))
-          }
-          disabled={submitting}
-          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-green-500"
-        />
-
-        <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-          Products at or below this quantity will be considered low stock.
-        </p>
-      </div>
-    </div>
 
     {/* Allow Negative Stock */}
     <div className="flex items-center justify-between gap-6 px-6 py-6">
@@ -1550,38 +1636,6 @@ salesInvoicing: {
       />
     </div>
 
-    {/* Restore Stock */}
-    <div className="flex items-center justify-between gap-6 px-6 py-6">
-      <div>
-        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          Restore Stock on Sale Cancellation
-        </p>
-
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Automatically restore deducted stock when a sale is cancelled.
-        </p>
-      </div>
-
-      <input
-        type="checkbox"
-        checked={
-          formData.inventory
-            .autoRestoreStockOnSaleCancellation
-        }
-        onChange={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            inventory: {
-              ...prev.inventory,
-              autoRestoreStockOnSaleCancellation:
-                e.target.checked,
-            },
-          }))
-        }
-        disabled={submitting}
-        className="h-4 w-4 accent-green-600"
-      />
-    </div>
   </div>
         </div>
 

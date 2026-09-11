@@ -4,6 +4,7 @@ const Sale = require("../models/Sale");
 const Customer = require("../models/Customer");
 const Product = require("../models/Product");
 
+const Settings = require("../models/Settings");
 const {
   checkReferenceExists,
   checkReferencesExist,
@@ -155,25 +156,33 @@ const createInvoice = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
-    // CREATE NOTIFICATION
-    try {
-      await createNotificationsForRoles({
-        roles: ["owner", "admin"],
-        type: "invoice",
-        title: "New Invoice",
-        message: `Invoice ${invoice.invoiceNumber} was created.`,
-        link: `/invoices?search=${encodeURIComponent(
-          invoice.invoiceNumber
-        )}`,
-        entityType: "Invoice",
-        entityId: invoice._id,
-      });
-    } catch (notificationError) {
-      console.error(
-        "Failed to create invoice notification:",
-        notificationError
-      );
+    // CHECK INVOICE NOTIFICATION SETTING
+const settings = await Settings.findOne().select(
+  "invoiceNotifications"
+);
+
+// CREATE NOTIFICATION IF ENABLED
+if (settings?.invoiceNotifications !== false) {
+  try {
+    await createNotificationsForRoles({
+      roles: ["owner", "admin"],
+      type: "invoice",
+      title: "New Invoice",
+      message: `Invoice ${invoice.invoiceNumber} was created.`,
+      link: `/invoices?search=${encodeURIComponent(
+        invoice.invoiceNumber
+      )}`,
+      entityType: "Invoice",
+      entityId: invoice._id,
+    });
+  } catch (notificationError) {
+    console.error(
+      "Failed to create invoice notification:",
+      notificationError
+    );
+  }
     }
+
 
     // POPULATE RESPONSE
     const populatedInvoice =
