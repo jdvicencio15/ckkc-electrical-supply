@@ -8,17 +8,36 @@ const saleItemSchema = new mongoose.Schema(
       required: true,
     },
 
+    supplierId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      required: false,
+    },
+
     description: {
       type: String,
       required: true,
       trim: true,
     },
 
-quantity: {
-  type: Number,
+    quantity: {
+      type: Number,
+      required: true,
+      min: 0.01,
+    },
+
+    unitId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Unit",
   required: true,
-  min: 0.01,
 },
+
+unitCode: {
+  type: String,
+  required: true,
+  trim: true,
+  uppercase: true,
+    },
 
     unitPrice: {
       type: Number,
@@ -32,6 +51,12 @@ quantity: {
       min: 0,
     },
 
+    costSource: {
+      type: String,
+      enum: ["product_cost", "supplier_pricing"],
+      required: true,
+    },
+
     profit: {
       type: Number,
       default: 0,
@@ -39,7 +64,6 @@ quantity: {
   },
   { _id: false }
 );
-
 const saleSchema = new mongoose.Schema(
   {
     salesNumber: {

@@ -3,6 +3,8 @@ import customerService from "../../services/customerService";
 import productService from "../../services/productService";
 import supplierService from "../../services/supplierService";
 import supplierPricingService from "../../services/supplierPricingService";
+import { useSettings } from "../../context/SettingsContext";
+import { formatCurrency } from "../../utils/currency";
 
 function QuotationForm({
   initialData = null,
@@ -10,6 +12,7 @@ function QuotationForm({
   onClose,
   submitting = false,
 }) {
+  const { settings } = useSettings();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
 
@@ -66,7 +69,7 @@ function QuotationForm({
               quantity: item.quantity ?? 1,
 
               supplierCostAtQuotation: item.supplierCostAtQuotation ?? 0,
-
+              costSource: item.costSource || null,
               quotedUnitPrice: item.quotedUnitPrice ?? 0,
             }))
           : [
@@ -76,6 +79,7 @@ function QuotationForm({
                 description: "",
                 quantity: 1,
                 supplierCostAtQuotation: 0,
+                costSource: null,
                 quotedUnitPrice: 0,
               },
             ],
@@ -198,11 +202,55 @@ function QuotationForm({
     });
   };
 
+  const getCostInfo = (productId, supplierId) => {
+    const product = products.find((product) => product._id === productId);
+
+    if (!product) {
+      return {
+        cost: 0,
+        source: null,
+        message: "Select a product to calculate cost.",
+      };
+    }
+
+    if (supplierId) {
+      const pricing = supplierPricings.find(
+        (pricing) =>
+          pricing.productId?._id === productId &&
+          pricing.supplierId?._id === supplierId &&
+          pricing.status === "active",
+      );
+
+      if (pricing) {
+        return {
+          cost: Number(pricing.unitCost),
+          source: "supplier_pricing",
+          message: "Supplier Pricing is applied automatically.",
+        };
+      }
+
+      return {
+        cost: Number(product.productCost || 0),
+        source: "product_cost",
+        message:
+          "No supplier pricing found. Product Cost is used automatically.",
+      };
+    }
+
+    return {
+      cost: Number(product.productCost || 0),
+      source: "product_cost",
+      message: "No supplier selected. Product Cost is used automatically.",
+    };
+  };
+
   // PRODUCT SELECTION
   const handleProductChange = (index, productId) => {
     const selectedProduct = products.find(
       (product) => product._id === productId,
     );
+
+    const costInfo = getCostInfo(productId, "");
 
     setFormData((previous) => {
       const items = [...previous.items];
@@ -211,7 +259,7 @@ function QuotationForm({
         ...items[index],
         productId,
         supplierId: "",
-        supplierCostAtQuotation: 0,
+        supplierCostAtQuotation: costInfo.cost,
         description: selectedProduct?.name || items[index].description,
       };
 
@@ -223,12 +271,9 @@ function QuotationForm({
   };
 
   const handleSupplierChange = (index, supplierId) => {
-    const selectedPricing = supplierPricings.find(
-      (pricing) =>
-        pricing.productId?._id === formData.items[index].productId &&
-        pricing.supplierId?._id === supplierId &&
-        pricing.status === "active",
-    );
+    const productId = formData.items[index].productId;
+
+    const costInfo = getCostInfo(productId, supplierId);
 
     setFormData((previous) => {
       const items = [...previous.items];
@@ -236,7 +281,7 @@ function QuotationForm({
       items[index] = {
         ...items[index],
         supplierId,
-        supplierCostAtQuotation: selectedPricing?.unitCost ?? 0,
+        supplierCostAtQuotation: costInfo.cost,
       };
 
       return {
@@ -245,7 +290,6 @@ function QuotationForm({
       };
     });
   };
-
 
   // SUBMIT
   const handleSubmit = async (e) => {
@@ -472,7 +516,7 @@ function QuotationForm({
             </div>
 
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-             <table className="w-full min-w-[1100px] text-left text-sm">
+              <table className="w-full min-w-[1100px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                   <tr>
                     <th className="px-4 py-3">Product</th>
@@ -579,32 +623,55 @@ function QuotationForm({
                         />
                       </td>
 
-                      {/* SUPPLIER COST */}
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.supplierCostAtQuotation}
-                          onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "supplierCostAtQuotation",
-                              e.target.value,
-                            )
-                          }
-                          disabled={
-                            submitting ||
-                            supplierPricings.some(
-                              (pricing) =>
-                                pricing.productId?._id === item.productId &&
-                                pricing.supplierId?._id === item.supplierId &&
-                                pricing.status === "active",
-                            )
-                          }
-                          className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                        />
-                      </td>
+                    {/* SUPPLIER COST */}
+<td className="px-4 py-3">
+  {(() => {
+    const costInfo = getCostInfo(
+      item.productId,
+      item.supplierId,
+    );
+
+    const displaySource =
+      item.costSource || costInfo.source;
+
+    const displayMessage = item.costSource
+      ? item.costSource === "supplier_pricing"
+        ? "Supplier Pricing was used for this quotation."
+        : "Product Cost was used for this quotation."
+      : costInfo.message;
+
+    return (
+      <div className="min-w-40">
+        <div className="w-32 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            {formatCurrency(
+              item.supplierCostAtQuotation ?? costInfo.cost,
+              settings?.currency,
+            )}
+          </p>
+
+          <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Auto-calculated
+          </p>
+        </div>
+
+        {displaySource && (
+          <p className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+            {displaySource === "supplier_pricing"
+              ? "Supplier Pricing"
+              : "Product Cost"}
+          </p>
+        )}
+
+        {item.productId && (
+          <p className="mt-1 max-w-40 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
+            {displayMessage}
+          </p>
+        )}
+      </div>
+    );
+  })()}
+</td>
 
                       {/* QUOTED PRICE */}
                       <td className="px-4 py-3">

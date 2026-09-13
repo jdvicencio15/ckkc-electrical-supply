@@ -9,6 +9,9 @@ function Input({
   required = false,
   error = "",
   className = "",
+  min,
+  max,
+  step,
 }) {
   return (
     <div>
@@ -30,6 +33,9 @@ function Input({
         placeholder={placeholder}
         disabled={disabled}
         required={required}
+        min={min}
+        max={max}
+        step={step}
         className={`min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-900 outline-none transition
           placeholder:text-slate-400
           focus:border-green-500 focus:ring-2 focus:ring-green-100
@@ -38,7 +44,11 @@ function Input({
           dark:placeholder:text-slate-500
           dark:focus:border-green-500 dark:focus:ring-green-950
           dark:disabled:bg-slate-800
-          ${error ? "border-red-500 focus:border-red-500 focus:ring-red-100 dark:border-red-500 dark:focus:ring-red-950" : ""}
+          ${
+            error
+              ? "border-red-500 focus:border-red-500 focus:ring-red-100 dark:border-red-500 dark:focus:ring-red-950"
+              : ""
+          }
           ${className}
         `}
       />

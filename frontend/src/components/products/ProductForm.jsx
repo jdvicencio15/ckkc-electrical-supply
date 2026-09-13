@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const initialForm = {
   sku: "",
@@ -8,6 +7,7 @@ const initialForm = {
   categoryId: "",
   unitId: "",
   unit: "",
+  productCost: 0,
   minimumStock: 0,
   status: "active",
   initialSupplierPricing: {
@@ -25,28 +25,38 @@ function ProductForm({
   onCancel,
   submitting,
 }) {
+
+  const skuInputRef = useRef(null);
+
   const [formData, setFormData] = useState(initialForm);
 
-  useEffect(() => {
-    if (product) {
-     setFormData({
-  sku: product.sku || "",
-  name: product.name || "",
-  description: product.description || "",
-  categoryId: product.categoryId?._id || "",
-  unitId: product.unitId?._id || "",
-  unit: product.unit || "",
-  minimumStock: product.minimumStock ?? 0,
-  status: product.status || "active",
-  initialSupplierPricing: {
-    supplierId: "",
-    unitCost: "",
-  },
-});
-    } else {
-      setFormData(initialForm);
-    }
-  }, [product]);
+useEffect(() => {
+  if (product) {
+    setFormData({
+      sku: product.sku || "",
+      name: product.name || "",
+      description: product.description || "",
+      categoryId: product.categoryId?._id || "",
+      unitId: product.unitId?._id || "",
+      unit: product.unit || "",
+      productCost: product.productCost ?? 0,
+      minimumStock: product.minimumStock ?? 0,
+      status: product.status || "active",
+      initialSupplierPricing: {
+        supplierId: "",
+        unitCost: "",
+      },
+    });
+
+    const timer = setTimeout(() => {
+      skuInputRef.current?.focus();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }
+
+  setFormData(initialForm);
+}, [product]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -71,55 +81,55 @@ function ProductForm({
     }));
   };
 
+  const handleSupplierChange = (event) => {
+    const supplierId = event.target.value;
 
-const handleSupplierChange = (event) => {
-  const supplierId = event.target.value;
-
-  setFormData((current) => ({
-    ...current,
-    initialSupplierPricing: {
-      ...current.initialSupplierPricing,
-      supplierId,
-    },
-  }));
-};
-
-const handleSupplierCostChange = (event) => {
-  const unitCost = event.target.value;
-
-  setFormData((current) => ({
-    ...current,
-    initialSupplierPricing: {
-      ...current.initialSupplierPricing,
-      unitCost,
-    },
-  }));
-};
-
-  const handleSubmit = (event) => {
-  event.preventDefault();
-
-  const payload = {
-    ...formData,
-    minimumStock: Number(formData.minimumStock),
+    setFormData((current) => ({
+      ...current,
+      initialSupplierPricing: {
+        ...current.initialSupplierPricing,
+        supplierId,
+      },
+    }));
   };
 
-  const { initialSupplierPricing } = payload;
+  const handleSupplierCostChange = (event) => {
+    const unitCost = event.target.value;
 
-  if (
-    !initialSupplierPricing?.supplierId &&
-    !initialSupplierPricing?.unitCost
-  ) {
-    delete payload.initialSupplierPricing;
-  } else {
-    payload.initialSupplierPricing = {
-      supplierId: initialSupplierPricing.supplierId,
-      unitCost: Number(initialSupplierPricing.unitCost),
+    setFormData((current) => ({
+      ...current,
+      initialSupplierPricing: {
+        ...current.initialSupplierPricing,
+        unitCost,
+      },
+    }));
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    const payload = {
+      ...formData,
+      productCost: Number(formData.productCost),
+      minimumStock: Number(formData.minimumStock),
     };
-  }
 
-  onSubmit(payload);
-};
+    const { initialSupplierPricing } = payload;
+
+    if (
+      !initialSupplierPricing?.supplierId &&
+      !initialSupplierPricing?.unitCost
+    ) {
+      delete payload.initialSupplierPricing;
+    } else {
+      payload.initialSupplierPricing = {
+        supplierId: initialSupplierPricing.supplierId,
+        unitCost: Number(initialSupplierPricing.unitCost),
+      };
+    }
+
+    onSubmit(payload);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -130,6 +140,7 @@ const handleSupplierCostChange = (event) => {
           </label>
 
           <input
+            ref={skuInputRef}
             name="sku"
             value={formData.sku}
             onChange={handleChange}
@@ -220,64 +231,32 @@ const handleSupplierCostChange = (event) => {
         </div>
       </div>
 
-
-{!product && (
-  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-    <div className="mb-4">
-      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-        Initial Supplier Pricing
-      </h3>
-
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-        Optional — you can add supplier pricing later.
-      </p>
-    </div>
-
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-          Supplier
-        </label>
-
-        <select
-          value={formData.initialSupplierPricing.supplierId}
-          onChange={handleSupplierChange}
-          disabled={submitting}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-        >
-          <option value="">Select supplier</option>
-
-          {suppliers.map((supplier) => (
-            <option key={supplier._id} value={supplier._id}>
-              {supplier.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-          Unit Cost
-        </label>
-
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={formData.initialSupplierPricing.unitCost}
-          onChange={handleSupplierCostChange}
-          disabled={submitting}
-          placeholder="0.00"
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-        />
-      </div>
-    </div>
-  </div>
-)}
-
-
-
+      {/* Product Cost + Minimum Stock */}
       <div className="grid gap-4 sm:grid-cols-2">
+        {/* Product Cost */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Product Cost
+          </label>
+
+          <input
+            type="number"
+            name="productCost"
+            min="0"
+            step="0.01"
+            value={formData.productCost}
+            onChange={handleChange}
+            required
+            disabled={submitting}
+            placeholder="0.00"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          />
+
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Default product cost used when no supplier-specific pricing applies.
+          </p>
+        </div>
+
         {/* Minimum Stock */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -294,27 +273,82 @@ const handleSupplierCostChange = (event) => {
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
-
-        {/* Status */}
-        {product && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Status
-            </label>
-
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              disabled={submitting}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-        )}
       </div>
+
+      {/* Initial Supplier Pricing */}
+      {!product && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Initial Supplier Pricing
+            </h3>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Optional — you can add supplier pricing later.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Supplier
+              </label>
+
+              <select
+                value={formData.initialSupplierPricing.supplierId}
+                onChange={handleSupplierChange}
+                disabled={submitting}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="">Select supplier</option>
+
+                {suppliers.map((supplier) => (
+                  <option key={supplier._id} value={supplier._id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Unit Cost
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.initialSupplierPricing.unitCost}
+                onChange={handleSupplierCostChange}
+                disabled={submitting}
+                placeholder="0.00"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status */}
+      {product && (
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Status
+          </label>
+
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            disabled={submitting}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-700">
         <button
@@ -343,4 +377,3 @@ const handleSupplierCostChange = (event) => {
 }
 
 export default ProductForm;
-

@@ -4,6 +4,8 @@ const InventoryMovement = require("../models/InventoryMovement");
 const Product = require("../models/Product");
 const Purchase = require("../models/Purchase");
 
+const { resolveProductUnit } = require("../services/unitService");
+
 const {
   checkAndCreateLowStockNotification,
 } = require("../services/lowStockNotificationService");
@@ -53,7 +55,8 @@ const recalculateProductStock = async (productId, session) => {
 const getInventoryMovements = async (req, res, next) => {
   try {
     const movements = await InventoryMovement.find()
-      .populate("productId", "sku name unit currentStock")
+     .populate("productId", "sku name currentStock")
+.populate("unitId", "code name")
       .populate("createdBy", "firstName lastName")
       .sort({ date: -1 });
 
@@ -71,7 +74,8 @@ const getInventoryMovements = async (req, res, next) => {
 const getInventoryMovementById = async (req, res, next) => {
   try {
     const movement = await InventoryMovement.findById(req.params.id)
-      .populate("productId", "sku name unit currentStock")
+     .populate("productId", "sku name currentStock")
+.populate("unitId", "code name")
       .populate("createdBy", "firstName lastName");
 
     if (!movement) {
@@ -142,61 +146,59 @@ const createInventoryMovement = async (req, res, next) => {
       });
     }
 
-   // Validate Purchase reference
+    // Validate Purchase reference
     if (type === "IN" && referenceType === "PURCHASE") {
+      const purchase = await Purchase.findById(referenceId).session(session);
 
+      if (!purchase) {
+        await session.abortTransaction();
 
-  const purchase = await Purchase.findById(referenceId).session(session);
-
-  if (!purchase) {
-    await session.abortTransaction();
-
-    return res.status(404).json({
-      success: false,
-      message: "Purchase not found",
-    });
-  }
-
-  // Inventory can only be received from a received Purchase
-  if (purchase.status !== "received") {
-    await session.abortTransaction();
-
-    return res.status(400).json({
-      success: false,
-      message:
-        "Inventory can only be received from a received purchase",
-    });
-  }
-
-  // Product must belong to the referenced Purchase
-  const purchaseItem = purchase.items.find(
-    (item) => item.productId.toString() === productId.toString()
-  );
-
-  if (!purchaseItem) {
-    await session.abortTransaction();
-
-    return res.status(400).json({
-      success: false,
-      message: "Product is not included in the referenced Purchase",
-    });
-  }
-
-      const existingPurchaseMovement = await InventoryMovement.findOne({
-  referenceType: "PURCHASE",
-  referenceId: purchase._id,
-}).session(session);
-
-if (existingPurchaseMovement) {
-  await session.abortTransaction();
-
-  return res.status(400).json({
-    success: false,
-    message: "Inventory has already been received for this purchase",
-  });
+        return res.status(404).json({
+          success: false,
+          message: "Purchase not found",
+        });
       }
 
-}
+      // Inventory can only be received from a received Purchase
+      if (purchase.status !== "received") {
+        await session.abortTransaction();
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Inventory can only be received from a received purchase",
+        });
+      }
+
+      // Product must belong to the referenced Purchase
+      const purchaseItem = purchase.items.find(
+        (item) => item.productId.toString() === productId.toString(),
+      );
+
+      if (!purchaseItem) {
+        await session.abortTransaction();
+
+        return res.status(400).json({
+          success: false,
+          message: "Product is not included in the referenced Purchase",
+        });
+      }
+
+      // Prevent duplicate inventory receipt for the same Purchase
+      const existingPurchaseMovement = await InventoryMovement.findOne({
+        referenceType: "PURCHASE",
+        referenceId: purchase._id,
+      }).session(session);
+
+      if (existingPurchaseMovement) {
+        await session.abortTransaction();
+
+        return res.status(400).json({
+          success: false,
+          message: "Inventory has already been received for this purchase",
+        });
+      }
+    }
 
     // Find product
     const product = await Product.findById(productId).session(session);
@@ -211,13 +213,17 @@ if (existingPurchaseMovement) {
     }
 
     if (product.status !== "active") {
-  await session.abortTransaction();
+      await session.abortTransaction();
 
-  return res.status(400).json({
-    success: false,
-    message: "Inactive products cannot receive inventory movements",
-  });
+      return res.status(400).json({
+        success: false,
+        message: "Inactive products cannot receive inventory movements",
+      });
     }
+
+    // Resolve the authoritative Product UOM from the backend.
+    // Request-provided unitId/unitCode are intentionally ignored.
+    const { unitId, unitCode } = await resolveProductUnit(productId);
 
     const previousStock = product.currentStock;
 
@@ -252,6 +258,8 @@ if (existingPurchaseMovement) {
       productId,
       type,
       quantity,
+      unitId,
+      unitCode,
       unitCost,
       referenceType,
       date,
@@ -271,6 +279,7 @@ if (existingPurchaseMovement) {
 
     await session.commitTransaction();
 
+    // Low-stock notification should not break a successful inventory transaction
     try {
       await checkAndCreateLowStockNotification({
         productId: product._id,
@@ -285,7 +294,8 @@ if (existingPurchaseMovement) {
     }
 
     const populatedMovement = await InventoryMovement.findById(movement._id)
-      .populate("productId", "sku name unit currentStock")
+      .populate("productId", "sku name currentStock")
+      .populate("unitId", "code name")
       .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
@@ -299,6 +309,10 @@ if (existingPurchaseMovement) {
     session.endSession();
   }
 };
+
+
+
+
 
 
 
@@ -322,19 +336,19 @@ const updateInventoryMovement = async (req, res, next) => {
       });
     }
 
-   // System-generated Sale and Purchase movements are immutable
-if (
-  movement.referenceType === "SALE" ||
-  movement.referenceType === "PURCHASE"
-) {
-  await session.abortTransaction();
+    // System-generated Sale and Purchase movements are immutable
+    if (
+      movement.referenceType === "SALE" ||
+      movement.referenceType === "PURCHASE"
+    ) {
+      await session.abortTransaction();
 
-  return res.status(403).json({
-    success: false,
-    message:
-      "System-generated inventory movements cannot be modified",
-  });
-}
+      return res.status(403).json({
+        success: false,
+        message:
+          "System-generated inventory movements cannot be modified",
+      });
+    }
 
     const {
       productId,
@@ -393,8 +407,24 @@ if (
           message: "Purchase not found",
         });
       }
+
+      // Product must belong to the referenced Purchase
+      const purchaseItem = purchase.items.find(
+        (item) =>
+          item.productId.toString() === nextProductId.toString(),
+      );
+
+      if (!purchaseItem) {
+        await session.abortTransaction();
+
+        return res.status(400).json({
+          success: false,
+          message: "Product is not included in the referenced Purchase",
+        });
+      }
     }
 
+    // Find original product
     const oldProduct = await Product.findById(movement.productId).session(
       session,
     );
@@ -408,32 +438,38 @@ if (
       });
     }
 
-  const targetProduct = await Product.findById(nextProductId).session(session);
+    // Find target product
+    const targetProduct = await Product.findById(nextProductId).session(
+      session,
+    );
 
-if (!targetProduct) {
-  await session.abortTransaction();
+    if (!targetProduct) {
+      await session.abortTransaction();
 
-  return res.status(404).json({
-    success: false,
-    message: "Product not found",
-  });
-}
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
 
-if (targetProduct.status !== "active") {
-  await session.abortTransaction();
+    if (targetProduct.status !== "active") {
+      await session.abortTransaction();
 
-  return res.status(400).json({
-    success: false,
-    message: "Inactive products cannot receive inventory movements",
-  });
-}
+      return res.status(400).json({
+        success: false,
+        message: "Inactive products cannot receive inventory movements",
+      });
+    }
+
+    // Resolve authoritative UOM from the target Product.
+    // Any unitId/unitCode supplied by the client is ignored.
+    const { unitId, unitCode } = await resolveProductUnit(nextProductId);
 
     const oldProductStock = oldProduct.currentStock;
-
     const oldProductId = movement.productId.toString();
 
+    // Update movement
     movement.productId = nextProductId;
-
     movement.type = nextType;
 
     if (quantity !== undefined) {
@@ -443,6 +479,10 @@ if (targetProduct.status !== "active") {
     if (unitCost !== undefined) {
       movement.unitCost = unitCost;
     }
+
+    // Always synchronize the movement UOM with the target Product
+    movement.unitId = unitId;
+    movement.unitCode = unitCode;
 
     movement.referenceType = nextReferenceType;
 
@@ -470,6 +510,7 @@ if (targetProduct.status !== "active") {
 
     const lowStockChecks = [];
 
+    // Recalculate target product stock from all movements
     await recalculateProductStock(movement.productId, session);
 
     const newProduct = await Product.findById(movement.productId).session(
@@ -487,6 +528,8 @@ if (targetProduct.status !== "active") {
       });
     }
 
+    // If the movement was moved to another product,
+    // recalculate the original product as well.
     if (oldProductId !== newProductId) {
       await recalculateProductStock(oldProductId, session);
 
@@ -504,19 +547,21 @@ if (targetProduct.status !== "active") {
 
     await session.commitTransaction();
 
+    // Low-stock notifications should not break a successful transaction
     for (const check of lowStockChecks) {
-  try {
-    await checkAndCreateLowStockNotification(check);
-  } catch (notificationError) {
-    console.error(
-      "Failed to create low-stock notification:",
-      notificationError,
-    );
-  }
+      try {
+        await checkAndCreateLowStockNotification(check);
+      } catch (notificationError) {
+        console.error(
+          "Failed to create low-stock notification:",
+          notificationError,
+        );
+      }
     }
 
     const populatedMovement = await InventoryMovement.findById(movement._id)
-      .populate("productId", "sku name unit currentStock")
+      .populate("productId", "sku name currentStock")
+      .populate("unitId", "code name")
       .populate("createdBy", "firstName lastName");
 
     res.status(200).json({
@@ -530,6 +575,8 @@ if (targetProduct.status !== "active") {
     session.endSession();
   }
 };
+
+
 
 // DELETE INVENTORY MOVEMENT
 const deleteInventoryMovement = async (req, res, next) => {

@@ -40,6 +40,7 @@ import IncomeStatement from "../pages/reports/IncomeStatement";
 import BalanceSheet from "../pages/reports/BalanceSheet";
 
 import PermissionRoute from "./PermissionRoute";
+import SupplierPricing from "../pages/SupplierPricing";
 
 import Reports from "../pages/Reports";
 import Users from "../pages/Users";
@@ -95,6 +96,14 @@ function AppRoutes() {
             <Route path="/customers" element={<Customers />} />
 
             <Route path="/suppliers" element={<Suppliers />} />
+
+            <Route
+              element={
+                <PermissionRoute module="supplierPricing" action="view" />
+              }
+            >
+              <Route path="/supplier-pricing" element={<SupplierPricing />} />
+            </Route>
 
             <Route path="/quotations" element={<Quotations />} />
 

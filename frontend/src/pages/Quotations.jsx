@@ -363,175 +363,214 @@ const handleCancelDelete = () => {
           />
         </div>
 
-        {/* QUOTATIONS TABLE */}
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
-                <tr>
-                  <th className="px-6 py-3 font-semibold">
-                    Quotation No.
-                  </th>
+     {/* QUOTATIONS TABLE */}
+<div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div className="overflow-x-auto">
+    <table className="w-full text-left text-sm">
+      <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+        <tr>
+          <th className="px-6 py-3 font-semibold">
+            Quotation No.
+          </th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Customer
-                  </th>
+          <th className="px-6 py-3 font-semibold">
+            Customer
+          </th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Items
-                  </th>
+          <th className="px-6 py-3 font-semibold">
+            Items
+          </th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Total
-                  </th>
+          <th className="px-6 py-3 text-right font-semibold">
+            Subtotal
+          </th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Status
-                  </th>
+          <th className="px-6 py-3 text-right font-semibold">
+            Labor
+          </th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Quotation Date
-                  </th>
+          <th className="px-6 py-3 text-right font-semibold">
+            Other Costs
+          </th>
 
-                  <th className="px-6 py-3 text-right font-semibold">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
+          <th className="px-6 py-3 text-right font-semibold">
+            Total
+          </th>
 
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
-                    >
-                      Loading quotations...
-                    </td>
-                  </tr>
-                ) : filteredQuotations.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
-                    >
-                      No quotations found.
-                    </td>
-                  </tr>
-                ) : (
-                 [...filteredQuotations]
-  .sort((a, b) => {
-    const sequenceA = Number(a.quotationNumber?.split("-").pop());
-    const sequenceB = Number(b.quotationNumber?.split("-").pop());
+          <th className="px-6 py-3 font-semibold">
+            Status
+          </th>
 
-    return sequenceB - sequenceA;
-  })
-  .map((quotation) => (
-                    <tr
-                      key={quotation._id}
-                      className="border-t border-slate-100 dark:border-slate-800"
-                    >
-                      {/* QUOTATION NUMBER */}
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-slate-900 dark:text-slate-100">
-                          {quotation.quotationNumber}
-                        </p>
-                      </td>
+          <th className="px-6 py-3 font-semibold">
+            Quotation Date
+          </th>
 
-                      {/* CUSTOMER */}
-                     <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        {quotation.customerId?.name || "—"}
-                      </td>
+          <th className="px-6 py-3 text-right font-semibold">
+            Actions
+          </th>
+        </tr>
+      </thead>
 
-                      {/* ITEMS */}
-                     <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        {quotation.items?.length || 0}
-                      </td>
+      <tbody>
+        {loading ? (
+          <tr>
+            <td
+              colSpan="10"
+              className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
+            >
+              Loading quotations...
+            </td>
+          </tr>
+        ) : filteredQuotations.length === 0 ? (
+          <tr>
+            <td
+              colSpan="10"
+              className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
+            >
+              No quotations found.
+            </td>
+          </tr>
+        ) : (
+          [...filteredQuotations]
+            .sort((a, b) => {
+              const sequenceA = Number(
+                a.quotationNumber?.split("-").pop(),
+              );
 
-                      {/* TOTAL */}
-                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-  {formatCurrency(
-    quotation.total || 0,
-    settings?.currency
-  )}
-</td>
+              const sequenceB = Number(
+                b.quotationNumber?.split("-").pop(),
+              );
 
-                      {/* STATUS */}
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                            quotation.status === "draft"
-                              ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                              : quotation.status === "sent"
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                              : quotation.status === "accepted"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                              : quotation.status === "rejected"
+              return sequenceB - sequenceA;
+            })
+            .map((quotation) => (
+              <tr
+                key={quotation._id}
+                className="border-t border-slate-100 dark:border-slate-800"
+              >
+                {/* QUOTATION NUMBER */}
+                <td className="px-6 py-4">
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
+                    {quotation.quotationNumber}
+                  </p>
+                </td>
+
+                {/* CUSTOMER */}
+                <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  {quotation.customerId?.name || "—"}
+                </td>
+
+                {/* ITEMS */}
+                <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  {quotation.items?.length || 0}
+                </td>
+
+                {/* SUBTOTAL */}
+                <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">
+                  {formatCurrency(
+                    quotation.subtotal || 0,
+                    settings?.currency,
+                  )}
+                </td>
+
+                {/* LABOR */}
+                <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">
+                  {formatCurrency(
+                    quotation.laborCost || 0,
+                    settings?.currency,
+                  )}
+                </td>
+
+                {/* OTHER DIRECT COSTS */}
+                <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">
+                  {formatCurrency(
+                    quotation.otherDirectCosts || 0,
+                    settings?.currency,
+                  )}
+                </td>
+
+                {/* TOTAL */}
+                <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
+                  {formatCurrency(
+                    quotation.total || 0,
+                    settings?.currency,
+                  )}
+                </td>
+
+                {/* STATUS */}
+                <td className="px-6 py-4">
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                      quotation.status === "draft"
+                        ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                        : quotation.status === "sent"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : quotation.status === "accepted"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : quotation.status === "rejected"
                               ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                               : quotation.status === "expired"
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                          }`}
-                        >
-                          {quotation.status
-                            ? quotation.status
-                                .charAt(0)
-                                .toUpperCase() +
-                              quotation.status.slice(1)
-                            : "—"}
-                        </span>
-                      </td>
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                    }`}
+                  >
+                    {quotation.status
+                      ? quotation.status.charAt(0).toUpperCase() +
+                        quotation.status.slice(1)
+                      : "—"}
+                  </span>
+                </td>
 
-                      {/* DATE */}
-                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        {quotation.quotationDate
-                          ? new Date(
-                              quotation.quotationDate
-                            ).toLocaleDateString("en-PH")
-                          : "—"}
-                      </td>
+                {/* DATE */}
+                <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  {quotation.quotationDate
+                    ? new Date(
+                        quotation.quotationDate,
+                      ).toLocaleDateString("en-PH")
+                    : "—"}
+                </td>
 
-                      {/* ACTIONS */}
-                      <td className="px-6 py-4">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openEditForm(quotation)
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                            aria-label={`Edit ${quotation.quotationNumber}`}
-                          >
-                            <FaEdit className="h-3.5 w-3.5" />
-                          </button>
+                {/* ACTIONS */}
+                <td className="px-6 py-4">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openEditForm(quotation)
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                      aria-label={`Edit ${quotation.quotationNumber}`}
+                    >
+                      <FaEdit className="h-3.5 w-3.5" />
+                    </button>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete(quotation)
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                            aria-label={`Delete ${quotation.quotationNumber}`}
-                          >
-                            <FaTrash className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDelete(quotation)
+                      }
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+                      aria-label={`Delete ${quotation.quotationNumber}`}
+                    >
+                      <FaTrash className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+        )}
+      </tbody>
+    </table>
+  </div>
 
-          {/* FOOTER */}
-          <div className="border-t border-slate-200 px-6 py-3 dark:border-slate-800">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Showing {filteredQuotations.length} of{" "}
-              {quotations.length} quotations
-            </p>
-          </div>
-        </div>
+  {/* FOOTER */}
+  <div className="border-t border-slate-200 px-6 py-3 dark:border-slate-800">
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      Showing {filteredQuotations.length} of{" "}
+      {quotations.length} quotations
+    </p>
+  </div>
+</div>
 
         {/* QUOTATION FORM */}
         {showQuotationForm && (

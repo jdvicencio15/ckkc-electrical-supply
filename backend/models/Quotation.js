@@ -26,10 +26,29 @@ const quotationItemSchema = new mongoose.Schema(
       min: 0.01,
     },
 
+    unitId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Unit",
+  required: true,
+},
+
+unitCode: {
+  type: String,
+  required: true,
+  trim: true,
+  uppercase: true,
+},
+
     supplierCostAtQuotation: {
       type: Number,
       required: true,
       min: 0,
+    },
+
+    costSource: {
+      type: String,
+      enum: ["product_cost", "supplier_pricing"],
+      required: true,
     },
 
     quotedUnitPrice: {

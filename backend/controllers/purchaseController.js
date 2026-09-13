@@ -8,9 +8,11 @@ const SupplierPO = require("../models/SupplierPO");
 const ClientPO = require("../models/ClientPO");
 const Product = require("../models/Product");
 const InventoryMovement = require("../models/InventoryMovement");
+const {
+  resolveProductUnit,
+} = require("../services/unitService");
 
 const {
-  checkReferenceExists,
   checkReferencesExist,
 } = require("../utils/referenceValidator");
 
@@ -21,6 +23,7 @@ const {
 const {
   generateDocumentNumber,
 } = require("../services/documentNumberService");
+
 
 
 const calculatePurchaseTotals = (items) => {
@@ -47,7 +50,8 @@ const getPurchases = async (req, res, next) => {
       .populate("supplierId", "supplierCode name")
       .populate("supplierPOId", "poNumber")
       .populate("relatedClientPOId", "poNumber")
-      .populate("items.productId", "sku name unit")
+      .populate("items.productId", "sku name")
+.populate("items.unitId", "code name")
       .populate("createdBy", "firstName lastName")
       .populate("updatedBy", "firstName lastName")
       .sort({ purchaseDate: -1 });
@@ -69,7 +73,8 @@ const getPurchaseById = async (req, res, next) => {
       .populate("supplierId", "supplierCode name")
       .populate("supplierPOId", "poNumber")
       .populate("relatedClientPOId", "poNumber")
-      .populate("items.productId", "sku name unit")
+      .populate("items.productId", "sku name")
+.populate("items.unitId", "code name")
       .populate("createdBy", "firstName lastName")
       .populate("updatedBy", "firstName lastName");
 
@@ -90,7 +95,7 @@ const getPurchaseById = async (req, res, next) => {
 };
 
 
-  // CREATE PURCHASE
+// CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
     const {
@@ -118,78 +123,79 @@ const createPurchase = async (req, res, next) => {
       throw error;
     }
 
-// SUPPLIER PO
-let supplierPO = null;
+    // SUPPLIER PO
+    let supplierPO = null;
 
-if (supplierPOId !== undefined) {
-  supplierPO = await SupplierPO.findById(supplierPOId);
+    if (supplierPOId !== undefined) {
+      supplierPO = await SupplierPO.findById(supplierPOId);
 
-  if (!supplierPO) {
-    const error = new Error("Supplier PO not found");
-    error.statusCode = 400;
-    throw error;
-  }
+      if (!supplierPO) {
+        const error = new Error("Supplier PO not found");
+        error.statusCode = 400;
+        throw error;
+      }
 
-  if (
-    supplierPO.supplierId.toString() !==
-    supplierId.toString()
-  ) {
-    const error = new Error(
-      "Supplier PO does not belong to the selected supplier"
-    );
-    error.statusCode = 400;
-    throw error;
-  }
+      if (
+        supplierPO.supplierId.toString() !==
+        supplierId.toString()
+      ) {
+        const error = new Error(
+          "Supplier PO does not belong to the selected supplier"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
 
-  if (
-    supplierPO.status === "cancelled" ||
-    supplierPO.status === "received"
-  ) {
-    const error = new Error(
-      `Cannot create Purchase from a ${supplierPO.status} Supplier PO`
-    );
-    error.statusCode = 400;
-    throw error;
-  }
+      if (
+        supplierPO.status === "cancelled" ||
+        supplierPO.status === "received"
+      ) {
+        const error = new Error(
+          `Cannot create Purchase from a ${supplierPO.status} Supplier PO`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
 
-  // PREVENT DUPLICATE PURCHASE FROM THE SAME SUPPLIER PO
-  const existingPurchase = await Purchase.findOne({
-    supplierPOId: supplierPO._id,
-  });
+      // PREVENT DUPLICATE PURCHASE FROM THE SAME SUPPLIER PO
+      const existingPurchase = await Purchase.findOne({
+        supplierPOId: supplierPO._id,
+      });
 
-  if (existingPurchase) {
-    const error = new Error(
-      "A Purchase already exists for this Supplier PO"
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-}
-// CLIENT PO
-if (relatedClientPOId !== undefined) {
-  const clientPO = await ClientPO.findById(
-    relatedClientPOId
-  );
+      if (existingPurchase) {
+        const error = new Error(
+          "A Purchase already exists for this Supplier PO"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
-  if (!clientPO) {
-    const error = new Error("Client PO not found");
-    error.statusCode = 400;
-    throw error;
-  }
+    // CLIENT PO
+    if (relatedClientPOId !== undefined) {
+      const clientPO = await ClientPO.findById(
+        relatedClientPOId
+      );
 
-  if (
-    supplierPO &&
-    supplierPO.relatedClientPOId &&
-    supplierPO.relatedClientPOId.toString() !==
-      relatedClientPOId.toString()
-  ) {
-    const error = new Error(
-      "Client PO does not match the Supplier PO"
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-}
+      if (!clientPO) {
+        const error = new Error("Client PO not found");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (
+        supplierPO &&
+        supplierPO.relatedClientPOId &&
+        supplierPO.relatedClientPOId.toString() !==
+          relatedClientPOId.toString()
+      ) {
+        const error = new Error(
+          "Client PO does not match the Supplier PO"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
     // PRODUCTS
     await checkReferencesExist(
@@ -216,12 +222,29 @@ if (relatedClientPOId !== undefined) {
       throw error;
     }
 
+    // RESOLVE PRODUCT UOM SERVER-SIDE
+    const calculatedItemsWithUOM = [];
+
+    for (const item of items) {
+      const { unitId, unitCode } =
+        await resolveProductUnit(item.productId);
+
+      calculatedItemsWithUOM.push({
+        ...item,
+        unitId,
+        unitCode,
+      });
+    }
+
     // COMPUTE TOTAL ON BACKEND
     const {
       calculatedItems,
       totalAmount,
-    } = calculatePurchaseTotals(items);
+    } = calculatePurchaseTotals(
+      calculatedItemsWithUOM
+    );
 
+    // GENERATE PURCHASE NUMBER SERVER-SIDE
     const purchaseNumber =
       await generateDocumentNumber("purchase");
 
@@ -261,7 +284,8 @@ if (relatedClientPOId !== undefined) {
         .populate("supplierId", "supplierCode name")
         .populate("supplierPOId", "poNumber")
         .populate("relatedClientPOId", "poNumber")
-        .populate("items.productId", "sku name unit")
+        .populate("items.unitId", "code name")
+        .populate("items.productId", "sku name")
         .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
@@ -275,10 +299,7 @@ if (relatedClientPOId !== undefined) {
 
 
 
-
-
-
-// UPDATE PURCHASE
+ // UPDATE PURCHASE
 const updatePurchase = async (req, res, next) => {
   try {
     const purchase = await Purchase.findById(req.params.id);
@@ -307,6 +328,7 @@ const updatePurchase = async (req, res, next) => {
 
     // DETERMINE FINAL REFERENCES
     let supplierPO = null;
+
     const nextSupplierId =
       supplierId !== undefined
         ? supplierId
@@ -343,70 +365,70 @@ const updatePurchase = async (req, res, next) => {
       }
     }
 
-// SUPPLIER PO
-if (nextSupplierPOId !== undefined) {
-  supplierPO = await SupplierPO.findById(
-    nextSupplierPOId
-  );
+    // SUPPLIER PO
+    if (nextSupplierPOId !== undefined) {
+      supplierPO = await SupplierPO.findById(
+        nextSupplierPOId
+      );
 
-  if (!supplierPO) {
-    const error = new Error("Supplier PO not found");
-    error.statusCode = 400;
-    throw error;
-  }
+      if (!supplierPO) {
+        const error = new Error("Supplier PO not found");
+        error.statusCode = 400;
+        throw error;
+      }
 
-  if (
-    supplierPO.supplierId.toString() !==
-    nextSupplierId.toString()
-  ) {
-    const error = new Error(
-      "Supplier PO does not belong to the selected supplier"
-    );
-    error.statusCode = 400;
-    throw error;
-  }
+      if (
+        supplierPO.supplierId.toString() !==
+        nextSupplierId.toString()
+      ) {
+        const error = new Error(
+          "Supplier PO does not belong to the selected supplier"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
 
-if (
-  supplierPO.status === "cancelled" ||
-  supplierPO.status === "received"
-) {
-  const error = new Error(
-    `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`
-  );
-  error.statusCode = 400;
-  throw error;
-}
+      if (
+        supplierPO.status === "cancelled" ||
+        supplierPO.status === "received"
+      ) {
+        const error = new Error(
+          `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
+    // CLIENT PO
+    if (relatedClientPOId !== undefined) {
+      const clientPO = await ClientPO.findById(
+        nextRelatedClientPOId
+      );
 
-}
+      if (!clientPO) {
+        const error = new Error("Client PO not found");
+        error.statusCode = 400;
+        throw error;
+      }
 
-   // CLIENT PO
-if (relatedClientPOId !== undefined) {
-  const clientPO = await ClientPO.findById(
-    nextRelatedClientPOId
-  );
+      if (
+        supplierPO &&
+        supplierPO.relatedClientPOId &&
+        supplierPO.relatedClientPOId.toString() !==
+          nextRelatedClientPOId.toString()
+      ) {
+        const error = new Error(
+          "Client PO does not match the Supplier PO"
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
-  if (!clientPO) {
-    const error = new Error("Client PO not found");
-    error.statusCode = 400;
-    throw error;
-  }
+    // PRODUCTS + UOM
+    let calculatedItemsWithUOM = null;
 
-  if (
-    supplierPO &&
-    supplierPO.relatedClientPOId &&
-    supplierPO.relatedClientPOId.toString() !==
-      nextRelatedClientPOId.toString()
-  ) {
-    const error = new Error(
-      "Client PO does not match the Supplier PO"
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-}
-
-    // PRODUCTS
     if (items !== undefined) {
       await checkReferencesExist(
         Product,
@@ -431,6 +453,20 @@ if (relatedClientPOId !== undefined) {
         error.statusCode = 400;
         throw error;
       }
+
+      // RESOLVE PRODUCT UOM SERVER-SIDE
+      calculatedItemsWithUOM = [];
+
+      for (const item of items) {
+        const { unitId, unitCode } =
+          await resolveProductUnit(item.productId);
+
+        calculatedItemsWithUOM.push({
+          ...item,
+          unitId,
+          unitCode,
+        });
+      }
     }
 
     // UPDATE FIELDS
@@ -454,7 +490,9 @@ if (relatedClientPOId !== undefined) {
       const {
         calculatedItems,
         totalAmount,
-      } = calculatePurchaseTotals(items);
+      } = calculatePurchaseTotals(
+        calculatedItemsWithUOM
+      );
 
       purchase.items = calculatedItems;
       purchase.totalAmount = totalAmount;
@@ -469,7 +507,8 @@ if (relatedClientPOId !== undefined) {
         .populate("supplierId", "supplierCode name")
         .populate("supplierPOId", "poNumber")
         .populate("relatedClientPOId", "poNumber")
-        .populate("items.productId", "sku name unit")
+        .populate("items.unitId", "code name")
+        .populate("items.productId", "sku name")
         .populate("createdBy", "firstName lastName")
         .populate("updatedBy", "firstName lastName");
 
@@ -480,7 +519,7 @@ if (relatedClientPOId !== undefined) {
   } catch (error) {
     next(error);
   }
-}
+};
 
 
 
@@ -570,22 +609,24 @@ const receivePurchase = async (req, res, next) => {
 
       await product.save({ session });
 
-      await InventoryMovement.create(
-        [
-          {
-            productId: item.productId,
-            type: "IN",
-            quantity: item.quantity,
-            unitCost: item.actualUnitCost,
-            referenceType: "PURCHASE",
-            referenceId: purchase._id,
-            date: purchase.purchaseDate,
-            notes: `Received ${item.quantity} ${product.unit} of ${product.name}`,
-            createdBy: req.user._id,
-          },
-        ],
-        { session },
-      );
+     await InventoryMovement.create(
+  [
+    {
+      productId: item.productId,
+      type: "IN",
+      quantity: item.quantity,
+      unitId: item.unitId,
+      unitCode: item.unitCode,
+      unitCost: item.actualUnitCost,
+      referenceType: "PURCHASE",
+      referenceId: purchase._id,
+      date: purchase.purchaseDate,
+      notes: `Received ${item.quantity} ${item.unitCode} of ${product.name}`,
+      createdBy: req.user._id,
+    },
+  ],
+  { session },
+);
     }
 
     // UPDATE LINKED SUPPLIER PO
@@ -630,7 +671,8 @@ const receivePurchase = async (req, res, next) => {
       .populate("supplierId", "supplierCode name")
       .populate("supplierPOId", "poNumber")
       .populate("relatedClientPOId", "poNumber")
-      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("items.productId", "sku name")
       .populate("createdBy", "firstName lastName")
       .populate("updatedBy", "firstName lastName");
 
@@ -682,7 +724,8 @@ const cancelPurchase = async (req, res, next) => {
         .populate("supplierId", "supplierCode name")
         .populate("supplierPOId", "poNumber")
         .populate("relatedClientPOId", "poNumber")
-        .populate("items.productId", "sku name unit")
+        .populate("items.unitId", "code name")
+        .populate("items.productId", "sku name")
         .populate("createdBy", "firstName lastName")
         .populate("updatedBy", "firstName lastName");
 

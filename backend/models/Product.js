@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const productSchema = new mongoose.Schema(
@@ -58,6 +57,13 @@ const productSchema = new mongoose.Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
+
+    productCost: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
   },
   {
     timestamps: true,
@@ -65,4 +71,3 @@ const productSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model("Product", productSchema);
-

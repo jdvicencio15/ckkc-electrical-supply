@@ -12,6 +12,8 @@ const {
 } = require("../utils/referenceValidator");
 
 
+const { resolveProductUnit } = require("../services/unitService");
+
 const {
   generateDocumentNumber,
 } = require("../services/documentNumberService");
@@ -50,11 +52,12 @@ const getSupplierPOs = async (req, res, next) => {
 const getSupplierPOById = async (req, res, next) => {
   try {
     const supplierPO = await SupplierPO.findById(req.params.id)
-      .populate("supplierId", "supplierCode name")
-      .populate("relatedClientPOId", "poNumber")
-      .populate("items.productId", "sku name unit")
-      .populate("createdBy", "firstName lastName")
-      .populate("updatedBy", "firstName lastName");
+       .populate("supplierId", "supplierCode name")
+  .populate("relatedClientPOId", "poNumber")
+  .populate("items.productId", "sku name")
+  .populate("items.unitId", "code name")
+  .populate("createdBy", "firstName lastName")
+  .populate("updatedBy", "firstName lastName");
 
     if (!supplierPO) {
       return res.status(404).json({
@@ -98,24 +101,24 @@ const createSupplierPO = async (req, res, next) => {
       throw error;
     }
 
- // CHECK CLIENT PO (OPTIONAL)
-if (relatedClientPOId !== undefined) {
-  const clientPO = await ClientPO.findById(relatedClientPOId);
+    // CHECK CLIENT PO (OPTIONAL)
+    if (relatedClientPOId !== undefined) {
+      const clientPO = await ClientPO.findById(relatedClientPOId);
 
-  if (!clientPO) {
-    const error = new Error("Client PO not found");
-    error.statusCode = 404;
-    throw error;
-  }
+      if (!clientPO) {
+        const error = new Error("Client PO not found");
+        error.statusCode = 404;
+        throw error;
+      }
 
-  if (["fulfilled", "cancelled"].includes(clientPO.status)) {
-    const error = new Error(
-      `Cannot create Supplier PO for a ${clientPO.status} Client PO`
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-}
+      if (["fulfilled", "cancelled"].includes(clientPO.status)) {
+        const error = new Error(
+          `Cannot create Supplier PO for a ${clientPO.status} Client PO`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
     // CHECK PRODUCTS
     const productIds = [
@@ -146,6 +149,21 @@ if (relatedClientPOId !== undefined) {
       throw error;
     }
 
+    // RESOLVE PRODUCT UOM SERVER-SIDE
+    const calculatedItems = [];
+
+    for (const item of items) {
+      const { unitId, unitCode } = await resolveProductUnit(
+        item.productId
+      );
+
+      calculatedItems.push({
+        ...item,
+        unitId,
+        unitCode,
+      });
+    }
+
     // CALCULATE TOTAL SERVER-SIDE
     const totalAmount = calculateSupplierPOTotal(items);
 
@@ -153,12 +171,13 @@ if (relatedClientPOId !== undefined) {
     const poNumber =
       await generateDocumentNumber("supplierPO");
 
+    // CREATE SUPPLIER PO
     const supplierPO = await SupplierPO.create({
       ...supplierPOData,
       poNumber,
       supplierId,
       relatedClientPOId,
-      items,
+      items: calculatedItems,
       totalAmount,
       createdBy: req.user._id,
     });
@@ -171,7 +190,6 @@ if (relatedClientPOId !== undefined) {
     next(error);
   }
 };
-
 
 
 
@@ -290,6 +308,8 @@ const updateSupplierPO = async (req, res, next) => {
     }
 
     // CHECK UPDATED PRODUCT REFERENCES
+    let calculatedItems;
+
     if (items !== undefined) {
       const productIds = [
         ...new Set(
@@ -320,6 +340,20 @@ const updateSupplierPO = async (req, res, next) => {
         error.statusCode = 400;
         throw error;
       }
+
+      // RESOLVE PRODUCT UOM SERVER-SIDE
+      calculatedItems = [];
+
+      for (const item of items) {
+        const { unitId, unitCode } =
+          await resolveProductUnit(item.productId);
+
+        calculatedItems.push({
+          ...item,
+          unitId,
+          unitCode,
+        });
+      }
     }
 
     // APPLY UPDATES
@@ -341,9 +375,9 @@ const updateSupplierPO = async (req, res, next) => {
     }
 
     if (items !== undefined) {
-      supplierPO.items = items;
+      supplierPO.items = calculatedItems;
       supplierPO.totalAmount =
-        calculateSupplierPOTotal(items);
+        calculateSupplierPOTotal(calculatedItems);
     }
 
     supplierPO.updatedBy = req.user._id;

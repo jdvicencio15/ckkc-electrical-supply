@@ -19,6 +19,7 @@ import {
   FaCog,
   FaChevronDown,
   FaRuler,
+  FaCoins,
 } from "react-icons/fa";
 
 import { useAuth } from "../../context/AuthContext";
@@ -82,6 +83,14 @@ const navigation = [
     icon: FaBuilding,
     module: "suppliers",
   },
+
+  {
+  label: "Supplier Pricing",
+  path: "/supplier-pricing",
+  icon: FaCoins,
+  module: "supplierPricing",
+  },
+
   {
     label: "Quotations",
     path: "/quotations",

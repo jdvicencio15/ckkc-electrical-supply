@@ -14,10 +14,23 @@ const inventoryMovementSchema = new mongoose.Schema(
       required: true,
     },
 
-  quantity: {
-  type: Number,
+    quantity: {
+      type: Number,
+      required: true,
+      min: 0.01,
+    },
+
+    unitId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Unit",
   required: true,
-  min: 0.01,
+},
+
+unitCode: {
+  type: String,
+  required: true,
+  trim: true,
+  uppercase: true,
 },
 
     unitCost: {
@@ -32,12 +45,12 @@ const inventoryMovementSchema = new mongoose.Schema(
       required: true,
     },
 
- referenceId: {
-  type: mongoose.Schema.Types.ObjectId,
-  required: function () {
-    return this.referenceType !== "ADJUSTMENT";
-  },
-},
+    referenceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: function () {
+        return this.referenceType !== "ADJUSTMENT";
+      },
+    },
 
     date: {
       type: Date,
@@ -58,7 +71,7 @@ const inventoryMovementSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 inventoryMovementSchema.index({
@@ -70,7 +83,4 @@ inventoryMovementSchema.index({
   referenceId: 1,
 });
 
-module.exports = mongoose.model(
-  "InventoryMovement",
-  inventoryMovementSchema
-);
+module.exports = mongoose.model("InventoryMovement", inventoryMovementSchema);

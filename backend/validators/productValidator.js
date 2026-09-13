@@ -9,22 +9,19 @@ const productValidator = [
 
   body("categoryId").isMongoId().withMessage("Valid category is required"),
 
+  body("productCost")
+    .isFloat({ min: 0 })
+    .withMessage("Product cost must be 0 or greater"),
+
   body("minimumStock")
     .optional()
     .isFloat({ min: 0 })
     .withMessage("Minimum stock must be 0 or greater"),
 
+  body("unit").optional().trim().notEmpty().withMessage("Unit cannot be empty"),
 
-body("unit")
-  .optional()
-  .trim()
-  .notEmpty()
-  .withMessage("Unit cannot be empty"),
+  body("unitId").isMongoId().withMessage("Valid unit is required"),
 
-body("unitId")
-  .isMongoId()
-    .withMessage("Valid unit is required"),
-  
   body("initialSupplierPricing")
     .optional()
     .isObject()
@@ -56,6 +53,11 @@ const productUpdateValidator = [
     .optional()
     .isMongoId()
     .withMessage("Valid category is required"),
+
+  body("productCost")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Product cost must be 0 or greater"),
 
   body("unit").optional().trim().notEmpty().withMessage("Unit cannot be empty"),
 

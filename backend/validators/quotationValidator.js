@@ -24,6 +24,11 @@ const quotationValidator = [
     ])
     .withMessage("Invalid quotation status"),
 
+  body("items.*.supplierId")
+  .optional()
+  .isMongoId()
+    .withMessage("Invalid supplier ID"),
+
   body("items")
     .isArray({ min: 1 })
     .withMessage("Quotation must contain at least one item"),
@@ -40,10 +45,6 @@ const quotationValidator = [
 body("items.*.quantity")
   .isFloat({ min: 0.01 })
     .withMessage("Quantity must be a valid number greater than 0"),
-
-  body("items.*.supplierCostAtQuotation")
-    .isFloat({ min: 0 })
-    .withMessage("Supplier cost must be a valid number greater than or equal to 0"),
 
   body("items.*.quotedUnitPrice")
     .isFloat({ min: 0 })
@@ -89,6 +90,11 @@ const quotationUpdateValidator = [
     ])
     .withMessage("Invalid quotation status"),
 
+  body("items.*.supplierId")
+  .optional()
+  .isMongoId()
+    .withMessage("Invalid supplier ID"),
+
   body("items")
     .optional()
     .isArray({ min: 1 })
@@ -114,12 +120,6 @@ const quotationUpdateValidator = [
       "Quantity must be a valid number greater than 0"
     ),
 
-  body("items.*.supplierCostAtQuotation")
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage(
-      "Supplier cost must be a valid number greater than or equal to 0"
-    ),
 
   body("items.*.quotedUnitPrice")
     .optional()

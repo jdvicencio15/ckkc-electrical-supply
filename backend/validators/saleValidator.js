@@ -37,39 +37,33 @@ const saleValidator = [
 
   body("items.*.quantity")
     .isFloat({ min: 0.01 })
-   .withMessage(
-  "Quantity must be a valid number greater than 0"
-),
+    .withMessage("Quantity must be a valid number greater than 0"),
 
   body("items.*.unitPrice")
     .isFloat({ min: 0 })
     .withMessage(
-      "Unit price must be a valid number greater than or equal to 0"
+      "Unit price must be a valid number greater than or equal to 0",
     ),
 
-  body("items.*.unitCost")
-    .isFloat({ min: 0 })
-    .withMessage(
-      "Unit cost must be a valid number greater than or equal to 0"
-    ),
-
+  body("items.*.supplierId")
+    .optional()
+    .isMongoId()
+    .withMessage("Supplier must be a valid ID"),
 
   body("directExpenses")
     .optional()
     .isFloat({ min: 0 })
     .withMessage(
-      "Direct expenses must be a valid number greater than or equal to 0"
+      "Direct expenses must be a valid number greater than or equal to 0",
     ),
 
   body("commission")
     .optional()
     .isFloat({ min: 0 })
     .withMessage(
-      "Commission must be a valid number greater than or equal to 0"
+      "Commission must be a valid number greater than or equal to 0",
     ),
-
 ];
-
 
 const saleUpdateValidator = [
   body("customerId")
@@ -119,32 +113,28 @@ const saleUpdateValidator = [
     .optional()
     .isFloat({ min: 0 })
     .withMessage(
-      "Unit price must be a valid number greater than or equal to 0"
+      "Unit price must be a valid number greater than or equal to 0",
     ),
 
-  body("items.*.unitCost")
+  body("items.*.supplierId")
     .optional()
-    .isFloat({ min: 0 })
-    .withMessage(
-      "Unit cost must be a valid number greater than or equal to 0"
-    ),
+    .isMongoId()
+    .withMessage("Supplier must be a valid ID"),
 
   body("directExpenses")
     .optional()
     .isFloat({ min: 0 })
     .withMessage(
-      "Direct expenses must be a valid number greater than or equal to 0"
+      "Direct expenses must be a valid number greater than or equal to 0",
     ),
 
   body("commission")
     .optional()
     .isFloat({ min: 0 })
     .withMessage(
-      "Commission must be a valid number greater than or equal to 0"
+      "Commission must be a valid number greater than or equal to 0",
     ),
 ];
-
-
 
 module.exports = {
   saleValidator,

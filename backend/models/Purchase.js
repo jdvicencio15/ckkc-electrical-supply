@@ -14,6 +14,19 @@ const purchaseItemSchema = new mongoose.Schema(
       min: 0.01,
     },
 
+    unitId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Unit",
+  required: true,
+},
+
+unitCode: {
+  type: String,
+  required: true,
+  trim: true,
+  uppercase: true,
+},
+
     actualUnitCost: {
       type: Number,
       required: true,
@@ -65,7 +78,7 @@ const purchaseSchema = new mongoose.Schema(
   enum: ["draft", "received", "cancelled"],
   default: "draft",
     },
-    
+
 
     items: {
       type: [purchaseItemSchema],

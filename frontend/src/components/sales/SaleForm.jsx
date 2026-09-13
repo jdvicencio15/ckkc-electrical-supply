@@ -79,7 +79,7 @@ function SaleForm({
           sale.items?.length > 0
             ? sale.items.map((item) => ({
                 productId: item.productId?._id || item.productId || "",
-                supplierId: "",
+                supplierId: item.supplierId?._id || item.supplierId || "",
                 description: item.description || "",
                 quantity: item.quantity || 1,
                 unitPrice: item.unitPrice || 0,
@@ -120,7 +120,7 @@ function SaleForm({
         );
 
         items[index].supplierId = "";
-        items[index].unitCost = 0;
+        items[index].unitCost = selectedProduct?.productCost ?? 0;
 
         if (selectedProduct) {
           items[index].description = selectedProduct.name;
@@ -135,12 +135,21 @@ function SaleForm({
   };
 
   const handleSupplierChange = (index, supplierId) => {
+    const currentItem = formData.items[index];
+
+    const selectedProduct = products.find(
+      (product) => product._id === currentItem.productId,
+    );
+
     const selectedPricing = supplierPricings.find(
       (pricing) =>
-        pricing.productId?._id === formData.items[index].productId &&
+        pricing.productId?._id === currentItem.productId &&
         pricing.supplierId?._id === supplierId &&
         pricing.status === "active",
     );
+
+    const resolvedCost =
+      selectedPricing?.unitCost ?? selectedProduct?.productCost ?? 0;
 
     setFormData((current) => {
       const items = [...current.items];
@@ -148,7 +157,7 @@ function SaleForm({
       items[index] = {
         ...items[index],
         supplierId,
-        unitCost: selectedPricing?.unitCost ?? 0,
+        unitCost: resolvedCost,
       };
 
       return {
@@ -217,6 +226,7 @@ function SaleForm({
       status: formData.status,
       items: formData.items.map((item) => ({
         productId: item.productId,
+        supplierId: item.supplierId || undefined,
         description: item.description,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
@@ -226,8 +236,6 @@ function SaleForm({
       commission: Number(formData.commission || 0),
     });
   };
-
-
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -476,26 +484,9 @@ function SaleForm({
 
                     <input
                       type="number"
-                      min="0"
-                      step="0.01"
                       value={item.unitCost}
-                      onChange={(event) =>
-                        handleItemChange(index, "unitCost", event.target.value)
-                      }
-                      disabled={
-  submitting ||
-  Boolean(
-    item.supplierId &&
-      supplierPricings.some(
-        (pricing) =>
-          pricing.productId?._id === item.productId &&
-          pricing.supplierId?._id === item.supplierId &&
-          pricing.status === "active",
-      ),
-  )
-}
-                      required
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                      readOnly
+                      className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
                     />
                   </div>
                 </div>
@@ -597,7 +588,10 @@ function SaleForm({
             </span>
 
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {formatCurrency(Number(formData.directExpenses || 0),settings?.currency)}
+              {formatCurrency(
+                Number(formData.directExpenses || 0),
+                settings?.currency,
+              )}
             </span>
           </div>
 
@@ -607,7 +601,10 @@ function SaleForm({
             </span>
 
             <span className="font-medium text-slate-900 dark:text-slate-100">
-              {formatCurrency(Number(formData.commission || 0),  settings?.currency)}
+              {formatCurrency(
+                Number(formData.commission || 0),
+                settings?.currency,
+              )}
             </span>
           </div>
 
@@ -618,7 +615,7 @@ function SaleForm({
               </span>
 
               <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                {formatCurrency(totals.totalAmount,settings?.currency)}
+                {formatCurrency(totals.totalAmount, settings?.currency)}
               </span>
             </div>
           </div>
@@ -629,7 +626,7 @@ function SaleForm({
             </span>
 
             <span className="text-lg font-bold text-green-600 dark:text-green-400">
-              {formatCurrency(totals.totalProfit,settings?.currency)}
+              {formatCurrency(totals.totalProfit, settings?.currency)}
             </span>
           </div>
         </div>

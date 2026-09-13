@@ -2,7 +2,14 @@ const Quotation = require("../models/Quotation");
 const Customer = require("../models/Customer");
 const Product = require("../models/Product");
 const Supplier = require("../models/Supplier");
-const SupplierPricing = require("../models/SupplierPricing");
+
+const {
+  resolveProductCost,
+} = require("../services/pricingService");
+
+const {
+  resolveProductUnit,
+} = require("../services/unitService");
 
 const {
   checkReferencesExist,
@@ -99,23 +106,21 @@ const applySupplierPricing = async (items) => {
   const calculatedItems = [];
 
   for (const item of items) {
-    let supplierCost = Number(item.supplierCostAtQuotation);
+    const { unitCost, source } = await resolveProductCost({
+      productId: item.productId,
+      supplierId: item.supplierId,
+    });
 
-    if (item.supplierId) {
-      const pricing = await SupplierPricing.findOne({
-        supplierId: item.supplierId,
-        productId: item.productId,
-        status: "active",
-      }).select("unitCost");
-
-      if (pricing) {
-        supplierCost = Number(pricing.unitCost);
-      }
-    }
+    const { unitId, unitCode } = await resolveProductUnit(
+      item.productId
+    );
 
     calculatedItems.push({
       ...item,
-      supplierCostAtQuotation: supplierCost,
+      supplierCostAtQuotation: unitCost,
+      costSource: source,
+      unitId,
+      unitCode,
     });
   }
 
@@ -130,6 +135,7 @@ const getQuotations = async (req, res, next) => {
       .populate("createdBy", "firstName lastName email")
       .populate("updatedBy", "firstName lastName email")
       .populate("items.productId", "sku name")
+        .populate("items.unitId", "code name")
       .sort({ quotationDate: -1 });
 
     res.status(200).json({
@@ -149,7 +155,8 @@ const getQuotationById = async (req, res, next) => {
       .populate("customerId", "customerCode name")
       .populate("createdBy", "firstName lastName email")
       .populate("updatedBy", "firstName lastName email")
-      .populate("items.productId", "sku name");
+      .populate("items.productId", "sku name")
+      .populate("items.unitId", "code name");
 
     if (!quotation) {
       return res.status(404).json({
@@ -309,8 +316,8 @@ const {
           "createdBy",
           "firstName lastName email"
         )
-        .populate("items.productId", "sku name");
-
+        .populate("items.productId", "sku name")
+        .populate("items.unitId", "code name");
     res.status(201).json({
       success: true,
       quotation: populatedQuotation,
@@ -441,7 +448,40 @@ if (items !== undefined) {
     throw error;
   }
 
-  quotation.items = items;
+  const supplierIds = items
+    .map((item) => item.supplierId)
+    .filter(Boolean);
+
+  if (supplierIds.length > 0) {
+    const suppliers = await Supplier.find({
+      _id: { $in: supplierIds },
+    }).select("_id status");
+
+    if (suppliers.length !== new Set(supplierIds.map(String)).size) {
+      const error = new Error(
+        "One or more suppliers not found"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const inactiveSupplier = suppliers.find(
+      (supplier) => supplier.status !== "active"
+    );
+
+    if (inactiveSupplier) {
+      const error = new Error(
+        "Cannot assign an inactive supplier to Quotation"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  const itemsWithSupplierPricing =
+    await applySupplierPricing(items);
+
+  quotation.items = itemsWithSupplierPricing;
 }
     // =========================
     // UPDATE QUOTATION DATE
@@ -507,8 +547,8 @@ if (items !== undefined) {
           "updatedBy",
           "firstName lastName email"
         )
-        .populate("items.productId", "sku name");
-
+        .populate("items.productId", "sku name")
+        .populate("items.unitId", "code name");
     res.status(200).json({
       success: true,
       quotation: populatedQuotation,

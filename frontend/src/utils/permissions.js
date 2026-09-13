@@ -17,6 +17,7 @@ const permissions = {
     users: "full",
     rolesPermissions: "full",
     settings: "full",
+    supplierPricing: "full",
   },
 
  sales: {
@@ -36,7 +37,8 @@ const permissions = {
   reports: "none",
   users: "none",
   rolesPermissions: "none",
-  settings: "none",
+   settings: "none",
+  supplierPricing: "view",
 },
 
 purchasing: {
@@ -57,6 +59,7 @@ purchasing: {
   users: "none",
   rolesPermissions: "none",
   settings: "none",
+  supplierPricing: "full",
 },
 
   accounting: {
@@ -77,6 +80,7 @@ purchasing: {
     users: "none",
     rolesPermissions: "none",
     settings: "none",
+    supplierPricing: "view",
   },
 };
 
