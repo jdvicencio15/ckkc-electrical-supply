@@ -38,6 +38,187 @@ const {
   checkAndCreateLowStockNotification,
 } = require("../services/lowStockNotificationService");
 
+
+const validateClientPOSource = async ({
+  sale,
+  clientPO,
+  session,
+}) => {
+  if (!clientPO) {
+    const error = new Error("Client PO not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (clientPO.status === "cancelled") {
+    const error = new Error(
+      "Cancelled Client PO cannot be used for a sale",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (String(sale.customerId) !== String(clientPO.customerId)) {
+    const error = new Error(
+      "Sale customer must match Client PO customer",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const poItems = new Map();
+
+  for (const item of clientPO.items) {
+    const key = `${String(item.productId)}::${item.unitCode}`;
+
+    if (poItems.has(key)) {
+      const error = new Error(
+        `Duplicate product/UOM combination in Client PO: ${item.productId}/${item.unitCode}`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    poItems.set(key, item);
+  }
+
+  const releasedSales = await Sale.find({
+    clientPOId: clientPO._id,
+    status: "released",
+    _id: { $ne: sale._id },
+  })
+    .select("items")
+    .session(session);
+
+  const releasedQuantities = new Map();
+
+  for (const releasedSale of releasedSales) {
+    for (const item of releasedSale.items) {
+      const key = `${String(item.productId)}::${item.unitCode}`;
+
+      releasedQuantities.set(
+        key,
+        (releasedQuantities.get(key) || 0) +
+          Number(item.quantity),
+      );
+    }
+  }
+
+  for (const saleItem of sale.items) {
+    const key = `${String(saleItem.productId)}::${saleItem.unitCode}`;
+
+    const poItem = poItems.get(key);
+
+    if (!poItem) {
+      const error = new Error(
+        `Product ${saleItem.productId} with UOM ${saleItem.unitCode} is not included in Client PO`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (
+      Math.abs(
+        Number(saleItem.unitPrice) -
+          Number(poItem.agreedUnitPrice),
+      ) > 0.01
+    ) {
+      const error = new Error(
+        `Sale price for product ${saleItem.productId} does not match Client PO agreed price`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const previouslyReleased =
+      releasedQuantities.get(key) || 0;
+
+    const requestedQuantity = Number(saleItem.quantity);
+
+    const remainingQuantity =
+      Number(poItem.quantity) - previouslyReleased;
+
+    if (requestedQuantity > remainingQuantity) {
+      const error = new Error(
+        `Sale quantity exceeds remaining Client PO quantity for product ${saleItem.productId}. Remaining: ${remainingQuantity}, Requested: ${requestedQuantity}`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  return true;
+};
+
+
+const updateClientPOFulfillmentStatus = async ({
+  clientPOId,
+  session,
+}) => {
+  const clientPO = await ClientPO.findById(clientPOId).session(
+    session,
+  );
+
+  if (!clientPO) {
+    const error = new Error("Client PO not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const releasedSales = await Sale.find({
+    clientPOId,
+    status: "released",
+  })
+    .select("items")
+    .session(session);
+
+  const releasedQuantities = new Map();
+
+  for (const sale of releasedSales) {
+    for (const item of sale.items) {
+      const key = `${String(item.productId)}::${item.unitCode}`;
+
+      releasedQuantities.set(
+        key,
+        (releasedQuantities.get(key) || 0) +
+          Number(item.quantity),
+      );
+    }
+  }
+
+  let fullyFulfilled = true;
+  let hasReleasedQuantity = false;
+
+  for (const poItem of clientPO.items) {
+    const key = `${String(poItem.productId)}::${poItem.unitCode}`;
+
+    const releasedQuantity =
+      releasedQuantities.get(key) || 0;
+
+    if (releasedQuantity > 0) {
+      hasReleasedQuantity = true;
+    }
+
+    if (
+      releasedQuantity < Number(poItem.quantity)
+    ) {
+      fullyFulfilled = false;
+    }
+  }
+
+  if (fullyFulfilled) {
+    clientPO.status = "fulfilled";
+  } else if (hasReleasedQuantity) {
+    clientPO.status = "processing";
+  } else {
+    clientPO.status = "received";
+  }
+
+  await clientPO.save({ session });
+
+  return clientPO;
+};
+
 // GET ALL SALES
 const getSales = async (req, res, next) => {
   try {
@@ -96,7 +277,6 @@ const createSale = async (req, res, next) => {
       customerId,
       clientPOId,
       saleDate,
-      status,
       items,
       directExpenses = 0,
       commission = 0,
@@ -232,7 +412,10 @@ const createSale = async (req, res, next) => {
       customerId,
       clientPOId,
       saleDate,
-      status,
+
+      // SALES ALWAYS START AS DRAFT
+      status: "draft",
+
       items: calculatedItems,
 
       subtotal,
@@ -298,11 +481,17 @@ const updateSale = async (req, res, next) => {
       });
     }
 
+    if (sale.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Cancelled sale cannot be modified",
+      });
+    }
+
     const {
       customerId,
       clientPOId,
       saleDate,
-      status,
       items,
       directExpenses,
       commission,
@@ -357,10 +546,6 @@ const updateSale = async (req, res, next) => {
 
     if (saleDate !== undefined) {
       sale.saleDate = saleDate;
-    }
-
-    if (status !== undefined) {
-      sale.status = status;
     }
 
     // UPDATE EXPENSES ONLY WHEN EXPLICITLY PROVIDED
@@ -464,6 +649,9 @@ const updateSale = async (req, res, next) => {
         sale.commission,
     );
 
+    // STATUS REMAINS DRAFT
+    sale.status = "draft";
+
     sale.updatedBy = req.user._id;
 
     await sale.save();
@@ -545,12 +733,25 @@ const releaseSale = async (req, res, next) => {
       });
     }
 
+    // CANCELLED SALES CANNOT BE RELEASED
     if (sale.status === "cancelled") {
       await session.abortTransaction();
 
       return res.status(400).json({
         success: false,
         message: "Cancelled sale cannot be released",
+      });
+    }
+
+    // VALIDATE CLIENT PO SOURCE
+    if (sale.clientPOId) {
+      const clientPO = await ClientPO.findById(sale.clientPOId)
+        .session(session);
+
+      await validateClientPOSource({
+        sale,
+        clientPO,
+        session,
       });
     }
 
@@ -633,14 +834,19 @@ const releaseSale = async (req, res, next) => {
     await sale.save({ session });
 
     // CREATE SYSTEM ACCOUNTING JOURNAL ENTRY
-await createSaleJournalEntry({
-  session,
-  sale,
-  createdBy: req.user._id,
-});
+    await createSaleJournalEntry({
+      session,
+      sale,
+      createdBy: req.user._id,
+    });
 
-
-
+    // UPDATE CLIENT PO FULFILLMENT STATUS
+    if (sale.clientPOId) {
+      await updateClientPOFulfillmentStatus({
+        clientPOId: sale.clientPOId,
+        session,
+      });
+    }
 
     // COMMIT TRANSACTION
     await session.commitTransaction();

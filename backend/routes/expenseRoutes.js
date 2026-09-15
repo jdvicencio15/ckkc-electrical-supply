@@ -7,6 +7,7 @@ const {
   getExpenseById,
   updateExpense,
   deleteExpense,
+  postExpense,
 } = require("../controllers/expenseController");
 
 const protect = require("../middleware/authMiddleware");
@@ -19,6 +20,9 @@ const {
 
 const validationMiddleware = require("../middleware/validationMiddleware");
 
+
+
+
 // CREATE
 router.post(
   "/",
@@ -28,6 +32,17 @@ router.post(
   validationMiddleware,
   createExpense
 );
+
+// POST EXPENSE
+
+router.post(
+  "/:id/post",
+  protect,
+  authorize("owner", "admin", "accounting"),
+  postExpense
+);
+
+
 
 // READ ALL
 router.get(

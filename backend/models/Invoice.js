@@ -20,6 +20,19 @@ const invoiceItemSchema = new mongoose.Schema(
       min: 0.01,
     },
 
+    unitId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Unit",
+      required: true,
+    },
+
+    unitCode: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+
     unitPrice: {
       type: Number,
       required: true,
@@ -63,11 +76,7 @@ const invoiceSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: [
-        "draft",
-        "issued",
-        "cancelled",
-      ],
+      enum: ["draft", "issued", "cancelled"],
       default: "draft",
     },
 
@@ -87,28 +96,28 @@ const invoiceSchema = new mongoose.Schema(
     },
 
     taxRate: {
-  type: Number,
-  default: 0,
-  min: 0,
-  max: 100,
-},
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
 
-taxAmount: {
-  type: Number,
-  default: 0,
-  min: 0,
-},
+    taxAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
-pricingMode: {
-  type: String,
-  enum: ["inclusive", "exclusive"],
-  default: "inclusive",
-},
+    pricingMode: {
+      type: String,
+      enum: ["inclusive", "exclusive"],
+      default: "inclusive",
+    },
 
-netAmount: {
-  type: Number,
-  default: 0,
-  min: 0,
+    netAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
     totalAmount: {

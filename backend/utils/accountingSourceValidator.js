@@ -150,16 +150,45 @@ const validateAccountingSource = async (
     }
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Payment / Expense
-  |--------------------------------------------------------------------------
-  |
-  | Payment currently only requires an existing source.
-  | Expense lifecycle will be finalized after we inspect its model
-  | and business rules.
-  |
-  */
+/*
+|--------------------------------------------------------------------------
+| Payment
+|--------------------------------------------------------------------------
+|
+| Only posted payments may be recognized by accounting.
+|
+*/
+
+if (sourceType === "payment") {
+  if (source.status !== "posted") {
+    const error = new Error(
+      "Payment must be posted before it can be used as an accounting source",
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Expense
+|--------------------------------------------------------------------------
+|
+| Only posted expenses may be recognized by accounting.
+|
+*/
+
+if (sourceType === "expense") {
+  if (source.status !== "posted") {
+    const error = new Error(
+      "Expense must be posted before it can be used as an accounting source"
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+}
 
   return source;
 };

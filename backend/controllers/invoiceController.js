@@ -1,4 +1,3 @@
-
 const Invoice = require("../models/Invoice");
 const Sale = require("../models/Sale");
 const Customer = require("../models/Customer");
@@ -18,6 +17,10 @@ const {
   generateDocumentNumber,
 } = require("../services/documentNumberService");
 
+const {
+  resolveProductUnit,
+} = require("../services/unitService");
+
 // GET ALL INVOICES
 const getInvoices = async (req, res, next) => {
   try {
@@ -25,6 +28,7 @@ const getInvoices = async (req, res, next) => {
       .populate("saleId", "salesNumber saleDate status totalAmount")
       .populate("customerId", "customerCode name")
       .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
       .populate("createdBy", "firstName lastName")
       .populate("updatedBy", "firstName lastName")
       .sort({ createdAt: -1 });
@@ -46,6 +50,7 @@ const getInvoiceById = async (req, res, next) => {
       .populate("saleId", "salesNumber saleDate status totalAmount")
       .populate("customerId", "customerCode name")
       .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
       .populate("createdBy", "firstName lastName")
       .populate("updatedBy", "firstName lastName");
 
@@ -64,7 +69,6 @@ const getInvoiceById = async (req, res, next) => {
     next(error);
   }
 };
-
 
 // CREATE INVOICE
 const createInvoice = async (req, res, next) => {
@@ -118,25 +122,53 @@ const createInvoice = async (req, res, next) => {
       "Product"
     );
 
+    // EFFECTIVE INVOICE DATE
+    const effectiveInvoiceDate = invoiceDate
+      ? new Date(invoiceDate)
+      : new Date();
+
+    // DUE DATE MUST NOT BE BEFORE INVOICE DATE
+    if (
+      dueDate &&
+      new Date(dueDate) < effectiveInvoiceDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Due date cannot be before invoice date",
+      });
+    }
+
     // SNAPSHOT SALE ITEMS INTO INVOICE
-    const items = sale.items.map((item) => ({
-      productId: item.productId,
-      description: item.description,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    }));
+    const items = [];
 
-  // SNAPSHOT SALE FINANCIAL TOTALS INTO INVOICE
-const subtotal = Number(sale.subtotal || 0);
-const taxRate = Number(sale.taxRate || 0);
-const taxAmount = Number(sale.taxAmount || 0);
-const pricingMode = sale.pricingMode || "inclusive";
-const netAmount = Number(sale.netAmount || subtotal);
+    for (const item of sale.items) {
+      const resolvedUnit = await resolveProductUnit(
+        item.productId,
+        item.unitId,
+        item.unitCode
+      );
 
+      items.push({
+        productId: item.productId,
+        description: item.description,
+        quantity: item.quantity,
+        unitId: resolvedUnit.unitId,
+        unitCode: resolvedUnit.unitCode,
+        unitPrice: item.unitPrice,
+      });
+    }
 
-
-// INVOICE TOTAL
-const totalAmount = Number(sale.totalAmount || subtotal);
+    // SNAPSHOT SALE FINANCIAL TOTALS INTO INVOICE
+    const subtotal = Number(sale.subtotal || 0);
+    const taxRate = Number(sale.taxRate || 0);
+    const taxAmount = Number(sale.taxAmount || 0);
+    const pricingMode = sale.pricingMode || "inclusive";
+    const netAmount = Number(
+      sale.netAmount || subtotal
+    );
+    const totalAmount = Number(
+      sale.totalAmount || subtotal
+    );
 
     // GENERATE DOCUMENT NUMBER
     const invoiceNumber = await generateDocumentNumber(
@@ -144,50 +176,50 @@ const totalAmount = Number(sale.totalAmount || subtotal);
     );
 
     // CREATE INVOICE AS DRAFT
-   const invoice = await Invoice.create({
-  invoiceNumber,
-  saleId: sale._id,
-  customerId: sale.customerId,
-  invoiceDate,
-  dueDate,
-  status: "draft",
-  items,
-  subtotal,
-  taxRate,
-  taxAmount,
-  pricingMode,
-  netAmount,
-  totalAmount,
-  createdBy: req.user._id,
-});
+    // Status is intentionally NOT accepted from the client.
+    const invoice = await Invoice.create({
+      invoiceNumber,
+      saleId: sale._id,
+      customerId: sale.customerId,
+      invoiceDate: effectiveInvoiceDate,
+      dueDate,
+      status: "draft",
+      items,
+      subtotal,
+      taxRate,
+      taxAmount,
+      pricingMode,
+      netAmount,
+      totalAmount,
+      createdBy: req.user._id,
+    });
 
     // CHECK INVOICE NOTIFICATION SETTING
-const settings = await Settings.findOne().select(
-  "invoiceNotifications"
-);
-
-// CREATE NOTIFICATION IF ENABLED
-if (settings?.invoiceNotifications !== false) {
-  try {
-    await createNotificationsForRoles({
-      roles: ["owner", "admin"],
-      type: "invoice",
-      title: "New Invoice",
-      message: `Invoice ${invoice.invoiceNumber} was created.`,
-      link: `/invoices?search=${encodeURIComponent(
-        invoice.invoiceNumber
-      )}`,
-      entityType: "Invoice",
-      entityId: invoice._id,
-    });
-  } catch (notificationError) {
-    console.error(
-      "Failed to create invoice notification:",
-      notificationError
+    const settings = await Settings.findOne().select(
+      "invoiceNotifications"
     );
-  }
-    }
 
+    // CREATE NOTIFICATION IF ENABLED
+    if (settings?.invoiceNotifications !== false) {
+      try {
+        await createNotificationsForRoles({
+          roles: ["owner", "admin"],
+          type: "invoice",
+          title: "New Invoice",
+          message: `Invoice ${invoice.invoiceNumber} was created.`,
+          link: `/invoices?search=${encodeURIComponent(
+            invoice.invoiceNumber
+          )}`,
+          entityType: "Invoice",
+          entityId: invoice._id,
+        });
+      } catch (notificationError) {
+        console.error(
+          "Failed to create invoice notification:",
+          notificationError
+        );
+      }
+    }
 
     // POPULATE RESPONSE
     const populatedInvoice =
@@ -205,6 +237,10 @@ if (settings?.invoiceNotifications !== false) {
           "sku name unit"
         )
         .populate(
+          "items.unitId",
+          "code name"
+        )
+        .populate(
           "createdBy",
           "firstName lastName"
         );
@@ -217,7 +253,6 @@ if (settings?.invoiceNotifications !== false) {
     next(error);
   }
 };
-
 
 // UPDATE INVOICE
 const updateInvoice = async (req, res, next) => {
@@ -235,20 +270,23 @@ const updateInvoice = async (req, res, next) => {
     if (invoice.status !== "draft") {
       return res.status(400).json({
         success: false,
-        message: "Only draft invoices can be updated",
+        message:
+          "Only draft invoices can be updated",
       });
     }
 
     const {
-  invoiceDate,
-  dueDate,
-  status,
-} = req.body;
+      invoiceDate,
+      dueDate,
+      status,
+    } = req.body;
 
     // ONLY ALLOW VALID DRAFT TRANSITIONS
     if (
       status !== undefined &&
-      !["draft", "issued", "cancelled"].includes(status)
+      !["draft", "issued", "cancelled"].includes(
+        status
+      )
     ) {
       return res.status(400).json({
         success: false,
@@ -256,15 +294,42 @@ const updateInvoice = async (req, res, next) => {
       });
     }
 
+    // EFFECTIVE DATE VALUES
+    const effectiveInvoiceDate =
+      invoiceDate !== undefined
+        ? new Date(invoiceDate)
+        : invoice.invoiceDate;
+
+    const effectiveDueDate =
+      dueDate !== undefined
+        ? new Date(dueDate)
+        : invoice.dueDate;
+
+    // DUE DATE MUST NOT BE BEFORE INVOICE DATE
+    if (
+      effectiveDueDate &&
+      effectiveDueDate < effectiveInvoiceDate
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Due date cannot be before invoice date",
+      });
+    }
+
     // UPDATE BASIC FIELDS ONLY
     if (invoiceDate !== undefined) {
-      invoice.invoiceDate = invoiceDate;
+      invoice.invoiceDate = effectiveInvoiceDate;
     }
 
     if (dueDate !== undefined) {
-      invoice.dueDate = dueDate;
+      invoice.dueDate = effectiveDueDate;
     }
 
+    // ALLOW ONLY:
+    // draft → draft
+    // draft → issued
+    // draft → cancelled
     if (status !== undefined) {
       invoice.status = status;
     }
@@ -286,6 +351,10 @@ const updateInvoice = async (req, res, next) => {
         .populate(
           "items.productId",
           "sku name unit"
+        )
+        .populate(
+          "items.unitId",
+          "code name"
         )
         .populate(
           "createdBy",
@@ -321,7 +390,8 @@ const deleteInvoice = async (req, res, next) => {
     if (invoice.status !== "draft") {
       return res.status(400).json({
         success: false,
-        message: "Only draft invoices can be deleted",
+        message:
+          "Only draft invoices can be deleted",
       });
     }
 

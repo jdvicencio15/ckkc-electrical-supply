@@ -50,6 +50,9 @@ import Units from "../pages/Units";
 import UnitCreate from "../pages/UnitCreate";
 import UnitEdit from "../pages/UnitEdit";
 
+import Expenses from "../pages/accounting/Expenses";
+
+
 function AppRoutes() {
   return (
     <BrowserRouter>
@@ -132,6 +135,11 @@ function AppRoutes() {
               path="/accounting/trial-balance"
               element={<TrialBalance />}
             />
+
+            <Route
+  path="/accounting/expenses"
+  element={<Expenses />}
+/>
 
             {/* Reports */}
             <Route path="/reports" element={<Reports />} />

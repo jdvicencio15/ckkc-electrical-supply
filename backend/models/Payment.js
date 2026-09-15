@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const paymentSchema = new mongoose.Schema(
@@ -43,6 +42,13 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 500,
+    },
+
+    status: {
+      type: String,
+      enum: ["posted", "cancelled"],
+      default: "posted",
+      required: true,
     },
 
     createdBy: {

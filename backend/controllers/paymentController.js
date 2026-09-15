@@ -3,9 +3,16 @@ const Payment = require("../models/Payment");
 const Invoice = require("../models/Invoice");
 const mongoose = require("mongoose");
 
+const { roundMoney } = require("../utils/money");
+
 const {
   createNotificationsForRoles,
 } = require("../services/notificationService");
+
+const {
+  createPaymentJournalEntry,
+} = require("../services/accountingService");
+
 
 // ==============================
 // GET ALL PAYMENTS
@@ -81,7 +88,11 @@ const getPaymentById = async (req, res, next) => {
 // CREATE PAYMENT
 // ==============================
 const createPayment = async (req, res, next) => {
+  const session = await mongoose.startSession();
+
   try {
+    session.startTransaction();
+
     const {
       invoiceId,
       paymentDate,
@@ -92,9 +103,9 @@ const createPayment = async (req, res, next) => {
     } = req.body;
 
     // ------------------------------
-    // Find invoice
+    // Find invoice inside transaction
     // ------------------------------
-    const invoice = await Invoice.findById(invoiceId);
+    const invoice = await Invoice.findById(invoiceId).session(session);
 
     if (!invoice) {
       return res.status(404).json({
@@ -114,12 +125,13 @@ const createPayment = async (req, res, next) => {
     }
 
     // ------------------------------
-    // Calculate total paid
+    // Calculate total posted payments
     // ------------------------------
     const paymentSummary = await Payment.aggregate([
       {
         $match: {
           invoiceId: invoice._id,
+          status: "posted",
         },
       },
       {
@@ -130,16 +142,19 @@ const createPayment = async (req, res, next) => {
           },
         },
       },
-    ]);
+    ]).session(session);
 
     const totalPaid = paymentSummary[0]?.totalPaid || 0;
 
-    const remainingBalance = invoice.totalAmount - totalPaid;
+    const remainingBalance =
+      roundMoney(invoice.totalAmount - totalPaid);
+
+    const paymentAmount = roundMoney(amount);
 
     // ------------------------------
     // Prevent overpayment
     // ------------------------------
-    if (Number(amount) > remainingBalance) {
+    if (paymentAmount > remainingBalance) {
       return res.status(400).json({
         success: false,
         message: `Payment exceeds remaining balance of ${remainingBalance}`,
@@ -147,43 +162,67 @@ const createPayment = async (req, res, next) => {
     }
 
     // ------------------------------
-    // Create payment
+    // Create posted payment
     // ------------------------------
-    const payment = await Payment.create({
-      invoiceId,
-      paymentDate,
-      amount,
-      paymentMethod,
-      referenceNumber,
-      notes,
+    const [payment] = await Payment.create(
+      [
+        {
+          invoiceId,
+          paymentDate,
+          amount: paymentAmount,
+          paymentMethod,
+          referenceNumber,
+          notes,
+          status: "posted",
+          createdBy: req.user._id,
+        },
+      ],
+      { session },
+    );
+
+    // ------------------------------
+    // Create accounting entry
+    // ------------------------------
+    await createPaymentJournalEntry({
+      session,
+      payment,
       createdBy: req.user._id,
     });
 
+    // ------------------------------
+    // Commit transaction
+    // ------------------------------
+    await session.commitTransaction();
 
-    // CREATE NOTIFICATION
-try {
-  await createNotificationsForRoles({
-    roles: ["owner", "admin"],
-    type: "payment",
-    title: "New Payment",
-    message: `Payment received for Invoice ${invoice.invoiceNumber}.`,
-    link: `/payments?search=${encodeURIComponent(
-      invoice.invoiceNumber
-    )}`,
-    entityType: "Payment",
-    entityId: payment._id,
-  });
-} catch (notificationError) {
-  console.error(
-    "Failed to create payment notification:",
-    notificationError,
-  );
+    session.endSession();
+
+    // ------------------------------
+    // Notification AFTER successful commit
+    // ------------------------------
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin"],
+        type: "payment",
+        title: "New Payment",
+        message: `Payment received for Invoice ${invoice.invoiceNumber}.`,
+        link: `/payments?search=${encodeURIComponent(
+          invoice.invoiceNumber,
+        )}`,
+        entityType: "Payment",
+        entityId: payment._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create payment notification:",
+        notificationError,
+      );
     }
-    
+
     const populatedPayment = await Payment.findById(payment._id)
       .populate({
         path: "invoiceId",
-        select: "invoiceNumber customerId invoiceDate dueDate status totalAmount",
+        select:
+          "invoiceNumber customerId invoiceDate dueDate status totalAmount",
         populate: {
           path: "customerId",
           select: "customerCode name",
@@ -192,12 +231,18 @@ try {
       .populate("createdBy", "name")
       .populate("updatedBy", "name");
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Payment created successfully",
       payment: populatedPayment,
     });
   } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    session.endSession();
+
     next(error);
   }
 };
@@ -209,17 +254,6 @@ const updatePayment = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const {
-      paymentDate,
-      amount,
-      paymentMethod,
-      referenceNumber,
-      notes,
-    } = req.body;
-
-    // ------------------------------
-    // Validate payment ID
-    // ------------------------------
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -227,9 +261,6 @@ const updatePayment = async (req, res, next) => {
       });
     }
 
-    // ------------------------------
-    // Find payment
-    // ------------------------------
     const payment = await Payment.findById(id);
 
     if (!payment) {
@@ -239,115 +270,17 @@ const updatePayment = async (req, res, next) => {
       });
     }
 
-    // ------------------------------
-    // Find invoice
-    // ------------------------------
-    const invoice = await Invoice.findById(payment.invoiceId);
-
-    if (!invoice) {
-      return res.status(404).json({
-        success: false,
-        message: "Invoice not found",
-      });
-    }
-
-    // ------------------------------
-    // Payment only allowed for issued invoices
-    // ------------------------------
-    if (invoice.status !== "issued") {
+    if (payment.status === "posted") {
       return res.status(400).json({
         success: false,
-        message: "Payment can only be updated for issued invoices",
+        message:
+          "Posted payment cannot be modified. Cancel and reverse the payment instead.",
       });
     }
 
-    // ------------------------------
-    // Calculate total paid
-    // excluding current payment
-    // ------------------------------
-    const paymentSummary = await Payment.aggregate([
-      {
-        $match: {
-          invoiceId: invoice._id,
-          _id: {
-            $ne: payment._id,
-          },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalPaid: {
-            $sum: "$amount",
-          },
-        },
-      },
-    ]);
-
-    const totalPaidOtherPayments =
-      paymentSummary[0]?.totalPaid || 0;
-
-    const newAmount =
-      amount !== undefined
-        ? Number(amount)
-        : payment.amount;
-
-    const remainingBalance =
-      invoice.totalAmount - totalPaidOtherPayments;
-
-    // ------------------------------
-    // Prevent overpayment
-    // ------------------------------
-    if (newAmount > remainingBalance) {
-      return res.status(400).json({
-        success: false,
-        message: `Payment exceeds remaining balance of ${remainingBalance}`,
-      });
-    }
-
-    // ------------------------------
-    // Update payment
-    // ------------------------------
-    if (paymentDate !== undefined) {
-      payment.paymentDate = paymentDate;
-    }
-
-    if (amount !== undefined) {
-      payment.amount = amount;
-    }
-
-    if (paymentMethod !== undefined) {
-      payment.paymentMethod = paymentMethod;
-    }
-
-    if (referenceNumber !== undefined) {
-      payment.referenceNumber = referenceNumber;
-    }
-
-    if (notes !== undefined) {
-      payment.notes = notes;
-    }
-
-    payment.updatedBy = req.user._id;
-
-    await payment.save();
-
-    const updatedPayment = await Payment.findById(payment._id)
-      .populate({
-        path: "invoiceId",
-        select: "invoiceNumber customerId invoiceDate dueDate status totalAmount",
-        populate: {
-          path: "customerId",
-          select: "customerCode name",
-        },
-      })
-      .populate("createdBy", "name")
-      .populate("updatedBy", "name");
-
-    res.status(200).json({
-      success: true,
-      message: "Payment updated successfully",
-      payment: updatedPayment,
+    return res.status(400).json({
+      success: false,
+      message: "Cancelled payment cannot be modified",
     });
   } catch (error) {
     next(error);
@@ -361,9 +294,6 @@ const deletePayment = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    // ------------------------------
-    // Validate payment ID
-    // ------------------------------
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
@@ -371,9 +301,6 @@ const deletePayment = async (req, res, next) => {
       });
     }
 
-    // ------------------------------
-    // Find payment
-    // ------------------------------
     const payment = await Payment.findById(id);
 
     if (!payment) {
@@ -383,34 +310,17 @@ const deletePayment = async (req, res, next) => {
       });
     }
 
-    // ------------------------------
-    // Find invoice
-    // ------------------------------
-    const invoice = await Invoice.findById(payment.invoiceId);
-
-    if (!invoice) {
-      return res.status(404).json({
-        success: false,
-        message: "Invoice not found",
-      });
-    }
-
-    // ------------------------------
-    // Prevent modification of
-    // payments for non-issued invoices
-    // ------------------------------
-    if (invoice.status !== "issued") {
+    if (payment.status === "posted") {
       return res.status(400).json({
         success: false,
-        message: "Payment can only be deleted for issued invoices",
+        message:
+          "Posted payment cannot be deleted. Cancel and reverse the payment instead.",
       });
     }
 
-    await Payment.findByIdAndDelete(id);
-
-    res.status(200).json({
-      success: true,
-      message: "Payment deleted successfully",
+    return res.status(400).json({
+      success: false,
+      message: "Cancelled payment cannot be deleted",
     });
   } catch (error) {
     next(error);

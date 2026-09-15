@@ -17,7 +17,7 @@ const clientPOItemSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       required: true,
-       min: 0.01,
+      min: 0.01,
     },
 
     agreedUnitPrice: {
@@ -27,20 +27,19 @@ const clientPOItemSchema = new mongoose.Schema(
     },
 
     unitId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Unit",
-  required: true,
-},
-
-unitCode: {
-  type: String,
-  required: true,
-  trim: true,
-  uppercase: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Unit",
+      required: true,
     },
 
+    unitCode: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const clientPOSchema = new mongoose.Schema(
@@ -90,11 +89,66 @@ const clientPOSchema = new mongoose.Schema(
       },
     },
 
+    // =========================
+    // COMMERCIAL COSTS
+    // =========================
+
+    laborCost: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    otherDirectCosts: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    // =========================
+    // TAX SNAPSHOT
+    // =========================
+
+    subtotal: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    taxRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+
+    taxAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    pricingMode: {
+      type: String,
+      enum: ["inclusive", "exclusive"],
+      default: "inclusive",
+    },
+
+    netAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     totalAmount: {
       type: Number,
       default: 0,
       min: 0,
     },
+
+    // =========================
+    // AUDIT
+    // =========================
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -109,7 +163,7 @@ const clientPOSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("ClientPO", clientPOSchema);

@@ -20,6 +20,7 @@ import {
   FaChevronDown,
   FaRuler,
   FaCoins,
+  FaReceipt,
 } from "react-icons/fa";
 
 import { useAuth } from "../../context/AuthContext";
@@ -109,6 +110,8 @@ const navigation = [
     icon: FaMoneyBillWave,
     module: "payments",
   },
+
+
   {
     label: "Accounting",
     path: "/accounting",
@@ -135,6 +138,10 @@ const navigation = [
         label: "Trial Balance",
         path: "/accounting/trial-balance",
       },
+      {
+      label: "Expenses",
+      path: "/accounting/expenses",
+    },
     ],
   },
   {

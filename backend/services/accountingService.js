@@ -709,9 +709,338 @@ const createPurchaseJournalEntry = async ({
   });
 };
 
+const createPaymentJournalEntry = async ({
+  session,
+  payment,
+  createdBy,
+}) => {
+  if (!session) {
+    const error = new Error(
+      "A MongoDB session is required to create a payment journal entry",
+    );
+
+    error.statusCode = 500;
+    throw error;
+  }
+
+  if (!payment) {
+    const error = new Error("Payment is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Payment Lifecycle
+  |--------------------------------------------------------------------------
+  */
+
+  if (payment.status !== "posted") {
+    const error = new Error(
+      "Payment must be posted before accounting recognition",
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Resolve Payment Account
+  |--------------------------------------------------------------------------
+  |
+  | Temporary business mapping based on current CKKC Chart of Accounts:
+  |
+  | cash          -> 1000 Cash on Hand
+  | bank_transfer -> 1020 Bank Account
+  | gcash         -> 1020 Bank Account
+  | maya          -> 1020 Bank Account
+  | check         -> 1020 Bank Account
+  | other         -> 1000 Cash on Hand
+  |
+  */
+
+  const paymentAccountCodeMap = {
+    cash: "1000",
+    bank_transfer: "1020",
+    gcash: "1020",
+    maya: "1020",
+    check: "1020",
+    other: "1000",
+  };
+
+  const paymentAccountCode =
+    paymentAccountCodeMap[payment.paymentMethod];
+
+  if (!paymentAccountCode) {
+    const error = new Error(
+      `Unsupported payment method ${payment.paymentMethod}`,
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const paymentAccount = await getAccountByCode(
+    paymentAccountCode,
+    session,
+  );
+
+  const accountsReceivable = await getAccountByCode(
+    "1100",
+    session,
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Payment Amount
+  |--------------------------------------------------------------------------
+  */
+
+  const amount = roundMoney(payment.amount || 0);
+
+  if (amount <= 0) {
+    const error = new Error(
+      "Payment amount must be greater than zero for accounting recognition",
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Build Payment Journal Entry
+  |--------------------------------------------------------------------------
+  |
+  | Dr Cash / Bank
+  | Cr Accounts Receivable
+  |
+  | Payment does NOT recognize:
+  | - Revenue
+  | - Output VAT
+  |
+  | Those were already recognized when the Sale was released.
+  |
+  */
+
+  const entries = [
+    {
+      account: paymentAccount._id,
+      debit: amount,
+      credit: 0,
+    },
+    {
+      account: accountsReceivable._id,
+      debit: 0,
+      credit: amount,
+    },
+  ];
+
+  return createSystemJournalEntry({
+    session,
+    date: payment.paymentDate,
+    reference: payment._id.toString(),
+    description: `Payment received for Invoice ${payment.invoiceId}`,
+    sourceType: "payment",
+    sourceId: payment._id,
+    entries,
+    createdBy,
+  });
+};
+
+
+const createExpenseJournalEntry = async ({
+  session,
+  expense,
+  createdBy,
+}) => {
+  if (!session) {
+    const error = new Error(
+      "A MongoDB session is required to create an expense journal entry"
+    );
+
+    error.statusCode = 500;
+    throw error;
+  }
+
+  if (!expense) {
+    const error = new Error("Expense is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (expense.status !== "posted") {
+    const error = new Error(
+      "Expense must be posted before accounting recognition"
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Expense Account
+  |--------------------------------------------------------------------------
+  |
+  | The Expense document stores the selected GL account directly.
+  | We validate the account using the same transaction session.
+  |
+  */
+
+  const expenseAccount = await ChartOfAccount.findOne({
+    _id: expense.expenseAccountId,
+    isActive: true,
+    accountType: "expense",
+  })
+    .select("_id accountCode accountName accountType")
+    .session(session);
+
+  if (!expenseAccount) {
+    const error = new Error(
+      "Selected expense account is missing, inactive, or not an expense account"
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Payment Account
+  |--------------------------------------------------------------------------
+  */
+
+  const paymentAccountCodeMap = {
+    cash: "1000",
+    bank_transfer: "1020",
+    gcash: "1020",
+    maya: "1020",
+    check: "1020",
+    other: "1000",
+  };
+
+  const paymentAccountCode =
+    paymentAccountCodeMap[expense.paymentMethod];
+
+  if (!paymentAccountCode) {
+    const error = new Error(
+      `Unsupported payment method ${expense.paymentMethod}`
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const paymentAccount = await getAccountByCode(
+    paymentAccountCode,
+    session
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Amount Validation
+  |--------------------------------------------------------------------------
+  */
+
+  const totalAmount = roundMoney(expense.amount || 0);
+  const netAmount = roundMoney(expense.netAmount || 0);
+  const taxAmount = roundMoney(expense.taxAmount || 0);
+
+  if (totalAmount <= 0) {
+    const error = new Error(
+      "Expense total amount must be greater than zero for accounting recognition"
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (netAmount <= 0) {
+    const error = new Error(
+      "Expense net amount must be greater than zero for accounting recognition"
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Reconciliation
+  |--------------------------------------------------------------------------
+  */
+
+  const expectedTotal = roundMoney(netAmount + taxAmount);
+
+  if (totalAmount !== expectedTotal) {
+    const error = new Error(
+      `Expense accounting total mismatch: total ${totalAmount} does not equal net expense ${netAmount} plus VAT ${taxAmount}`
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Build Journal Entry
+  |--------------------------------------------------------------------------
+  |
+  | VAT-inclusive / exclusive:
+  |
+  | Dr Expense       Net
+  | Dr Input VAT     VAT
+  | Cr Cash/Bank     Gross
+  |
+  | VAT-off:
+  |
+  | Dr Expense       Gross
+  | Cr Cash/Bank     Gross
+  |
+  */
+
+  const entries = [
+    {
+      account: expenseAccount._id,
+      debit: netAmount,
+      credit: 0,
+    },
+  ];
+
+  if (taxAmount > 0) {
+    const inputVat = await getAccountByCode("1210", session);
+
+    entries.push({
+      account: inputVat._id,
+      debit: taxAmount,
+      credit: 0,
+    });
+  }
+
+  entries.push({
+    account: paymentAccount._id,
+    debit: 0,
+    credit: totalAmount,
+  });
+
+  return createSystemJournalEntry({
+    session,
+    date: expense.expenseDate,
+    reference: expense._id.toString(),
+    description: `Expense recognition for ${expense.description}`,
+    sourceType: "expense",
+    sourceId: expense._id,
+    entries,
+    createdBy,
+  });
+};
 
 module.exports = {
   createSystemJournalEntry,
   createSaleJournalEntry,
   createPurchaseJournalEntry,
+  createPaymentJournalEntry,
+  createExpenseJournalEntry,
 };
