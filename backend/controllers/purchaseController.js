@@ -1,44 +1,103 @@
-
 const mongoose = require("mongoose");
 
 const Purchase = require("../models/Purchase");
+const Settings = require("../models/Settings");
 
 const Supplier = require("../models/Supplier");
 const SupplierPO = require("../models/SupplierPO");
 const ClientPO = require("../models/ClientPO");
 const Product = require("../models/Product");
 const InventoryMovement = require("../models/InventoryMovement");
-const {
-  resolveProductUnit,
-} = require("../services/unitService");
+const { resolveProductUnit } = require("../services/unitService");
 
 const {
-  checkReferencesExist,
-} = require("../utils/referenceValidator");
+  createPurchaseJournalEntry,
+} = require("../services/accountingService");
+
+const { checkReferencesExist } = require("../utils/referenceValidator");
 
 const {
   createNotificationsForRoles,
 } = require("../services/notificationService");
 
-const {
-  generateDocumentNumber,
-} = require("../services/documentNumberService");
+const { generateDocumentNumber } = require("../services/documentNumberService");
 
+const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+const calculatePurchaseTotals = (
+  items,
+  { vatEnabled, vatRate, pricingMode },
+) => {
+  const calculatedItems = items.map((item) => {
+    const enteredUnitCost = roundMoney(
+      item.enteredUnitCost,
+    );
 
-const calculatePurchaseTotals = (items) => {
-  const calculatedItems = items.map((item) => ({
-    ...item,
-    totalCost: item.quantity * item.actualUnitCost,
-  }));
+    let actualUnitCost = enteredUnitCost;
 
-  const totalAmount = calculatedItems.reduce(
-    (total, item) => total + item.totalCost,
-    0
+    if (
+      vatEnabled &&
+      vatRate > 0 &&
+      pricingMode === "inclusive"
+    ) {
+      actualUnitCost = roundMoney(
+        enteredUnitCost / (1 + vatRate / 100),
+      );
+    }
+
+    const totalCost = roundMoney(
+      item.quantity * actualUnitCost,
+    );
+
+    return {
+      ...item,
+      enteredUnitCost,
+      actualUnitCost,
+      totalCost,
+    };
+  });
+
+  const grossAmount = roundMoney(
+    calculatedItems.reduce(
+      (total, item) =>
+        total +
+        item.quantity * item.enteredUnitCost,
+      0,
+    ),
   );
+
+  let netAmount = grossAmount;
+  let taxAmount = 0;
+
+  if (vatEnabled && vatRate > 0) {
+    if (pricingMode === "inclusive") {
+      netAmount = roundMoney(
+        grossAmount / (1 + vatRate / 100),
+      );
+
+      taxAmount = roundMoney(
+        grossAmount - netAmount,
+      );
+    } else {
+      netAmount = grossAmount;
+
+      taxAmount = roundMoney(
+        netAmount * (vatRate / 100),
+      );
+    }
+  }
+
+  const totalAmount =
+    pricingMode === "inclusive"
+      ? grossAmount
+      : roundMoney(netAmount + taxAmount);
 
   return {
     calculatedItems,
+    netAmount,
+    taxRate: vatEnabled ? vatRate : 0,
+    taxAmount,
+    pricingMode,
     totalAmount,
   };
 };
@@ -51,7 +110,7 @@ const getPurchases = async (req, res, next) => {
       .populate("supplierPOId", "poNumber")
       .populate("relatedClientPOId", "poNumber")
       .populate("items.productId", "sku name")
-.populate("items.unitId", "code name")
+      .populate("items.unitId", "code name")
       .populate("createdBy", "firstName lastName")
       .populate("updatedBy", "firstName lastName")
       .sort({ purchaseDate: -1 });
@@ -74,7 +133,7 @@ const getPurchaseById = async (req, res, next) => {
       .populate("supplierPOId", "poNumber")
       .populate("relatedClientPOId", "poNumber")
       .populate("items.productId", "sku name")
-.populate("items.unitId", "code name")
+      .populate("items.unitId", "code name")
       .populate("createdBy", "firstName lastName")
       .populate("updatedBy", "firstName lastName");
 
@@ -94,17 +153,24 @@ const getPurchaseById = async (req, res, next) => {
   }
 };
 
-
 // CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
-    const {
-      items,
-      supplierId,
-      supplierPOId,
-      relatedClientPOId,
-      purchaseDate,
-    } = req.body;
+    const { items, supplierId, supplierPOId, relatedClientPOId, purchaseDate } =
+      req.body;
+
+    const settings = await Settings.findOne().select("accountingTax");
+
+    const vatEnabled = settings?.accountingTax?.vatEnabled === true;
+
+    const vatRate = vatEnabled
+      ? Number(settings?.accountingTax?.vatRate || 0)
+      : 0;
+
+    const pricingMode =
+      settings?.accountingTax?.pricingMode === "inclusive"
+        ? "inclusive"
+        : "exclusive";
 
     // SUPPLIER
     const supplier = await Supplier.findById(supplierId);
@@ -117,7 +183,7 @@ const createPurchase = async (req, res, next) => {
 
     if (supplier.status !== "active") {
       const error = new Error(
-        "Cannot create Purchase for an inactive supplier"
+        "Cannot create Purchase for an inactive supplier",
       );
       error.statusCode = 400;
       throw error;
@@ -135,12 +201,9 @@ const createPurchase = async (req, res, next) => {
         throw error;
       }
 
-      if (
-        supplierPO.supplierId.toString() !==
-        supplierId.toString()
-      ) {
+      if (supplierPO.supplierId.toString() !== supplierId.toString()) {
         const error = new Error(
-          "Supplier PO does not belong to the selected supplier"
+          "Supplier PO does not belong to the selected supplier",
         );
         error.statusCode = 400;
         throw error;
@@ -151,7 +214,7 @@ const createPurchase = async (req, res, next) => {
         supplierPO.status === "received"
       ) {
         const error = new Error(
-          `Cannot create Purchase from a ${supplierPO.status} Supplier PO`
+          `Cannot create Purchase from a ${supplierPO.status} Supplier PO`,
         );
         error.statusCode = 400;
         throw error;
@@ -164,7 +227,7 @@ const createPurchase = async (req, res, next) => {
 
       if (existingPurchase) {
         const error = new Error(
-          "A Purchase already exists for this Supplier PO"
+          "A Purchase already exists for this Supplier PO",
         );
         error.statusCode = 400;
         throw error;
@@ -173,9 +236,7 @@ const createPurchase = async (req, res, next) => {
 
     // CLIENT PO
     if (relatedClientPOId !== undefined) {
-      const clientPO = await ClientPO.findById(
-        relatedClientPOId
-      );
+      const clientPO = await ClientPO.findById(relatedClientPOId);
 
       if (!clientPO) {
         const error = new Error("Client PO not found");
@@ -186,12 +247,9 @@ const createPurchase = async (req, res, next) => {
       if (
         supplierPO &&
         supplierPO.relatedClientPOId &&
-        supplierPO.relatedClientPOId.toString() !==
-          relatedClientPOId.toString()
+        supplierPO.relatedClientPOId.toString() !== relatedClientPOId.toString()
       ) {
-        const error = new Error(
-          "Client PO does not match the Supplier PO"
-        );
+        const error = new Error("Client PO does not match the Supplier PO");
         error.statusCode = 400;
         throw error;
       }
@@ -201,7 +259,7 @@ const createPurchase = async (req, res, next) => {
     await checkReferencesExist(
       Product,
       items.map((item) => item.productId),
-      "Product"
+      "Product",
     );
 
     const products = await Product.find({
@@ -211,13 +269,11 @@ const createPurchase = async (req, res, next) => {
     }).select("_id status");
 
     const inactiveProduct = products.find(
-      (product) => product.status !== "active"
+      (product) => product.status !== "active",
     );
 
     if (inactiveProduct) {
-      const error = new Error(
-        "Cannot add inactive product to Purchase"
-      );
+      const error = new Error("Cannot add inactive product to Purchase");
       error.statusCode = 400;
       throw error;
     }
@@ -226,8 +282,7 @@ const createPurchase = async (req, res, next) => {
     const calculatedItemsWithUOM = [];
 
     for (const item of items) {
-      const { unitId, unitCode } =
-        await resolveProductUnit(item.productId);
+      const { unitId, unitCode } = await resolveProductUnit(item.productId);
 
       calculatedItemsWithUOM.push({
         ...item,
@@ -239,14 +294,19 @@ const createPurchase = async (req, res, next) => {
     // COMPUTE TOTAL ON BACKEND
     const {
       calculatedItems,
+      netAmount,
+      taxRate,
+      taxAmount,
+      pricingMode: purchasePricingMode,
       totalAmount,
-    } = calculatePurchaseTotals(
-      calculatedItemsWithUOM
-    );
+    } = calculatePurchaseTotals(calculatedItemsWithUOM, {
+      vatEnabled,
+      vatRate,
+      pricingMode,
+    });
 
     // GENERATE PURCHASE NUMBER SERVER-SIDE
-    const purchaseNumber =
-      await generateDocumentNumber("purchase");
+    const purchaseNumber = await generateDocumentNumber("purchase");
 
     const purchase = await Purchase.create({
       purchaseNumber,
@@ -255,6 +315,10 @@ const createPurchase = async (req, res, next) => {
       relatedClientPOId,
       purchaseDate,
       items: calculatedItems,
+      netAmount,
+      taxRate,
+      taxAmount,
+      pricingMode: purchasePricingMode,
       totalAmount,
       createdBy: req.user._id,
     });
@@ -267,7 +331,7 @@ const createPurchase = async (req, res, next) => {
         title: "New Purchase",
         message: `Purchase ${purchase.purchaseNumber} was created.`,
         link: `/purchases?search=${encodeURIComponent(
-          purchase.purchaseNumber
+          purchase.purchaseNumber,
         )}`,
         entityType: "Purchase",
         entityId: purchase._id,
@@ -275,18 +339,17 @@ const createPurchase = async (req, res, next) => {
     } catch (notificationError) {
       console.error(
         "Failed to create purchase notification:",
-        notificationError
+        notificationError,
       );
     }
 
-    const populatedPurchase =
-      await Purchase.findById(purchase._id)
-        .populate("supplierId", "supplierCode name")
-        .populate("supplierPOId", "poNumber")
-        .populate("relatedClientPOId", "poNumber")
-        .populate("items.unitId", "code name")
-        .populate("items.productId", "sku name")
-        .populate("createdBy", "firstName lastName");
+    const populatedPurchase = await Purchase.findById(purchase._id)
+      .populate("supplierId", "supplierCode name")
+      .populate("supplierPOId", "poNumber")
+      .populate("relatedClientPOId", "poNumber")
+      .populate("items.unitId", "code name")
+      .populate("items.productId", "sku name")
+      .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
       success: true,
@@ -297,9 +360,7 @@ const createPurchase = async (req, res, next) => {
   }
 };
 
-
-
- // UPDATE PURCHASE
+// UPDATE PURCHASE
 const updatePurchase = async (req, res, next) => {
   try {
     const purchase = await Purchase.findById(req.params.id);
@@ -326,6 +387,21 @@ const updatePurchase = async (req, res, next) => {
       items,
     } = req.body;
 
+    // GET CURRENT TAX SETTINGS
+    const settings = await Settings.findOne().select("accountingTax");
+
+    const vatEnabled =
+      settings?.accountingTax?.vatEnabled === true;
+
+    const vatRate = vatEnabled
+      ? Number(settings?.accountingTax?.vatRate || 0)
+      : 0;
+
+    const pricingMode =
+      settings?.accountingTax?.pricingMode === "inclusive"
+        ? "inclusive"
+        : "exclusive";
+
     // DETERMINE FINAL REFERENCES
     let supplierPO = null;
 
@@ -347,7 +423,7 @@ const updatePurchase = async (req, res, next) => {
     // SUPPLIER
     if (supplierId !== undefined) {
       const supplier = await Supplier.findById(
-        nextSupplierId
+        nextSupplierId,
       );
 
       if (!supplier) {
@@ -358,7 +434,7 @@ const updatePurchase = async (req, res, next) => {
 
       if (supplier.status !== "active") {
         const error = new Error(
-          "Cannot assign Purchase to an inactive supplier"
+          "Cannot assign Purchase to an inactive supplier",
         );
         error.statusCode = 400;
         throw error;
@@ -368,7 +444,7 @@ const updatePurchase = async (req, res, next) => {
     // SUPPLIER PO
     if (nextSupplierPOId !== undefined) {
       supplierPO = await SupplierPO.findById(
-        nextSupplierPOId
+        nextSupplierPOId,
       );
 
       if (!supplierPO) {
@@ -382,7 +458,7 @@ const updatePurchase = async (req, res, next) => {
         nextSupplierId.toString()
       ) {
         const error = new Error(
-          "Supplier PO does not belong to the selected supplier"
+          "Supplier PO does not belong to the selected supplier",
         );
         error.statusCode = 400;
         throw error;
@@ -393,7 +469,7 @@ const updatePurchase = async (req, res, next) => {
         supplierPO.status === "received"
       ) {
         const error = new Error(
-          `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`
+          `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`,
         );
         error.statusCode = 400;
         throw error;
@@ -403,7 +479,7 @@ const updatePurchase = async (req, res, next) => {
     // CLIENT PO
     if (relatedClientPOId !== undefined) {
       const clientPO = await ClientPO.findById(
-        nextRelatedClientPOId
+        nextRelatedClientPOId,
       );
 
       if (!clientPO) {
@@ -419,7 +495,7 @@ const updatePurchase = async (req, res, next) => {
           nextRelatedClientPOId.toString()
       ) {
         const error = new Error(
-          "Client PO does not match the Supplier PO"
+          "Client PO does not match the Supplier PO",
         );
         error.statusCode = 400;
         throw error;
@@ -433,7 +509,7 @@ const updatePurchase = async (req, res, next) => {
       await checkReferencesExist(
         Product,
         items.map((item) => item.productId),
-        "Product"
+        "Product",
       );
 
       const products = await Product.find({
@@ -443,12 +519,12 @@ const updatePurchase = async (req, res, next) => {
       }).select("_id status");
 
       const inactiveProduct = products.find(
-        (product) => product.status !== "active"
+        (product) => product.status !== "active",
       );
 
       if (inactiveProduct) {
         const error = new Error(
-          "Cannot add inactive product to Purchase"
+          "Cannot add inactive product to Purchase",
         );
         error.statusCode = 400;
         throw error;
@@ -486,15 +562,29 @@ const updatePurchase = async (req, res, next) => {
       purchase.purchaseDate = purchaseDate;
     }
 
+    // RECALCULATE PURCHASE TOTALS + VAT
     if (items !== undefined) {
       const {
         calculatedItems,
+        netAmount,
+        taxRate,
+        taxAmount,
+        pricingMode: purchasePricingMode,
         totalAmount,
       } = calculatePurchaseTotals(
-        calculatedItemsWithUOM
+        calculatedItemsWithUOM,
+        {
+          vatEnabled,
+          vatRate,
+          pricingMode,
+        },
       );
 
       purchase.items = calculatedItems;
+      purchase.netAmount = netAmount;
+      purchase.taxRate = taxRate;
+      purchase.taxAmount = taxAmount;
+      purchase.pricingMode = purchasePricingMode;
       purchase.totalAmount = totalAmount;
     }
 
@@ -520,10 +610,6 @@ const updatePurchase = async (req, res, next) => {
     next(error);
   }
 };
-
-
-
-
 // DELETE PURCHASE
 const deletePurchase = async (req, res, next) => {
   try {
@@ -554,7 +640,6 @@ const deletePurchase = async (req, res, next) => {
     next(error);
   }
 };
-
 
 // RECEIVE PURCHASE
 const receivePurchase = async (req, res, next) => {
@@ -609,24 +694,24 @@ const receivePurchase = async (req, res, next) => {
 
       await product.save({ session });
 
-     await InventoryMovement.create(
-  [
-    {
-      productId: item.productId,
-      type: "IN",
-      quantity: item.quantity,
-      unitId: item.unitId,
-      unitCode: item.unitCode,
-      unitCost: item.actualUnitCost,
-      referenceType: "PURCHASE",
-      referenceId: purchase._id,
-      date: purchase.purchaseDate,
-      notes: `Received ${item.quantity} ${item.unitCode} of ${product.name}`,
-      createdBy: req.user._id,
-    },
-  ],
-  { session },
-);
+      await InventoryMovement.create(
+        [
+          {
+            productId: item.productId,
+            type: "IN",
+            quantity: item.quantity,
+            unitId: item.unitId,
+            unitCode: item.unitCode,
+            unitCost: item.actualUnitCost,
+            referenceType: "PURCHASE",
+            referenceId: purchase._id,
+            date: purchase.purchaseDate,
+            notes: `Received ${item.quantity} ${item.unitCode} of ${product.name}`,
+            createdBy: req.user._id,
+          },
+        ],
+        { session },
+      );
     }
 
     // UPDATE LINKED SUPPLIER PO
@@ -665,6 +750,13 @@ const receivePurchase = async (req, res, next) => {
 
     await purchase.save({ session });
 
+    // CREATE SYSTEM ACCOUNTING ENTRY
+await createPurchaseJournalEntry({
+  session,
+  purchase,
+  createdBy: req.user._id,
+});
+
     await session.commitTransaction();
 
     const populatedPurchase = await Purchase.findById(purchase._id)
@@ -692,7 +784,6 @@ const receivePurchase = async (req, res, next) => {
   }
 };
 
-
 // CANCEL PURCHASE
 const cancelPurchase = async (req, res, next) => {
   try {
@@ -707,9 +798,7 @@ const cancelPurchase = async (req, res, next) => {
 
     // ONLY DRAFT PURCHASES CAN BE CANCELLED
     if (purchase.status !== "draft") {
-      const error = new Error(
-        "Only draft purchases can be cancelled"
-      );
+      const error = new Error("Only draft purchases can be cancelled");
       error.statusCode = 400;
       throw error;
     }
@@ -719,15 +808,14 @@ const cancelPurchase = async (req, res, next) => {
 
     await purchase.save();
 
-    const populatedPurchase =
-      await Purchase.findById(purchase._id)
-        .populate("supplierId", "supplierCode name")
-        .populate("supplierPOId", "poNumber")
-        .populate("relatedClientPOId", "poNumber")
-        .populate("items.unitId", "code name")
-        .populate("items.productId", "sku name")
-        .populate("createdBy", "firstName lastName")
-        .populate("updatedBy", "firstName lastName");
+    const populatedPurchase = await Purchase.findById(purchase._id)
+      .populate("supplierId", "supplierCode name")
+      .populate("supplierPOId", "poNumber")
+      .populate("relatedClientPOId", "poNumber")
+      .populate("items.unitId", "code name")
+      .populate("items.productId", "sku name")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName");
 
     res.status(200).json({
       success: true,
@@ -738,8 +826,6 @@ const cancelPurchase = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 module.exports = {
   getPurchases,

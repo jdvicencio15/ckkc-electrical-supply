@@ -15,23 +15,29 @@ const purchaseItemSchema = new mongoose.Schema(
     },
 
     unitId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Unit",
-  required: true,
-},
-
-unitCode: {
-  type: String,
-  required: true,
-  trim: true,
-  uppercase: true,
-},
-
-    actualUnitCost: {
-      type: Number,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Unit",
       required: true,
-      min: 0,
     },
+
+    unitCode: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+
+    enteredUnitCost: {
+  type: Number,
+  required: true,
+  min: 0,
+},
+
+actualUnitCost: {
+  type: Number,
+  required: true,
+  min: 0,
+},
 
     totalCost: {
       type: Number,
@@ -39,7 +45,7 @@ unitCode: {
       min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const purchaseSchema = new mongoose.Schema(
@@ -74,11 +80,10 @@ const purchaseSchema = new mongoose.Schema(
     },
 
     status: {
-  type: String,
-  enum: ["draft", "received", "cancelled"],
-  default: "draft",
+      type: String,
+      enum: ["draft", "received", "cancelled"],
+      default: "draft",
     },
-
 
     items: {
       type: [purchaseItemSchema],
@@ -87,6 +92,31 @@ const purchaseSchema = new mongoose.Schema(
         validator: (items) => items.length > 0,
         message: "Purchase must contain at least one item",
       },
+    },
+
+    netAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    taxRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+
+    taxAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    pricingMode: {
+      type: String,
+      enum: ["inclusive", "exclusive"],
+      default: "exclusive",
     },
 
     totalAmount: {
@@ -108,7 +138,7 @@ const purchaseSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Purchase", purchaseSchema);

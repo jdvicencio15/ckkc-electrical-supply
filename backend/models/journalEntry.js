@@ -46,6 +46,25 @@ const journalEntrySchema = new mongoose.Schema(
       maxlength: 500,
     },
 
+    /**
+     * Accounting source classification
+     *
+     * system:
+     *   Journal entry was generated automatically
+     *   from a business transaction such as Sale,
+     *   Purchase, Payment, or Expense.
+     *
+     * manual:
+     *   Journal entry was intentionally created
+     *   by an authorized accounting user.
+     */
+    entryType: {
+      type: String,
+      enum: ["manual", "system"],
+      default: "manual",
+      required: true,
+    },
+
     sourceType: {
       type: String,
       trim: true,
@@ -80,6 +99,39 @@ const journalEntrySchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| System-generated Journal Entry Protection
+|--------------------------------------------------------------------------
+|
+| One business transaction should produce only one
+| system-generated journal entry.
+|
+| Example:
+|   Sale #SALE-2026-000001
+|        ↓
+|   exactly one system JE
+|
+| Manual journal entries are not affected because
+| entryType is included in the compound index.
+|
+*/
+journalEntrySchema.index(
+  {
+    entryType: 1,
+    sourceType: 1,
+    sourceId: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      entryType: "system",
+      sourceType: { $exists: true },
+      sourceId: { $exists: true },
+    },
   }
 );
 

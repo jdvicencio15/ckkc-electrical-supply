@@ -75,7 +75,7 @@ const createAccount = async (req, res, next) => {
       isActive,
     } = req.body;
 
-    await validateAccountingSource(sourceType, sourceId);
+
 
     // Prevent duplicate account codes
     const existingAccount = await ChartOfAccount.findOne({
@@ -398,13 +398,41 @@ const getJournalEntryById = async (req, res, next) => {
 // POST /api/accounting/journal-entries
 const createJournalEntry = async (req, res, next) => {
   try {
-    const { date, reference, description, sourceType, sourceId, entries } =
-      req.body;
+    const {
+      date,
+      reference,
+      description,
+      entries,
+    } = req.body;
 
-    await validateAccountingSource(
-  sourceType,
-  sourceId
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | Manual Journal Entries Only
+    |--------------------------------------------------------------------------
+    |
+    | System-generated journal entries must be created internally by the
+    | accounting service. They must never be created directly through
+    | the generic accounting API.
+    |
+    */
+
+    if (
+      req.body.entryType !== undefined &&
+      req.body.entryType !== "manual"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Only manual journal entries can be created through this endpoint",
+      });
+    }
+
+    if (req.body.sourceType !== undefined || req.body.sourceId !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Source-linked journal entries are system-generated and cannot be created manually",
+      });
+    }
 
     const validationError = validateJournalLines(entries);
 
@@ -415,7 +443,12 @@ const createJournalEntry = async (req, res, next) => {
       });
     }
 
-    // Verify all referenced accounts exist and are active
+    /*
+    |--------------------------------------------------------------------------
+    | Verify all referenced accounts exist and are active
+    |--------------------------------------------------------------------------
+    */
+
     const accountIds = entries.map((entry) => entry.account);
 
     const accounts = await ChartOfAccount.find({
@@ -434,19 +467,23 @@ const createJournalEntry = async (req, res, next) => {
       date,
       reference,
       description,
-      sourceType,
-      sourceId,
+      entryType: "manual",
       entries,
       createdBy: req.user._id,
     });
 
     const populatedEntry = await JournalEntry.findById(
       journalEntry._id,
-    ).populate("entries.account", "accountCode accountName accountType");
+    )
+      .populate(
+        "entries.account",
+        "accountCode accountName accountType",
+      )
+      .populate("createdBy", "name email");
 
     res.status(201).json({
       success: true,
-      message: "Journal entry created successfully",
+      message: "Manual journal entry created successfully",
       data: populatedEntry,
     });
   } catch (error) {
@@ -475,23 +512,57 @@ const updateJournalEntry = async (req, res, next) => {
       });
     }
 
-    const { date, reference, description, sourceType, sourceId, entries } =
-      req.body;
+    /*
+    |--------------------------------------------------------------------------
+    | System-generated entries are immutable
+    |--------------------------------------------------------------------------
+    |
+    | They must be corrected through the originating business transaction
+    | or a future reversal/correction mechanism.
+    |
+    */
 
-    const nextSourceType =
-  sourceType !== undefined
-    ? sourceType
-    : journalEntry.sourceType;
+    if (journalEntry.entryType === "system") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "System-generated journal entries are immutable and cannot be updated",
+      });
+    }
 
-const nextSourceId =
-  sourceId !== undefined
-    ? sourceId
-    : journalEntry.sourceId;
+    /*
+    |--------------------------------------------------------------------------
+    | Manual Journal Entry Protection
+    |--------------------------------------------------------------------------
+    |
+    | Manual entries must never become source-linked system entries.
+    |
+    */
 
-await validateAccountingSource(
-  nextSourceType,
-  nextSourceId
-);
+    if (
+      req.body.entryType !== undefined &&
+      req.body.entryType !== "manual"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Manual journal entries must remain manual",
+      });
+    }
+
+    if (req.body.sourceType !== undefined || req.body.sourceId !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Manual journal entries cannot be linked to system transaction sources",
+      });
+    }
+
+    const {
+      date,
+      reference,
+      description,
+      entries,
+    } = req.body;
 
     if (entries !== undefined) {
       const validationError = validateJournalLines(entries);
@@ -502,6 +573,12 @@ await validateAccountingSource(
           message: validationError,
         });
       }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Verify all referenced accounts exist and are active
+      |--------------------------------------------------------------------------
+      */
 
       const accountIds = entries.map((entry) => entry.account);
 
@@ -523,19 +600,23 @@ await validateAccountingSource(
     journalEntry.date = date ?? journalEntry.date;
     journalEntry.reference = reference ?? journalEntry.reference;
     journalEntry.description = description ?? journalEntry.description;
-    journalEntry.sourceType = sourceType ?? journalEntry.sourceType;
-    journalEntry.sourceId = sourceId ?? journalEntry.sourceId;
+    journalEntry.entryType = "manual";
     journalEntry.updatedBy = req.user._id;
 
     await journalEntry.save();
 
     const populatedEntry = await JournalEntry.findById(
       journalEntry._id,
-    ).populate("entries.account", "accountCode accountName accountType");
+    )
+      .populate(
+        "entries.account",
+        "accountCode accountName accountType",
+      )
+      .populate("updatedBy", "name email");
 
     res.status(200).json({
       success: true,
-      message: "Journal entry updated successfully",
+      message: "Manual journal entry updated successfully",
       data: populatedEntry,
     });
   } catch (error) {
@@ -564,11 +645,25 @@ const deleteJournalEntry = async (req, res, next) => {
       });
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | System-generated entries are immutable
+    |--------------------------------------------------------------------------
+    */
+
+    if (journalEntry.entryType === "system") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "System-generated journal entries are immutable and cannot be deleted",
+      });
+    }
+
     await journalEntry.deleteOne();
 
     res.status(200).json({
       success: true,
-      message: "Journal entry deleted successfully",
+      message: "Manual journal entry deleted successfully",
     });
   } catch (error) {
     next(error);

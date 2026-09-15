@@ -9,6 +9,10 @@ const Supplier = require("../models/Supplier");
 const Settings = require("../models/Settings");
 
 const {
+  createSaleJournalEntry,
+} = require("../services/accountingService");
+
+const {
   resolveProductCost,
 } = require("../services/pricingService");
 
@@ -627,6 +631,16 @@ const releaseSale = async (req, res, next) => {
     sale.updatedBy = req.user._id;
 
     await sale.save({ session });
+
+    // CREATE SYSTEM ACCOUNTING JOURNAL ENTRY
+await createSaleJournalEntry({
+  session,
+  sale,
+  createdBy: req.user._id,
+});
+
+
+
 
     // COMMIT TRANSACTION
     await session.commitTransaction();

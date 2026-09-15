@@ -12,37 +12,101 @@ const SOURCE_MODELS = {
   expense: Expense,
 };
 
-const validateAccountingSource = async (sourceType, sourceId) => {
-  // No source at all = valid manual journal entry
+const validateAccountingSource = async (
+  sourceType,
+  sourceId,
+  options = {},
+) => {
+  const { session } = options;
+
+  /*
+  |--------------------------------------------------------------------------
+  | No Source
+  |--------------------------------------------------------------------------
+  |
+  | No source means this is a manual journal entry.
+  |
+  */
+
   if (sourceType === undefined && sourceId === undefined) {
-    return;
+    return null;
   }
 
-  // Both must be provided together
+  /*
+  |--------------------------------------------------------------------------
+  | Source Pair Validation
+  |--------------------------------------------------------------------------
+  |
+  | sourceType and sourceId must always exist together.
+  |
+  */
+
   if (sourceType === undefined || sourceId === undefined) {
     const error = new Error(
-      "sourceType and sourceId must be provided together"
+      "sourceType and sourceId must be provided together",
     );
+
     error.statusCode = 400;
     throw error;
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Validate Source Type
+  |--------------------------------------------------------------------------
+  */
 
   const Model = SOURCE_MODELS[sourceType];
 
   if (!Model) {
     const error = new Error(
-      "Invalid journal entry source type"
+      "Invalid journal entry source type",
     );
+
     error.statusCode = 400;
     throw error;
   }
 
-  const source = await Model.findById(sourceId);
+  /*
+  |--------------------------------------------------------------------------
+  | Validate Source ID
+  |--------------------------------------------------------------------------
+  */
+
+  const mongoose = require("mongoose");
+
+  if (!mongoose.Types.ObjectId.isValid(sourceId)) {
+    const error = new Error(
+      "Invalid journal entry source ID",
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Load Source
+  |--------------------------------------------------------------------------
+  |
+  | If a MongoDB session is provided, the source lookup runs inside
+  | the same transaction.
+  |
+  */
+
+  const query = Model.findById(sourceId);
+
+  if (session) {
+    query.session(session);
+  }
+
+  const source = await query;
 
   if (!source) {
     const error = new Error(
-      `Source ${sourceType} not found`
+      `Source ${sourceType} not found`,
     );
+
     error.statusCode = 400;
     throw error;
   }
@@ -56,8 +120,9 @@ const validateAccountingSource = async (sourceType, sourceId) => {
   if (sourceType === "sale") {
     if (source.status !== "released") {
       const error = new Error(
-        "Sale must be released before it can be used as an accounting source"
+        "Sale must be released before it can be used as an accounting source",
       );
+
       error.statusCode = 400;
       throw error;
     }
@@ -66,8 +131,9 @@ const validateAccountingSource = async (sourceType, sourceId) => {
   if (sourceType === "purchase") {
     if (source.status !== "received") {
       const error = new Error(
-        "Purchase must be received before it can be used as an accounting source"
+        "Purchase must be received before it can be used as an accounting source",
       );
+
       error.statusCode = 400;
       throw error;
     }
@@ -76,15 +142,26 @@ const validateAccountingSource = async (sourceType, sourceId) => {
   if (sourceType === "invoice") {
     if (source.status !== "issued") {
       const error = new Error(
-        "Invoice must be issued before it can be used as an accounting source"
+        "Invoice must be issued before it can be used as an accounting source",
       );
+
       error.statusCode = 400;
       throw error;
     }
   }
 
-  // Payment only needs to exist.
-  // Expense lifecycle depends on the actual Expense model/state.
+  /*
+  |--------------------------------------------------------------------------
+  | Payment / Expense
+  |--------------------------------------------------------------------------
+  |
+  | Payment currently only requires an existing source.
+  | Expense lifecycle will be finalized after we inspect its model
+  | and business rules.
+  |
+  */
+
+  return source;
 };
 
 module.exports = {

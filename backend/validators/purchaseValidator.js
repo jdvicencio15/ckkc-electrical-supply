@@ -30,20 +30,20 @@ const purchaseValidator = [
     .isMongoId()
     .withMessage("Valid product ID is required"),
 
-body("items.*.quantity")
-  .isFloat({ min: 0.01 })
-  .withMessage(
-    "Quantity must be a valid number greater than 0"
-  ),
+  body("items.*.quantity")
+    .isFloat({ min: 0.01 })
+    .withMessage(
+      "Quantity must be a valid number greater than 0",
+    ),
 
-  body("items.*.actualUnitCost")
+  body("items.*.enteredUnitCost")
     .isFloat({ min: 0 })
     .withMessage(
-      "Actual unit cost must be a valid number greater than or equal to 0"
+      "Entered unit cost must be a valid number greater than or equal to 0",
     ),
 ];
 
-  const purchaseUpdateValidator = [
+const purchaseUpdateValidator = [
   body("supplierId")
     .optional()
     .notEmpty()
@@ -64,15 +64,13 @@ body("items.*.quantity")
   body("purchaseDate")
     .optional()
     .isISO8601()
-    .withMessage(
-      "Purchase date must be a valid date"
-    ),
+    .withMessage("Purchase date must be a valid date"),
 
   body("items")
     .optional()
     .isArray({ min: 1 })
     .withMessage(
-      "Purchase must contain at least one item"
+      "Purchase must contain at least one item",
     ),
 
   body("items.*.productId")
@@ -84,18 +82,16 @@ body("items.*.quantity")
     .optional()
     .isFloat({ min: 0.01 })
     .withMessage(
-      "Quantity must be a valid number greater than 0"
+      "Quantity must be a valid number greater than 0",
     ),
 
-  body("items.*.actualUnitCost")
+  body("items.*.enteredUnitCost")
     .optional()
     .isFloat({ min: 0 })
     .withMessage(
-      "Actual unit cost must be a valid number greater than or equal to 0"
+      "Entered unit cost must be a valid number greater than or equal to 0",
     ),
 ];
-
-
 
 module.exports = {
   purchaseValidator,
