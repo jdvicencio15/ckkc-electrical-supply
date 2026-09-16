@@ -5,6 +5,11 @@ const SupplierPO = require("../models/SupplierPO");
 const Supplier = require("../models/Supplier");
 const ClientPO = require("../models/ClientPO");
 const Product = require("../models/Product");
+const Settings = require("../models/Settings");
+
+const {
+  generateSupplierPOPDF,
+} = require("../services/pdfService");
 
 const {
   checkReferenceExists,
@@ -17,6 +22,34 @@ const { resolveProductUnit } = require("../services/unitService");
 const {
   generateDocumentNumber,
 } = require("../services/documentNumberService");
+
+const exportSupplierPOPDF = async (req, res, next) => {
+  try {
+    const supplierPO = await SupplierPO.findById(req.params.id)
+      .populate("supplierId", "supplierCode name")
+      .populate("relatedClientPOId", "poNumber")
+      .populate("items.productId", "sku name")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName");
+
+    if (!supplierPO) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier PO not found",
+      });
+    }
+
+    const settings = await Settings.findOne();
+
+    generateSupplierPOPDF({
+      supplierPO,
+      settings,
+      res,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 const calculateSupplierPOTotal = (items) => {
   const totalAmount = items.reduce(
@@ -446,4 +479,5 @@ module.exports = {
   createSupplierPO,
   updateSupplierPO,
   deleteSupplierPO,
+  exportSupplierPOPDF,
 };

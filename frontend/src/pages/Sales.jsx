@@ -57,6 +57,7 @@ const [confirmLoading, setConfirmLoading] = useState(false);
     message: "",
   });
 
+  
   const canManageSales =
     user?.role === "owner" ||
     user?.role === "admin" ||

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { FaArrowLeft, FaFileInvoiceDollar } from "react-icons/fa";
 import { Link } from "react-router-dom";
@@ -5,8 +6,10 @@ import reportsApi from "../../api/reportsApi";
 import exportToCsv from "../../utils/exportCsv";
 import { useSettings } from "../../context/SettingsContext";
 import { formatCurrency } from "../../utils/currency";
+
 const IncomeStatement = () => {
-    const { settings } = useSettings();
+  const { settings } = useSettings();
+
   const [revenue, setRevenue] = useState([]);
   const [expenses, setExpenses] = useState([]);
 
@@ -55,101 +58,109 @@ const IncomeStatement = () => {
     fetchReport();
   }, []);
 
-const handleGenerateReport = () => {
-  const params = {};
+  const handleGenerateReport = () => {
+    const params = {};
 
-  if (startDate) {
-    params.startDate = startDate;
-  }
+    if (startDate) {
+      params.startDate = startDate;
+    }
 
-  if (endDate) {
-    params.endDate = endDate;
-  }
+    if (endDate) {
+      params.endDate = endDate;
+    }
 
-  fetchReport(params);
-};
+    fetchReport(params);
+  };
 
-const handleExportCsv = () => {
-  const headers = [
-    "Section",
-    "Account Code",
-    "Account",
-    "Amount",
-  ];
+  const handleExportCsv = () => {
+    const headers = [
+      "Section",
+      "Account Code",
+      "Account",
+      "Amount",
+    ];
 
-  const rows = [
-    // Revenue
-    ...revenue.map((account) => [
-      "Revenue",
-      account.accountCode,
-      account.accountName,
-      account.total,
-    ]),
+    const rows = [
+      // Revenue
+      ...revenue.map((account) => [
+        "Revenue",
+        account.accountCode,
+        account.accountName,
+        account.total,
+      ]),
 
-    // Total Revenue
-    ["Total Revenue", "", "", summary.totalRevenue],
+      // Total Revenue
+      ["Total Revenue", "", "", summary.totalRevenue],
 
-    // Expenses
-    ...expenses.map((account) => [
-      "Expense",
-      account.accountCode,
-      account.accountName,
-      account.total,
-    ]),
+      // Expenses
+      ...expenses.map((account) => [
+        "Expense",
+        account.accountCode,
+        account.accountName,
+        account.total,
+      ]),
 
-    // Total Expenses
-    ["Total Expenses", "", "", summary.totalExpenses],
+      // Total Expenses
+      ["Total Expenses", "", "", summary.totalExpenses],
 
-    // Net Income
-    ["Net Income", "", "", summary.netIncome],
-  ];
+      // Net Income
+      ["Net Income", "", "", summary.netIncome],
+    ];
 
-  exportToCsv("income-statement.csv", headers, rows);
-};
+    exportToCsv("income-statement.csv", headers, rows);
+  };
 
+  const formatDate = (date) =>
+    new Date(date).toLocaleDateString("en-PH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
 
   return (
     <div className="space-y-6">
-   {/* Header */}
-<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-  <div>
-    <Link
-      to="/reports"
-      className="mb-3 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-    >
-      <FaArrowLeft />
-      Back to Reports
-    </Link>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <Link
+            to="/reports"
+            className="mb-3 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          >
+            <FaArrowLeft />
+            Back to Reports
+          </Link>
 
-    <div className="flex items-center gap-3">
-      <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
-        <FaFileInvoiceDollar className="text-gray-700 dark:text-gray-200" />
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+              <FaFileInvoiceDollar className="text-gray-700 dark:text-gray-200" />
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Income Statement
+              </h1>
+
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Review revenue, expenses, and net income.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Export Button */}
+        <button
+          onClick={handleExportCsv}
+          disabled={loading}
+          className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          Export CSV
+        </button>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Income Statement
-        </h1>
-
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Review revenue, expenses, and net income.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  {/* Export Button */}
-  <button
-    onClick={handleExportCsv}
-    disabled={loading}
-    className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-  >
-    Export CSV
-  </button>
-</div>
       {/* Filters */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {/* Start Date */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Start Date
@@ -163,6 +174,7 @@ const handleExportCsv = () => {
             />
           </div>
 
+          {/* End Date */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               End Date
@@ -176,6 +188,7 @@ const handleExportCsv = () => {
             />
           </div>
 
+          {/* Generate */}
           <div className="flex items-end">
             <button
               onClick={handleGenerateReport}
@@ -197,33 +210,45 @@ const handleExportCsv = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* Revenue */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Total Revenue
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-           {formatCurrency(summary.totalRevenue, settings?.currency)}
+            {formatCurrency(
+              summary.totalRevenue,
+              settings?.currency
+            )}
           </p>
         </div>
 
+        {/* Expenses */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Total Expenses
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-           {formatCurrency(summary.totalExpenses, settings?.currency)}
+            {formatCurrency(
+              summary.totalExpenses,
+              settings?.currency
+            )}
           </p>
         </div>
 
+        {/* Net Income */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Net Income
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-           {formatCurrency(summary.netIncome, settings?.currency)}
+            {formatCurrency(
+              summary.netIncome,
+              settings?.currency
+            )}
           </p>
         </div>
       </div>
@@ -274,14 +299,23 @@ const handleExportCsv = () => {
                       </div>
 
                       <p className="font-medium text-gray-900 dark:text-white">
-                       {formatCurrency(account.total, settings?.currency)}
+                        {formatCurrency(
+                          account.total,
+                          settings?.currency
+                        )}
                       </p>
                     </div>
                   ))}
 
                   <div className="flex justify-between pt-2 font-bold text-gray-900 dark:text-white">
                     <span>Total Revenue</span>
-                    <span>{formatCurrency(summary.totalRevenue, settings?.currency)}</span>
+
+                    <span>
+                      {formatCurrency(
+                        summary.totalRevenue,
+                        settings?.currency
+                      )}
+                    </span>
                   </div>
                 </div>
               )}
@@ -315,14 +349,23 @@ const handleExportCsv = () => {
                       </div>
 
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(account.total)}
+                        {formatCurrency(
+                          account.total,
+                          settings?.currency
+                        )}
                       </p>
                     </div>
                   ))}
 
                   <div className="flex justify-between pt-2 font-bold text-gray-900 dark:text-white">
                     <span>Total Expenses</span>
-                    <span>{formatCurrency(summary.totalExpenses, settings?.currency)}</span>
+
+                    <span>
+                      {formatCurrency(
+                        summary.totalExpenses,
+                        settings?.currency
+                      )}
+                    </span>
                   </div>
                 </div>
               )}
@@ -336,7 +379,10 @@ const handleExportCsv = () => {
                 </span>
 
                 <span className="text-xl font-bold text-gray-900 dark:text-white">
-                 {formatCurrency(summary.netIncome, settings?.currency)}
+                  {formatCurrency(
+                    summary.netIncome,
+                    settings?.currency
+                  )}
                 </span>
               </div>
 

@@ -153,14 +153,11 @@ const getSalesReport = async (req, res, next) => {
       filter.saleDate = {};
 
       if (startDate) {
-        filter.saleDate.$gte = new Date(startDate);
+        filter.saleDate.$gte = new Date(`${startDate}T00:00:00.000Z`);
       }
 
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-
-        filter.saleDate.$lte = end;
+        filter.saleDate.$lte = new Date(`${endDate}T23:59:59.999Z`);
       }
     }
 
@@ -170,30 +167,35 @@ const getSalesReport = async (req, res, next) => {
         select: "name",
       })
       .select(
-  "salesNumber customerId saleDate status subtotal taxRate taxAmount pricingMode netAmount totalAmount totalCost totalProfit"
-)
+        "salesNumber customerId saleDate status subtotal taxRate taxAmount pricingMode netAmount totalAmount totalCost totalProfit"
+      )
       .sort({ saleDate: -1 });
 
- const summary = sales.reduce(
-  (acc, sale) => {
-    acc.totalSales += sale.subtotal || 0;
-    acc.totalTax += sale.taxAmount || 0;
-    acc.totalNetSales += sale.netAmount || 0;
-    acc.totalAmount += sale.totalAmount || 0;
-    acc.totalCost += sale.totalCost || 0;
-    acc.totalProfit += sale.totalProfit || 0;
+    const summary = sales.reduce(
+      (acc, sale) => {
+        acc.totalSales += Number(sale.netAmount || 0);
+        acc.totalTax += Number(sale.taxAmount || 0);
+        acc.totalAmount += Number(sale.totalAmount || 0);
+        acc.totalCost += Number(sale.totalCost || 0);
+        acc.totalProfit += Number(sale.totalProfit || 0);
 
-    return acc;
-  },
-  {
-    totalSales: 0,
-    totalTax: 0,
-    totalNetSales: 0,
-    totalAmount: 0,
-    totalCost: 0,
-    totalProfit: 0,
-  }
-);
+        return acc;
+      },
+      {
+        totalSales: 0,
+        totalTax: 0,
+        totalAmount: 0,
+        totalCost: 0,
+        totalProfit: 0,
+      }
+    );
+
+    // Round all monetary summary values
+    summary.totalSales = roundMoney(summary.totalSales);
+    summary.totalTax = roundMoney(summary.totalTax);
+    summary.totalAmount = roundMoney(summary.totalAmount);
+    summary.totalCost = roundMoney(summary.totalCost);
+    summary.totalProfit = roundMoney(summary.totalProfit);
 
     res.status(200).json({
       success: true,
@@ -234,25 +236,29 @@ const getPurchasesReport = async (req, res, next) => {
     }
 
     const purchases = await Purchase.find(filter)
-      .populate({
-        path: "supplierId",
-        select: "name",
-      })
-      .select(
-        "purchaseNumber supplierId purchaseDate status totalAmount"
-      )
-      .sort({ purchaseDate: -1 });
+  .populate({
+    path: "supplierId",
+    select: "name",
+  })
+  .select(
+    "purchaseNumber supplierId purchaseDate status netAmount taxRate taxAmount pricingMode totalAmount"
+  )
+  .sort({ purchaseDate: -1 });
 
-    const summary = purchases.reduce(
-      (acc, purchase) => {
-        acc.totalPurchases += purchase.totalAmount || 0;
+const summary = purchases.reduce(
+  (acc, purchase) => {
+    acc.totalNetPurchases += Number(purchase.netAmount || 0);
+    acc.totalInputVat += Number(purchase.taxAmount || 0);
+    acc.totalPurchases += Number(purchase.totalAmount || 0);
 
-        return acc;
-      },
-      {
-        totalPurchases: 0,
-      }
-    );
+    return acc;
+  },
+  {
+    totalNetPurchases: 0,
+    totalInputVat: 0,
+    totalPurchases: 0,
+  }
+);
 
     res.status(200).json({
       success: true,
@@ -366,7 +372,9 @@ const getExpenseReport = async (req, res, next) => {
           return;
         }
 
-        const amount = Number(line.debit || 0) - Number(line.credit || 0);
+        const debit = Number(line.debit || 0);
+        const credit = Number(line.credit || 0);
+        const amount = roundMoney(debit - credit);
 
         if (amount === 0) {
           return;
@@ -393,8 +401,8 @@ const getExpenseReport = async (req, res, next) => {
           accountId: account._id,
           accountCode: account.accountCode,
           accountName: account.accountName,
-          debit: Number(line.debit || 0),
-          credit: Number(line.credit || 0),
+          debit,
+          credit,
           amount,
         });
       });
@@ -403,13 +411,15 @@ const getExpenseReport = async (req, res, next) => {
     const breakdown = Array.from(expenseMap.values())
       .map((expense) => ({
         ...expense,
-        total: Number(expense.total.toFixed(2)),
+        total: roundMoney(expense.total),
       }))
       .sort((a, b) => b.total - a.total);
 
-    const totalExpenses = breakdown.reduce(
-      (sum, expense) => sum + expense.total,
-      0
+    const totalExpenses = roundMoney(
+      breakdown.reduce(
+        (sum, expense) => sum + expense.total,
+        0
+      )
     );
 
     res.status(200).json({
@@ -418,7 +428,7 @@ const getExpenseReport = async (req, res, next) => {
         transactions,
         breakdown,
         summary: {
-          totalExpenses: Number(totalExpenses.toFixed(2)),
+          totalExpenses,
           transactionCount: transactions.length,
           accountCount: breakdown.length,
         },

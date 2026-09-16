@@ -6,10 +6,11 @@ import { formatCurrency } from "../../utils/currency";
 const createEmptyItem = () => ({
   productId: "",
   quantity: "",
-  actualUnitCost: "",
+  enteredUnitCost: "",
 });
 
 const initialForm = {
+  purchaseNumber: "",
   supplierId: "",
   supplierPOId: "",
   relatedClientPOId: "",
@@ -27,7 +28,6 @@ function PurchaseForm({
   onCancel,
   submitting,
 }) {
-
   const { settings } = useSettings();
 
   const [formData, setFormData] = useState(initialForm);
@@ -35,12 +35,11 @@ function PurchaseForm({
   useEffect(() => {
     if (purchase) {
       setFormData({
+        purchaseNumber: purchase.purchaseNumber || "",
         supplierId: purchase.supplierId?._id || purchase.supplierId || "",
         supplierPOId: purchase.supplierPOId?._id || purchase.supplierPOId || "",
         relatedClientPOId:
-          purchase.relatedClientPOId?._id ||
-          purchase.relatedClientPOId ||
-          "",
+          purchase.relatedClientPOId?._id || purchase.relatedClientPOId || "",
         purchaseDate: purchase.purchaseDate
           ? new Date(purchase.purchaseDate).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
@@ -49,7 +48,8 @@ function PurchaseForm({
             ? purchase.items.map((item) => ({
                 productId: item.productId?._id || item.productId || "",
                 quantity: item.quantity ?? "",
-                actualUnitCost: item.actualUnitCost ?? "",
+                enteredUnitCost:
+                  item.enteredUnitCost ?? item.actualUnitCost ?? "",
               }))
             : [createEmptyItem()],
       });
@@ -95,20 +95,54 @@ function PurchaseForm({
 
     setFormData((current) => ({
       ...current,
-      items: current.items.filter(
-        (_, itemIndex) => itemIndex !== index,
-      ),
+      items: current.items.filter((_, itemIndex) => itemIndex !== index),
     }));
   };
 
-  const totalAmount = useMemo(() => {
-    return formData.items.reduce((total, item) => {
-      const quantity = Number(item.quantity) || 0;
-      const unitCost = Number(item.actualUnitCost) || 0;
+  const totals = useMemo(() => {
+    const subtotal = formData.items.reduce(
+      (total, item) =>
+        total + Number(item.quantity || 0) * Number(item.enteredUnitCost || 0),
+      0,
+    );
 
-      return total + quantity * unitCost;
-    }, 0);
-  }, [formData.items]);
+    const vatEnabled = settings?.accountingTax?.vatEnabled === true;
+
+    const vatRate = vatEnabled
+      ? Number(settings?.accountingTax?.vatRate || 0)
+      : 0;
+
+    const pricingMode =
+      settings?.accountingTax?.pricingMode === "inclusive"
+        ? "inclusive"
+        : "exclusive";
+
+    let netAmount = subtotal;
+    let taxAmount = 0;
+    let totalAmount = subtotal;
+
+    if (vatEnabled && vatRate > 0) {
+      if (pricingMode === "inclusive") {
+        netAmount = subtotal / (1 + vatRate / 100);
+        taxAmount = subtotal - netAmount;
+        totalAmount = subtotal;
+      } else {
+        netAmount = subtotal;
+        taxAmount = subtotal * (vatRate / 100);
+        totalAmount = subtotal + taxAmount;
+      }
+    }
+
+    return {
+      subtotal,
+      netAmount,
+      taxAmount,
+      totalAmount,
+      vatRate,
+      vatEnabled,
+      pricingMode,
+    };
+  }, [formData.items, settings]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -121,7 +155,7 @@ function PurchaseForm({
       items: formData.items.map((item) => ({
         productId: item.productId,
         quantity: Number(item.quantity),
-        actualUnitCost: Number(item.actualUnitCost),
+        enteredUnitCost: Number(item.enteredUnitCost),
       })),
     };
 
@@ -133,28 +167,26 @@ function PurchaseForm({
       {/* Purchase Information */}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-    Purchase Number
-  </label>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Purchase Number
+          </label>
 
-  <input
-    type="text"
-    value={
-      purchase
-        ? formData.purchaseNumber
-        : "Auto-generated on save"
-    }
-    readOnly
-    disabled={submitting}
-    className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-  />
+          <input
+            type="text"
+            value={
+              purchase ? formData.purchaseNumber : "Auto-generated on save"
+            }
+            readOnly
+            disabled={submitting}
+            className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+          />
 
-  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-    {purchase
-      ? "Document number cannot be changed."
-      : "The purchase number will be generated automatically."}
-  </p>
-</div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {purchase
+              ? "Document number cannot be changed."
+              : "The purchase number will be generated automatically."}
+          </p>
+        </div>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -263,7 +295,7 @@ function PurchaseForm({
         <div className="space-y-3">
           {formData.items.map((item, index) => {
             const quantity = Number(item.quantity) || 0;
-            const unitCost = Number(item.actualUnitCost) || 0;
+            const unitCost = Number(item.enteredUnitCost) || 0;
             const itemTotal = quantity * unitCost;
 
             return (
@@ -280,11 +312,7 @@ function PurchaseForm({
                     <select
                       value={item.productId}
                       onChange={(event) =>
-                        handleItemChange(
-                          index,
-                          "productId",
-                          event.target.value,
-                        )
+                        handleItemChange(index, "productId", event.target.value)
                       }
                       required
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -310,11 +338,7 @@ function PurchaseForm({
                       step="0.01"
                       value={item.quantity}
                       onChange={(event) =>
-                        handleItemChange(
-                          index,
-                          "quantity",
-                          event.target.value,
-                        )
+                        handleItemChange(index, "quantity", event.target.value)
                       }
                       required
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
@@ -323,18 +347,18 @@ function PurchaseForm({
 
                   <div className="md:col-span-2">
                     <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                      Actual Unit Cost
+                      Unit Cost
                     </label>
 
                     <input
                       type="number"
                       min="0"
                       step="0.01"
-                      value={item.actualUnitCost}
+                      value={item.enteredUnitCost}
                       onChange={(event) =>
                         handleItemChange(
                           index,
-                          "actualUnitCost",
+                          "enteredUnitCost",
                           event.target.value,
                         )
                       }
@@ -348,12 +372,9 @@ function PurchaseForm({
                       Total Cost
                     </label>
 
-                   <div className="flex h-[42px] items-center rounded-lg bg-slate-50 px-3 text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
-  {formatCurrency(
-    itemTotal,
-    settings?.currency
-  )}
-</div>
+                    <div className="flex h-[42px] items-center rounded-lg bg-slate-50 px-3 text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
+                      {formatCurrency(itemTotal, settings?.currency)}
+                    </div>
                   </div>
 
                   <div className="flex items-end justify-end md:col-span-1">
@@ -376,18 +397,51 @@ function PurchaseForm({
 
       {/* Total */}
       <div className="flex justify-end">
-        <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-5 md:w-80 dark:border-slate-700 dark:bg-slate-800">
+        <div className="w-full space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-5 md:w-96 dark:border-slate-700 dark:bg-slate-800">
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-500 dark:text-slate-400">
-              Total Amount
+              Subtotal
             </span>
 
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
-  {formatCurrency(
-    totalAmount,
-    settings?.currency
-  )}
-</span>
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {formatCurrency(totals.subtotal, settings?.currency)}
+            </span>
+          </div>
+
+          {totals.vatEnabled && totals.vatRate > 0 && (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  Input VAT ({totals.vatRate}%)
+                </span>
+
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {formatCurrency(totals.taxAmount, settings?.currency)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  Net Purchase
+                </span>
+
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {formatCurrency(totals.netAmount, settings?.currency)}
+                </span>
+              </div>
+            </>
+          )}
+
+          <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Total Amount
+              </span>
+
+              <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {formatCurrency(totals.totalAmount, settings?.currency)}
+              </span>
+            </div>
           </div>
         </div>
       </div>

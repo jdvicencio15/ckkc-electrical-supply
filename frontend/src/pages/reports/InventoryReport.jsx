@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { FaArrowLeft, FaBoxes } from "react-icons/fa";
 import { Link } from "react-router-dom";
@@ -24,24 +25,16 @@ function InventoryReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const formatDate = (date) => {
-    if (!date) {
-      return "—";
-    }
-
-    return new Date(date).toLocaleDateString("en-PH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   const loadInventoryReport = async () => {
     try {
       setLoading(true);
       setError("");
 
       const response = await reportsApi.getInventoryReport();
+
+      if (!response?.success) {
+        throw new Error("Failed to load inventory report.");
+      }
 
       setProducts(response.data?.products || []);
       setMovements(response.data?.movements || []);
@@ -58,7 +51,9 @@ function InventoryReport() {
       console.error("Failed to load inventory report:", err);
 
       setError(
-        err.response?.data?.message || "Failed to load inventory report.",
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to load inventory report.",
       );
     } finally {
       setLoading(false);
@@ -69,12 +64,39 @@ function InventoryReport() {
     loadInventoryReport();
   }, []);
 
+  const formatDate = (date) => {
+    if (!date) {
+      return "—";
+    }
+
+    return new Date(date).toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getProductUnit = (product) =>
+    product.unitId?.code ||
+    product.unitId?.name ||
+    product.unit ||
+    "—";
+
+  const getMovementUnit = (movement) =>
+    movement.productId?.unitId?.code ||
+    movement.productId?.unitId?.name ||
+    movement.productId?.unit ||
+    "—";
+
   const getStockStatus = (product) => {
-    if ((product.currentStock || 0) === 0) {
+    const currentStock = Number(product.currentStock || 0);
+    const minimumStock = Number(product.minimumStock || 0);
+
+    if (currentStock === 0) {
       return "out";
     }
 
-    if ((product.currentStock || 0) <= (product.minimumStock || 0)) {
+    if (currentStock <= minimumStock) {
       return "low";
     }
 
@@ -115,22 +137,16 @@ function InventoryReport() {
       const currentStock = Number(product.currentStock || 0);
       const minimumStock = Number(product.minimumStock || 0);
 
-      let status = "In Stock";
-
-      if (currentStock === 0) {
-        status = "Out of Stock";
-      } else if (currentStock <= minimumStock) {
-        status = "Low Stock";
-      }
+      const stockStatus = getStockStatus(product);
 
       return [
-        product.sku,
-        product.name,
+        product.sku || "",
+        product.name || "",
         product.categoryId?.name || "Uncategorized",
-        product.unit,
+        getProductUnit(product),
         currentStock,
         minimumStock,
-        status,
+        statusLabels[stockStatus],
       ];
     });
 
@@ -259,21 +275,15 @@ function InventoryReport() {
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                 <tr>
                   <th className="px-6 py-3 font-semibold">SKU</th>
-
                   <th className="px-6 py-3 font-semibold">Product</th>
-
                   <th className="px-6 py-3 font-semibold">Category</th>
-
                   <th className="px-6 py-3 font-semibold">Unit</th>
-
                   <th className="px-6 py-3 text-right font-semibold">
                     Current Stock
                   </th>
-
                   <th className="px-6 py-3 text-right font-semibold">
                     Minimum Stock
                   </th>
-
                   <th className="px-6 py-3 font-semibold">Status</th>
                 </tr>
               </thead>
@@ -288,11 +298,11 @@ function InventoryReport() {
                       className="border-t border-slate-100 dark:border-slate-800"
                     >
                       <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-                        {product.sku}
+                        {product.sku || "—"}
                       </td>
 
                       <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                        {product.name}
+                        {product.name || "—"}
                       </td>
 
                       <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
@@ -300,15 +310,15 @@ function InventoryReport() {
                       </td>
 
                       <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                        {product.unit}
+                        {getProductUnit(product)}
                       </td>
 
                       <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
-                        {product.currentStock}
+                        {Number(product.currentStock || 0)}
                       </td>
 
                       <td className="px-6 py-4 text-right text-slate-500 dark:text-slate-400">
-                        {product.minimumStock}
+                        {Number(product.minimumStock || 0)}
                       </td>
 
                       <td className="px-6 py-4">
@@ -357,21 +367,15 @@ function InventoryReport() {
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                 <tr>
                   <th className="px-6 py-3 font-semibold">Date</th>
-
                   <th className="px-6 py-3 font-semibold">Product</th>
-
                   <th className="px-6 py-3 font-semibold">Type</th>
-
                   <th className="px-6 py-3 text-right font-semibold">
                     Quantity
                   </th>
-
                   <th className="px-6 py-3 text-right font-semibold">
                     Unit Cost
                   </th>
-
                   <th className="px-6 py-3 font-semibold">Reference</th>
-
                   <th className="px-6 py-3 font-semibold">Notes</th>
                 </tr>
               </thead>
@@ -402,23 +406,27 @@ function InventoryReport() {
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                           movementStyles[movement.type] ||
-                          "bg-slate-100 text-slate-700"
+                          "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                         }`}
                       >
-                        {movement.type}
+                        {movement.type || "—"}
                       </span>
                     </td>
 
                     <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
-                      {movement.quantity} {movement.productId?.unit || ""}
+                      {Number(movement.quantity || 0)}{" "}
+                      {getMovementUnit(movement)}
                     </td>
 
                     <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">
-                      {formatCurrency(movement.unitCost, settings?.currency)}
+                      {formatCurrency(
+                        Number(movement.unitCost || 0),
+                        settings?.currency,
+                      )}
                     </td>
 
                     <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                      {movement.referenceType}
+                      {movement.referenceType || "—"}
                     </td>
 
                     <td className="max-w-[250px] px-6 py-4 text-slate-500 dark:text-slate-400">
@@ -445,3 +453,4 @@ function InventoryReport() {
 }
 
 export default InventoryReport;
+

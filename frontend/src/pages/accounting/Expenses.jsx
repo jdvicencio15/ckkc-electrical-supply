@@ -532,18 +532,19 @@ function Expenses() {
               </p>
             </div>
 
-            <ExpenseForm
-              expense={editingExpense}
-              accounts={accounts}
-              references={references}
-              onSubmit={
-                editingExpense
-                  ? handleUpdate
-                  : handleCreate
-              }
-              onCancel={closeForm}
-              loading={formLoading}
-            />
+           <ExpenseForm
+  expense={editingExpense}
+  accounts={accounts}
+  references={references}
+  onSubmit={
+    editingExpense
+      ? handleUpdate
+      : handleCreate
+  }
+  onCancel={closeForm}
+  settings={settings}
+  loading={formLoading}
+/>
           </div>
         )}
 

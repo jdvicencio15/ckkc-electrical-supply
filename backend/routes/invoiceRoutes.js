@@ -7,6 +7,7 @@ const {
   getInvoiceById,
   updateInvoice,
   deleteInvoice,
+  exportInvoicePDF,
 } = require("../controllers/invoiceController");
 
 const authorize = require("../middleware/authorize");
@@ -56,6 +57,15 @@ router.get(
   ),
   getInvoiceById
 );
+
+//pdf
+router.get(
+  "/:id/pdf",
+  protect,
+  authorize("owner", "admin", "sales", "accounting"),
+  exportInvoicePDF,
+);
+
 
 // UPDATE
 router.put(

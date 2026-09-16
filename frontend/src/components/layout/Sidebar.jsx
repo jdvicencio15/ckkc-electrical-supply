@@ -21,6 +21,7 @@ import {
   FaRuler,
   FaCoins,
   FaReceipt,
+  FaClipboardList,
 } from "react-icons/fa";
 
 import { useAuth } from "../../context/AuthContext";
@@ -36,48 +37,113 @@ const navigation = [
     icon: FaTachometerAlt,
     module: "dashboard",
   },
-  {
-    label: "Products",
-    path: "/products",
-    icon: FaBox,
-    module: "products",
-  },
-  {
-    label: "Units",
-    path: "/units",
-    icon: FaRuler,
-    module: "units",
-  },
-  {
-    label: "Categories",
-    path: "/categories",
-    icon: FaTags,
-    module: "categories",
-  },
+
+  // =========================
+  // SALES
+  // =========================
   {
     label: "Sales",
     path: "/sales",
     icon: FaShoppingCart,
     module: "sales",
+    children: [
+      {
+        label: "Quotations",
+        path: "/quotations",
+        module: "quotations",
+      },
+      {
+        label: "Client POs",
+        path: "/client-pos",
+        module: "clientPO",
+      },
+      {
+        label: "Sales",
+        path: "/sales",
+        module: "sales",
+      },
+      {
+        label: "Invoices",
+        path: "/invoices",
+        module: "invoices",
+      },
+      {
+        label: "Payments",
+        path: "/payments",
+        module: "payments",
+      },
+    ],
   },
+
+  // =========================
+  // PURCHASING
+  // =========================
   {
-    label: "Purchases",
+    label: "Purchasing",
     path: "/purchases",
     icon: FaTruck,
     module: "purchases",
+    children: [
+      {
+        label: "Supplier Pricing",
+        path: "/supplier-pricing",
+        module: "supplierPricing",
+      },
+      {
+        label: "Supplier POs",
+        path: "/supplier-pos",
+        module: "supplierPO",
+      },
+      {
+        label: "Purchases",
+        path: "/purchases",
+        module: "purchases",
+      },
+    ],
   },
+
+  // =========================
+  // INVENTORY
+  // =========================
   {
     label: "Inventory",
     path: "/inventory",
     icon: FaWarehouse,
     module: "inventory",
+    children: [
+      {
+        label: "Products",
+        path: "/products",
+        module: "products",
+      },
+      {
+        label: "Categories",
+        path: "/categories",
+        module: "categories",
+      },
+      {
+        label: "Units",
+        path: "/units",
+        module: "units",
+      },
+      {
+        label: "Inventory",
+        path: "/inventory",
+        module: "inventory",
+      },
+    ],
   },
+
+  // =========================
+  // MASTER DATA
+  // =========================
   {
     label: "Customers",
     path: "/customers",
     icon: FaUsers,
     module: "customers",
   },
+
   {
     label: "Suppliers",
     path: "/suppliers",
@@ -85,33 +151,9 @@ const navigation = [
     module: "suppliers",
   },
 
-  {
-  label: "Supplier Pricing",
-  path: "/supplier-pricing",
-  icon: FaCoins,
-  module: "supplierPricing",
-  },
-
-  {
-    label: "Quotations",
-    path: "/quotations",
-    icon: FaFileAlt,
-    module: "quotations",
-  },
-  {
-    label: "Invoices",
-    path: "/invoices",
-    icon: FaFileInvoice,
-    module: "invoices",
-  },
-  {
-    label: "Payments",
-    path: "/payments",
-    icon: FaMoneyBillWave,
-    module: "payments",
-  },
-
-
+  // =========================
+  // ACCOUNTING
+  // =========================
   {
     label: "Accounting",
     path: "/accounting",
@@ -121,52 +163,76 @@ const navigation = [
       {
         label: "Dashboard",
         path: "/accounting",
+        module: "accounting",
       },
       {
         label: "Chart of Accounts",
         path: "/accounting/chart-of-accounts",
+        module: "accounting",
       },
       {
         label: "Journal Entries",
         path: "/accounting/journal-entries",
+        module: "accounting",
       },
       {
         label: "General Ledger",
         path: "/accounting/general-ledger",
+        module: "accounting",
       },
       {
         label: "Trial Balance",
         path: "/accounting/trial-balance",
+        module: "accounting",
       },
       {
-      label: "Expenses",
-      path: "/accounting/expenses",
-    },
+        label: "Expenses",
+        path: "/accounting/expenses",
+        module: "accounting",
+      },
     ],
   },
+
+  // =========================
+  // REPORTS
+  // =========================
   {
     label: "Reports",
     path: "/reports",
     icon: FaChartBar,
     module: "reports",
   },
+
+  // =========================
+  // ADMINISTRATION
+  // =========================
   {
-    label: "Users",
-    path: "/users",
+    label: "Administration",
+    path: "/admin",
     icon: FaUserCog,
-    module: "users",
-  },
-  {
-    label: "Roles & Permissions",
-    path: "/roles-permissions",
-    icon: FaUserShield,
-    module: "rolesPermissions",
-  },
-  {
-    label: "Settings",
-    path: "/settings",
-    icon: FaCog,
-    module: "settings",
+    module: "administration",
+    children: [
+      {
+        label: "Users",
+        path: "/users",
+        module: "users",
+      },
+      {
+        label: "Roles & Permissions",
+        path: "/roles-permissions",
+        module: "rolesPermissions",
+      },
+      {
+        label: "Audit Trails",
+        path: "/audit-trails",
+        module: "auditTrails",
+      },
+      {
+        label: "Settings",
+        path: "/settings",
+        module: "settings",
+      },
+    ],
   },
 ];
 
@@ -177,8 +243,32 @@ function Sidebar() {
   const logoUrl = settings?.appearance?.logo?.url;
 
   const [openMenus, setOpenMenus] = useState({
-    Accounting: location.pathname.startsWith("/accounting"),
-  });
+  Sales:
+    location.pathname.startsWith("/quotations") ||
+    location.pathname.startsWith("/client-pos") ||
+    location.pathname.startsWith("/sales") ||
+    location.pathname.startsWith("/invoices") ||
+    location.pathname.startsWith("/payments"),
+
+  Purchasing:
+    location.pathname.startsWith("/supplier-pricing") ||
+    location.pathname.startsWith("/supplier-pos") ||
+    location.pathname.startsWith("/purchases"),
+
+  Inventory:
+    location.pathname.startsWith("/products") ||
+    location.pathname.startsWith("/categories") ||
+    location.pathname.startsWith("/units") ||
+    location.pathname.startsWith("/inventory"),
+
+  Accounting: location.pathname.startsWith("/accounting"),
+
+  Administration:
+    location.pathname.startsWith("/users") ||
+    location.pathname.startsWith("/roles-permissions") ||
+    location.pathname.startsWith("/audit-trails") ||
+    location.pathname.startsWith("/settings"),
+});
 
   const [todaySummary, setTodaySummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -215,9 +305,31 @@ function Sidebar() {
     return null;
   }
 
-  const filteredNavigation = navigation.filter((item) => {
-    return hasPermission(user?.role, item.module, "view");
-  });
+ const filteredNavigation = navigation
+  .map((item) => {
+    if (!item.children) {
+      return hasPermission(user?.role, item.module, "view")
+        ? item
+        : null;
+    }
+
+    const allowedChildren = item.children.filter((child) =>
+      hasPermission(user?.role, child.module, "view")
+    );
+
+    if (
+      !hasPermission(user?.role, item.module, "view") &&
+      allowedChildren.length === 0
+    ) {
+      return null;
+    }
+
+    return {
+      ...item,
+      children: allowedChildren,
+    };
+  })
+  .filter(Boolean);
 
   const getSummaryItems = () => {
     if (!todaySummary) return [];
@@ -331,7 +443,9 @@ function Sidebar() {
           // Parent Menu
           // =========================
           if (hasChildren) {
-            const isParentActive = location.pathname.startsWith(item.path);
+            const isParentActive = item.children?.some((child) =>
+  location.pathname.startsWith(child.path)
+);
 
             const isOpen = openMenus[item.label];
 

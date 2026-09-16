@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { FaArrowLeft, FaReceipt } from "react-icons/fa";
 import { Link } from "react-router-dom";
@@ -11,8 +12,10 @@ const ExpenseReport = () => {
 
   const [transactions, setTransactions] = useState([]);
   const [breakdown, setBreakdown] = useState([]);
+
   const [summary, setSummary] = useState({
     totalExpenses: 0,
+    totalInputVat: 0,
     transactionCount: 0,
     accountCount: 0,
   });
@@ -33,9 +36,11 @@ const ExpenseReport = () => {
       if (response.success) {
         setTransactions(response.data.transactions || []);
         setBreakdown(response.data.breakdown || []);
+
         setSummary(
           response.data.summary || {
             totalExpenses: 0,
+            totalInputVat: 0,
             transactionCount: 0,
             accountCount: 0,
           }
@@ -43,7 +48,8 @@ const ExpenseReport = () => {
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || "Failed to load expense report."
+        err.response?.data?.message ||
+          "Failed to load expense report."
       );
     } finally {
       setLoading(false);
@@ -68,8 +74,6 @@ const ExpenseReport = () => {
     fetchReport(params);
   };
 
-
-
   const formatDate = (date) =>
     new Date(date).toLocaleDateString("en-PH", {
       month: "short",
@@ -77,74 +81,73 @@ const ExpenseReport = () => {
       year: "numeric",
     });
 
-
   const handleExportCsv = () => {
-  const headers = [
-    "Date",
-    "Reference",
-    "Account Code",
-    "Account",
-    "Description",
-    "Debit",
-    "Credit",
-    "Amount",
-  ];
+    const headers = [
+      "Date",
+      "Reference",
+      "Account Code",
+      "Account",
+      "Description",
+      "Debit",
+      "Credit",
+      "Amount",
+    ];
 
-  const rows = transactions.map((transaction) => [
-    new Date(transaction.date).toLocaleDateString("en-PH"),
-    transaction.reference || "",
-    transaction.accountCode,
-    transaction.accountName,
-    transaction.description || "",
-    transaction.debit,
-    transaction.credit,
-    transaction.amount,
-  ]);
+    const rows = transactions.map((transaction) => [
+      new Date(transaction.date).toLocaleDateString("en-PH"),
+      transaction.reference || "",
+      transaction.accountCode,
+      transaction.accountName,
+      transaction.description || "",
+      transaction.debit,
+      transaction.credit,
+      transaction.amount,
+    ]);
 
-  exportToCsv("expense-report.csv", headers, rows);
+    exportToCsv("expense-report.csv", headers, rows);
   };
 
   return (
     <div className="space-y-6">
-  {/* Header */}
-<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-  <div>
-    <div className="mb-3">
-      <Link
-        to="/reports"
-        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400"
-      >
-        <FaArrowLeft className="h-3 w-3" />
-        Back to Reports
-      </Link>
-    </div>
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="mb-3">
+            <Link
+              to="/reports"
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400"
+            >
+              <FaArrowLeft className="h-3 w-3" />
+              Back to Reports
+            </Link>
+          </div>
 
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400">
-        <FaReceipt className="h-4 w-4" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400">
+              <FaReceipt className="h-4 w-4" />
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                Expense Report
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Review expenses recorded through journal entries.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Export Button */}
+        <button
+          onClick={handleExportCsv}
+          disabled={loading || transactions.length === 0}
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          Export CSV
+        </button>
       </div>
-
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Expense Report
-        </h1>
-
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Review expenses recorded through journal entries.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  {/* Export Button */}
-  <button
-    onClick={handleExportCsv}
-    disabled={loading || transactions.length === 0}
-    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-  >
-    Export CSV
-  </button>
-</div>
 
       {/* Filters */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -195,17 +198,36 @@ const ExpenseReport = () => {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total Expenses */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Total Expenses
           </p>
 
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-         {formatCurrency(summary.totalExpenses, settings?.currency)}
+            {formatCurrency(
+              summary.totalExpenses,
+              settings?.currency
+            )}
           </p>
         </div>
 
+        {/* Input VAT */}
+        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Input VAT
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {formatCurrency(
+              summary.totalInputVat,
+              settings?.currency
+            )}
+          </p>
+        </div>
+
+        {/* Transactions */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Transactions
@@ -216,6 +238,7 @@ const ExpenseReport = () => {
           </p>
         </div>
 
+        {/* Expense Accounts */}
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Expense Accounts
@@ -279,7 +302,10 @@ const ExpenseReport = () => {
                     </td>
 
                     <td className="px-5 py-4 text-right font-semibold text-gray-900 dark:text-white">
-                     {formatCurrency(expense.total, settings?.currency)}
+                      {formatCurrency(
+                        expense.total,
+                        settings?.currency
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -292,7 +318,10 @@ const ExpenseReport = () => {
                   </td>
 
                   <td className="px-5 py-4 text-right font-bold text-gray-900 dark:text-white">
-                   {formatCurrency(summary.totalExpenses, settings?.currency)}
+                    {formatCurrency(
+                      summary.totalExpenses,
+                      settings?.currency
+                    )}
                   </td>
                 </tr>
               </tfoot>
@@ -385,15 +414,24 @@ const ExpenseReport = () => {
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-gray-700 dark:text-gray-300">
-                     {formatCurrency(transaction.debit, settings?.currency)}
+                      {formatCurrency(
+                        transaction.debit,
+                        settings?.currency
+                      )}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right text-gray-700 dark:text-gray-300">
-                   {formatCurrency(transaction.credit, settings?.currency)}
+                      {formatCurrency(
+                        transaction.credit,
+                        settings?.currency
+                      )}
                     </td>
 
                     <td className="whitespace-nowrap px-5 py-4 text-right font-semibold text-gray-900 dark:text-white">
-                     {formatCurrency(transaction.amount, settings?.currency)}
+                      {formatCurrency(
+                        transaction.amount,
+                        settings?.currency
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -409,7 +447,10 @@ const ExpenseReport = () => {
                   </td>
 
                   <td className="px-5 py-4 text-right font-bold text-gray-900 dark:text-white">
-                {formatCurrency(summary.totalExpenses, settings?.currency)}
+                    {formatCurrency(
+                      summary.totalExpenses,
+                      settings?.currency
+                    )}
                   </td>
                 </tr>
               </tfoot>

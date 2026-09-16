@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const {
@@ -7,10 +8,10 @@ const {
   getQuotationById,
   updateQuotation,
   deleteQuotation,
+  exportQuotationPDF,
 } = require("../controllers/quotationController");
 
 const authorize = require("../middleware/authorize");
-
 const protect = require("../middleware/authMiddleware");
 
 const {
@@ -20,48 +21,86 @@ const {
 
 const validationMiddleware = require("../middleware/validationMiddleware");
 
+// =========================
 // CREATE
+// =========================
+
 router.post(
   "/",
   protect,
   authorize("owner", "admin", "sales"),
   quotationValidator,
   validationMiddleware,
-  createQuotation
+  createQuotation,
 );
 
+// =========================
 // READ ALL
+// =========================
+
 router.get(
   "/",
   protect,
-  authorize("owner", "admin", "sales", "purchasing", "accounting"),
-  getQuotations
+  authorize(
+    "owner",
+    "admin",
+    "sales",
+    "purchasing",
+    "accounting",
+  ),
+  getQuotations,
 );
 
+// =========================
+// EXPORT PDF
+// =========================
+
+router.get(
+  "/:id/pdf",
+  protect,
+  authorize("owner", "admin", "sales"),
+  exportQuotationPDF,
+);
+
+// =========================
 // READ SINGLE
+// =========================
+
 router.get(
   "/:id",
   protect,
-  authorize("owner", "admin", "sales", "purchasing", "accounting"),
-  getQuotationById
+  authorize(
+    "owner",
+    "admin",
+    "sales",
+    "purchasing",
+    "accounting",
+  ),
+  getQuotationById,
 );
 
+// =========================
 // UPDATE
+// =========================
+
 router.put(
   "/:id",
   protect,
   authorize("owner", "admin", "sales"),
   quotationUpdateValidator,
   validationMiddleware,
-  updateQuotation
+  updateQuotation,
 );
 
+// =========================
 // DELETE
+// =========================
+
 router.delete(
   "/:id",
   protect,
   authorize("owner", "admin", "sales"),
-  deleteQuotation
+  deleteQuotation,
 );
 
 module.exports = router;

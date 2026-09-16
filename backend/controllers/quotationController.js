@@ -4,6 +4,10 @@ const Product = require("../models/Product");
 const Supplier = require("../models/Supplier");
 const Settings = require("../models/Settings");
 
+const {
+  generateQuotationPDF,
+} = require("../services/pdfService");
+
 const { resolveProductCost } = require("../services/pricingService");
 
 const { resolveProductUnit } = require("../services/unitService");
@@ -610,10 +614,49 @@ const deleteQuotation = async (req, res, next) => {
   }
 };
 
+
+
+// EXPORT QUOTATION PDF
+const exportQuotationPDF = async (req, res, next) => {
+  try {
+    const quotation = await Quotation.findById(req.params.id)
+      .populate("customerId", "customerCode name")
+      .populate("createdBy", "firstName lastName email")
+      .populate("items.productId", "sku name")
+      .populate("items.unitId", "code name");
+
+    if (!quotation) {
+      return res.status(404).json({
+        success: false,
+        message: "Quotation not found",
+      });
+    }
+
+    const settings = await Settings.findOne();
+
+    if (!settings) {
+      return res.status(404).json({
+        success: false,
+        message: "Settings not found",
+      });
+    }
+
+    return generateQuotationPDF({
+      quotation,
+      settings,
+      res,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 module.exports = {
   getQuotations,
   getQuotationById,
   createQuotation,
   updateQuotation,
   deleteQuotation,
+  exportQuotationPDF,
 };

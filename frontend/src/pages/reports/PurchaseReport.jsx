@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { FaArrowLeft, FaTruck } from "react-icons/fa";
 import { Link } from "react-router-dom";
@@ -13,6 +14,8 @@ function PurchaseReport() {
   const [purchases, setPurchases] = useState([]);
 
   const [summary, setSummary] = useState({
+    totalNetPurchases: 0,
+    totalInputVat: 0,
     totalPurchases: 0,
   });
 
@@ -45,6 +48,8 @@ function PurchaseReport() {
 
       setSummary(
         response.data?.summary || {
+          totalNetPurchases: 0,
+          totalInputVat: 0,
           totalPurchases: 0,
         },
       );
@@ -83,15 +88,19 @@ function PurchaseReport() {
       "Purchase No.",
       "Supplier",
       "Status",
+      "Net Amount",
+      "Input VAT",
       "Total Amount",
     ];
 
     const rows = purchases.map((purchase) => [
-      new Date(purchase.purchaseDate).toLocaleDateString("en-PH"),
+      formatDate(purchase.purchaseDate),
       purchase.purchaseNumber,
       purchase.supplierId?.name || "Unknown Supplier",
       purchase.status,
-      purchase.totalAmount,
+      purchase.netAmount ?? 0,
+      purchase.taxAmount ?? 0,
+      purchase.totalAmount ?? 0,
     ]);
 
     exportToCsv("purchase-report.csv", headers, rows);
@@ -131,6 +140,7 @@ function PurchaseReport() {
 
         {/* Export Button */}
         <button
+          type="button"
           onClick={handleExportCsv}
           disabled={loading || purchases.length === 0}
           className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
@@ -189,17 +199,50 @@ function PurchaseReport() {
       )}
 
       {/* Summary */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Net Purchases */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Net Purchases
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {formatCurrency(
+              summary.totalNetPurchases ?? 0,
+              settings?.currency,
+            )}
+          </p>
+        </div>
+
+        {/* Input VAT */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Input VAT
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {formatCurrency(
+              summary.totalInputVat ?? 0,
+              settings?.currency,
+            )}
+          </p>
+        </div>
+
+        {/* Total Purchases */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Total Purchases
           </p>
 
           <p className="mt-2 text-2xl font-bold text-blue-600">
-            {formatCurrency(summary.totalPurchases, settings?.currency)}
+            {formatCurrency(
+              summary.totalPurchases ?? 0,
+              settings?.currency,
+            )}
           </p>
         </div>
 
+        {/* Transactions */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Transactions
@@ -242,17 +285,33 @@ function PurchaseReport() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] text-left text-sm">
+              <table className="w-full min-w-[950px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                   <tr>
                     <th className="px-6 py-3 font-semibold">Date</th>
 
-                    <th className="px-6 py-3 font-semibold">Purchase No.</th>
+                    <th className="px-6 py-3 font-semibold">
+                      Purchase No.
+                    </th>
 
-                    <th className="px-6 py-3 font-semibold">Supplier</th>
+                    <th className="px-6 py-3 font-semibold">
+                      Supplier
+                    </th>
+
+                    <th className="px-6 py-3 font-semibold">
+                      Status
+                    </th>
 
                     <th className="px-6 py-3 text-right font-semibold">
-                      Amount
+                      Net Amount
+                    </th>
+
+                    <th className="px-6 py-3 text-right font-semibold">
+                      Input VAT
+                    </th>
+
+                    <th className="px-6 py-3 text-right font-semibold">
+                      Total Amount
                     </th>
                   </tr>
                 </thead>
@@ -275,9 +334,29 @@ function PurchaseReport() {
                         {purchase.supplierId?.name || "Unknown Supplier"}
                       </td>
 
+                      <td className="px-6 py-4">
+                        <span className="inline-flex rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold capitalize text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                          {purchase.status}
+                        </span>
+                      </td>
+
                       <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
                         {formatCurrency(
-                          purchase.totalAmount,
+                          purchase.netAmount ?? 0,
+                          settings?.currency,
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
+                        {formatCurrency(
+                          purchase.taxAmount ?? 0,
+                          settings?.currency,
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
+                        {formatCurrency(
+                          purchase.totalAmount ?? 0,
                           settings?.currency,
                         )}
                       </td>
@@ -288,15 +367,29 @@ function PurchaseReport() {
                 <tfoot>
                   <tr className="border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
                     <td
-                      colSpan="3"
+                      colSpan="4"
                       className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300"
                     >
                       Total
                     </td>
 
+                    <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100">
+                      {formatCurrency(
+                        summary.totalNetPurchases ?? 0,
+                        settings?.currency,
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100">
+                      {formatCurrency(
+                        summary.totalInputVat ?? 0,
+                        settings?.currency,
+                      )}
+                    </td>
+
                     <td className="px-6 py-4 text-right font-bold text-blue-600">
                       {formatCurrency(
-                        summary.totalPurchases,
+                        summary.totalPurchases ?? 0,
                         settings?.currency,
                       )}
                     </td>
@@ -319,3 +412,4 @@ function PurchaseReport() {
 }
 
 export default PurchaseReport;
+

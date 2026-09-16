@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import {
   FaBalanceScale,
@@ -7,9 +8,15 @@ import {
 } from "react-icons/fa";
 
 import accountingApi from "../../api/accountingApi";
+import exportToCsv from "../../utils/exportCsv";
 import Button from "../../components/ui/Button";
 import { useSettings } from "../../context/SettingsContext";
 import { formatCurrency } from "../../utils/currency";
+
+const DEFAULT_SUMMARY = {
+  totalDebit: 0,
+  totalCredit: 0,
+};
 
 function TrialBalance() {
   const { settings } = useSettings();
@@ -18,7 +25,6 @@ function TrialBalance() {
 
   const [totalDebit, setTotalDebit] = useState(0);
   const [totalCredit, setTotalCredit] = useState(0);
-  const [isBalanced, setIsBalanced] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -32,22 +38,26 @@ function TrialBalance() {
 
       const data = response?.data || {};
 
-      setAccounts(Array.isArray(data.accounts) ? data.accounts : []);
+      const nextAccounts = Array.isArray(data.accounts)
+        ? data.accounts
+        : [];
 
-      setTotalDebit(Number(data.totalDebit || 0));
+      const nextTotalDebit = Number(data.totalDebit || 0);
+      const nextTotalCredit = Number(data.totalCredit || 0);
 
-      setTotalCredit(Number(data.totalCredit || 0));
-
-      setIsBalanced(Boolean(data.isBalanced));
+      setAccounts(nextAccounts);
+      setTotalDebit(nextTotalDebit);
+      setTotalCredit(nextTotalCredit);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load trial balance:", err);
 
-      setError(err.response?.data?.message || "Failed to load trial balance.");
+      setError(
+        err.response?.data?.message || "Failed to load trial balance.",
+      );
 
       setAccounts([]);
       setTotalDebit(0);
       setTotalCredit(0);
-      setIsBalanced(false);
     } finally {
       setLoading(false);
     }
@@ -57,9 +67,52 @@ function TrialBalance() {
     fetchTrialBalance();
   }, []);
 
+  /*
+   * Trial Balance status should be derived from the actual totals
+   * instead of blindly trusting a backend boolean.
+   *
+   * Small floating-point differences are normalized to 2 decimals
+   * because the system displays monetary values to 2 decimal places.
+   */
   const difference = useMemo(() => {
     return Number(Math.abs(totalDebit - totalCredit).toFixed(2));
   }, [totalDebit, totalCredit]);
+
+  const isBalanced = useMemo(() => {
+    return difference === 0;
+  }, [difference]);
+
+  const handleExportCsv = () => {
+    if (accounts.length === 0) {
+      return;
+    }
+
+    const headers = [
+      "Account Code",
+      "Account Name",
+      "Account Type",
+      "Debit",
+      "Credit",
+    ];
+
+    const rows = accounts.map((item) => [
+      item.account?.accountCode || "",
+      item.account?.accountName || "Unknown Account",
+      item.account?.accountType || "",
+      Number(item.debit || 0),
+      Number(item.credit || 0),
+    ]);
+
+    rows.push([
+      "",
+      "TOTAL",
+      "",
+      totalDebit,
+      totalCredit,
+    ]);
+
+    exportToCsv("trial-balance.csv", headers, rows);
+  };
 
   return (
     <div className="space-y-6">
@@ -77,28 +130,39 @@ function TrialBalance() {
               </h1>
 
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Review account balances and verify that total debits equal total
-                credits.
+                Review account balances and verify that total debits equal
+                total credits.
               </p>
             </div>
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={fetchTrialBalance}
-          disabled={loading}
-        >
-          <FaSyncAlt className={loading ? "animate-spin" : ""} />
-          Refresh
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleExportCsv}
+            disabled={loading || accounts.length === 0}
+          >
+            Export CSV
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={fetchTrialBalance}
+            disabled={loading}
+          >
+            <FaSyncAlt className={loading ? "animate-spin" : ""} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Error */}
       {error && (
         <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
-          <FaExclamationTriangle className="mt-0.5" />
+          <FaExclamationTriangle className="mt-0.5 shrink-0" />
 
           <p className="text-sm">{error}</p>
         </div>
@@ -149,19 +213,35 @@ function TrialBalance() {
               </p>
             </div>
           </div>
+
+          {!isBalanced && (
+            <div className="hidden text-right sm:block">
+              <p className="text-xs text-red-600 dark:text-red-400">
+                Debit / Credit Difference
+              </p>
+
+              <p className="text-lg font-bold text-red-700 dark:text-red-300">
+                {formatCurrency(difference, settings?.currency)}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* Accounts */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Accounts</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Accounts
+          </p>
 
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
             {accounts.length}
           </p>
         </div>
 
+        {/* Total Debit */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Total Debit
@@ -172,6 +252,7 @@ function TrialBalance() {
           </p>
         </div>
 
+        {/* Total Credit */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Total Credit
@@ -192,7 +273,7 @@ function TrialBalance() {
             </h2>
 
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Debit and credit balances by account
+              Debit and credit balances from posted journal entries.
             </p>
           </div>
         </div>
@@ -202,71 +283,91 @@ function TrialBalance() {
             Loading trial balance...
           </div>
         ) : accounts.length === 0 ? (
-          <div className="p-10 text-center text-sm text-slate-500 dark:text-slate-400">
-            No trial balance accounts found.
+          <div className="p-10 text-center">
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              No trial balance accounts found.
+            </p>
+
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Posted journal entries will appear here.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px]">
+            <table className="w-full min-w-[750px]">
               <thead className="bg-slate-50 dark:bg-slate-800">
                 <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Account Code
                   </th>
 
-                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Account Name
                   </th>
 
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Type
+                  </th>
+
+                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Debit
                   </th>
 
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Credit
                   </th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {accounts.map((item) => (
-                  <tr
-                    key={item.account?._id}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                  >
-                    <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">
-                      {item.account?.accountCode || "-"}
-                    </td>
+                {accounts.map((item, index) => {
+                  const account = item.account || {};
 
-                    <td className="px-5 py-4">
-                      <div className="font-medium text-slate-900 dark:text-white">
-                        {item.account?.accountName || "Unknown Account"}
-                      </div>
+                  const debit = Number(item.debit || 0);
+                  const credit = Number(item.credit || 0);
 
-                      <div className="text-xs capitalize text-slate-500">
-                        {item.account?.accountType || "-"}
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={account._id || account.accountCode || index}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    >
+                      <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {account.accountCode || "-"}
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
-                      {Number(item.debit || 0) > 0
-                        ? formatCurrency(item.debit, settings?.currency)
-                        : "-"}
-                    </td>
+                      <td className="px-5 py-4">
+                        <div className="font-medium text-slate-900 dark:text-white">
+                          {account.accountName || "Unknown Account"}
+                        </div>
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
-                      {Number(item.credit || 0) > 0
-                        ? formatCurrency(item.credit, settings?.currency)
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-5 py-4">
+                        <span className="text-xs capitalize text-slate-500 dark:text-slate-400">
+                          {account.accountType || "-"}
+                        </span>
+                      </td>
+
+                      <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
+                        {debit > 0
+                          ? formatCurrency(debit, settings?.currency)
+                          : "-"}
+                      </td>
+
+                      <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-medium text-slate-900 dark:text-white">
+                        {credit > 0
+                          ? formatCurrency(credit, settings?.currency)
+                          : "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
 
+              {/* Totals */}
               <tfoot className="border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                 <tr>
                   <td
-                    colSpan={2}
+                    colSpan={3}
                     className="px-5 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white"
                   >
                     Total
@@ -282,6 +383,32 @@ function TrialBalance() {
                 </tr>
               </tfoot>
             </table>
+          </div>
+        )}
+
+        {/* Bottom Balance Check */}
+        {!loading && accounts.length > 0 && (
+          <div className="border-t border-slate-200 px-5 py-3 dark:border-slate-700">
+            <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-slate-500 dark:text-slate-400">
+                Balance Check
+              </span>
+
+              <span
+                className={`font-semibold ${
+                  isBalanced
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}
+              >
+                {isBalanced
+                  ? "Debits and credits are equal."
+                  : `Difference: ${formatCurrency(
+                      difference,
+                      settings?.currency,
+                    )}`}
+              </span>
+            </div>
           </div>
         )}
       </div>

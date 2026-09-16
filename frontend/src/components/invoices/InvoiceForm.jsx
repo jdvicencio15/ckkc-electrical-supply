@@ -92,6 +92,34 @@ setFormData({
     }
   };
 
+  const invoiceFinancials = useMemo(() => {
+  const source = isEditMode ? invoice : selectedSale;
+
+  if (!source) {
+    return {
+      subtotal: 0,
+      taxRate: 0,
+      taxAmount: 0,
+      pricingMode: "off",
+      netAmount: 0,
+      totalAmount: 0,
+    };
+  }
+
+  return {
+    subtotal: Number(source.subtotal || 0),
+    taxRate: Number(source.taxRate || 0),
+    taxAmount: Number(source.taxAmount || 0),
+    pricingMode: source.pricingMode || "off",
+    netAmount: Number(source.netAmount || 0),
+    totalAmount: Number(
+      source.totalAmount ??
+        source.subtotal ??
+        0,
+    ),
+  };
+  }, [isEditMode, invoice, selectedSale]);
+
   const previewItems = isEditMode
     ? invoice?.items || []
     : selectedSale?.items || [];
@@ -386,18 +414,60 @@ setFormData({
             </div>
           )}
 
-          {/* Invoice Total */}
-          <div className="mt-5 flex justify-end border-t border-slate-200 pt-4 dark:border-slate-700">
-            <div className="text-right">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Invoice Total
-              </p>
+       {/* Invoice Financial Summary */}
+<div className="mt-5 flex justify-end border-t border-slate-200 pt-4 dark:border-slate-700">
+  <div className="w-full max-w-sm space-y-2 text-sm">
 
-              <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
-                {formatCurrency(invoiceSubtotal, settings?.currency)}
-              </p>
-            </div>
-          </div>
+    {/* Subtotal */}
+    <div className="flex justify-between">
+      <span className="text-slate-500 dark:text-slate-400">
+        {invoiceFinancials.pricingMode === "inclusive"
+          ? "Subtotal (VAT Inclusive)"
+          : "Subtotal"}
+      </span>
+
+      <span className="font-medium text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          invoiceFinancials.subtotal,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+
+    {/* VAT */}
+    {invoiceFinancials.taxRate > 0 && (
+      <div className="flex justify-between">
+        <span className="text-slate-500 dark:text-slate-400">
+          {invoiceFinancials.pricingMode === "inclusive"
+            ? `VAT Included (${invoiceFinancials.taxRate}%)`
+            : `VAT (${invoiceFinancials.taxRate}%)`}
+        </span>
+
+        <span className="font-medium text-slate-900 dark:text-slate-100">
+          {formatCurrency(
+            invoiceFinancials.taxAmount,
+            settings?.currency,
+          )}
+        </span>
+      </div>
+    )}
+
+    {/* Total */}
+    <div className="flex justify-between border-t border-slate-200 pt-3 dark:border-slate-700">
+      <span className="text-base font-semibold text-slate-900 dark:text-slate-100">
+        TOTAL
+      </span>
+
+      <span className="text-xl font-bold text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          invoiceFinancials.totalAmount,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+
+  </div>
+</div>
         </div>
       )}
 

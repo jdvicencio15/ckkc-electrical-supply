@@ -3,6 +3,10 @@ const Sale = require("../models/Sale");
 const Customer = require("../models/Customer");
 const Product = require("../models/Product");
 
+const {
+  generateInvoicePDF,
+} = require("../services/pdfService");
+
 const Settings = require("../models/Settings");
 const {
   checkReferenceExists,
@@ -20,6 +24,34 @@ const {
 const {
   resolveProductUnit,
 } = require("../services/unitService");
+
+
+const exportInvoicePDF = async (req, res, next) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate("customerId", "customerCode name")
+      .populate("items.productId", "sku name")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName email");
+
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        message: "Invoice not found",
+      });
+    }
+
+    const settings = await Settings.findOne();
+
+    generateInvoicePDF({
+      invoice,
+      settings,
+      res,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // GET ALL INVOICES
 const getInvoices = async (req, res, next) => {
@@ -412,4 +444,5 @@ module.exports = {
   createInvoice,
   updateInvoice,
   deleteInvoice,
+  exportInvoicePDF,
 };

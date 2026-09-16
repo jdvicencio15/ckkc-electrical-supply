@@ -23,43 +23,119 @@ const INITIAL_FORM = {
   referenceId: "",
 };
 
+const getInitialForm = (settings) => {
+  const accountingTax = settings?.accountingTax;
+
+  const vatEnabled = accountingTax?.vatEnabled ?? false;
+  const vatRate = Number(accountingTax?.vatRate ?? 0);
+  const pricingMode = accountingTax?.pricingMode ?? "inclusive";
+
+  return {
+    ...INITIAL_FORM,
+    pricingMode: vatEnabled ? pricingMode : "off",
+    taxRate: vatEnabled ? vatRate : 0,
+  };
+};
+
 function ExpenseForm({
   expense = null,
   accounts = [],
   references = [],
+  settings = null,
   onSubmit,
   onCancel,
   loading = false,
 }) {
-  const [formData, setFormData] = useState(INITIAL_FORM);
+  const [formData, setFormData] = useState(() =>
+    getInitialForm(settings),
+  );
+
   const [error, setError] = useState("");
 
   const isEditMode = Boolean(expense);
 
+  const accountingTax = settings?.accountingTax;
+
+  const vatEnabled = accountingTax?.vatEnabled ?? false;
+
+  const configuredVatRate = Number(accountingTax?.vatRate ?? 0);
+
+  const configuredPricingMode =
+    accountingTax?.pricingMode ?? "inclusive";
+
+  /*
+   * --------------------------------------------------------------------------
+   * Reset form for CREATE mode
+   * --------------------------------------------------------------------------
+   *
+   * Settings provide the defaults for a new expense.
+   */
   useEffect(() => {
-    if (!expense) {
-      setFormData(INITIAL_FORM);
+    if (expense) {
       return;
     }
 
-    setFormData({
-      expenseDate: expense.expenseDate
-        ? new Date(expense.expenseDate).toISOString().split("T")[0]
-        : "",
-      category: expense.category || "OPERATING",
-      expenseAccountId:
-        expense.expenseAccountId?._id ||
-        expense.expenseAccountId ||
-        "",
-      description: expense.description || "",
-      amount: expense.amount ?? "",
-      pricingMode: expense.pricingMode || "inclusive",
-      taxRate: expense.taxRate ?? 0,
-      paymentMethod: expense.paymentMethod || "cash",
-      referenceType: expense.referenceType || "OTHER",
-      referenceId: expense.referenceId || "",
-    });
-  }, [expense]);
+    setFormData(getInitialForm(settings));
+    setError("");
+  }, [expense, settings]);
+
+  /*
+   * --------------------------------------------------------------------------
+   * Load existing expense for EDIT mode
+   * --------------------------------------------------------------------------
+   *
+ * Settings are the source of truth for VAT configuration.
+ *
+ * Existing expense draft values do not override the current
+ * VAT settings. Tax mode and tax rate are always taken from
+ * the current system configuration.
+   */
+useEffect(() => {
+  if (!expense) {
+    return;
+  }
+
+  setFormData({
+    expenseDate: expense.expenseDate
+      ? new Date(expense.expenseDate)
+          .toISOString()
+          .split("T")[0]
+      : "",
+
+    category: expense.category || "OPERATING",
+
+    expenseAccountId:
+      expense.expenseAccountId?._id ||
+      expense.expenseAccountId ||
+      "",
+
+    description: expense.description || "",
+
+    amount: expense.amount ?? "",
+
+    // Settings is the source of truth
+    pricingMode: vatEnabled
+      ? configuredPricingMode
+      : "off",
+
+    taxRate: vatEnabled
+      ? configuredVatRate
+      : 0,
+
+    paymentMethod: expense.paymentMethod || "cash",
+
+    referenceType: expense.referenceType || "OTHER",
+
+    referenceId: expense.referenceId || "",
+  });
+
+  setError("");
+}, [
+  expense,
+  vatEnabled,
+  configuredVatRate,
+  configuredPricingMode,
+]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -78,7 +154,8 @@ function ExpenseForm({
     setFormData((current) => ({
       ...current,
       referenceType: value,
-      referenceId: value === "OTHER" ? "" : current.referenceId,
+      referenceId:
+        value === "OTHER" ? "" : current.referenceId,
     }));
 
     setError("");
@@ -87,6 +164,11 @@ function ExpenseForm({
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+
+    if (!formData.expenseDate) {
+      setError("Expense date is required.");
+      return;
+    }
 
     if (!formData.expenseAccountId) {
       setError("Please select an expense account.");
@@ -104,6 +186,15 @@ function ExpenseForm({
     }
 
     if (
+      formData.pricingMode !== "off" &&
+      (Number(formData.taxRate) < 0 ||
+        Number(formData.taxRate) > 100)
+    ) {
+      setError("Tax rate must be between 0 and 100.");
+      return;
+    }
+
+    if (
       formData.referenceType !== "OTHER" &&
       !formData.referenceId
     ) {
@@ -111,20 +202,24 @@ function ExpenseForm({
       return;
     }
 
-    const payload = {
-      expenseDate: formData.expenseDate,
-      category: formData.category,
-      expenseAccountId: formData.expenseAccountId,
-      description: formData.description.trim(),
-      amount: Number(formData.amount),
-      pricingMode: formData.pricingMode,
-      taxRate: Number(formData.taxRate || 0),
-      paymentMethod: formData.paymentMethod,
-      referenceType: formData.referenceType,
-      ...(formData.referenceType !== "OTHER" && {
-        referenceId: formData.referenceId,
-      }),
-    };
+const payload = {
+  expenseDate: formData.expenseDate,
+  category: formData.category,
+  expenseAccountId: formData.expenseAccountId,
+  description: formData.description.trim(),
+  amount: Number(formData.amount),
+
+  // VAT configuration comes from Settings
+  pricingMode: vatEnabled ? configuredPricingMode : "off",
+  taxRate: vatEnabled ? configuredVatRate : 0,
+
+  paymentMethod: formData.paymentMethod,
+  referenceType: formData.referenceType,
+
+  ...(formData.referenceType !== "OTHER" && {
+    referenceId: formData.referenceId,
+  }),
+};
 
     try {
       await onSubmit(payload);
@@ -228,7 +323,8 @@ function ExpenseForm({
               key={account._id}
               value={account._id}
             >
-              {account.accountCode} - {account.accountName}
+              {account.accountCode} -{" "}
+              {account.accountName}
             </option>
           ))}
         </select>
@@ -282,60 +378,39 @@ function ExpenseForm({
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="pricingMode"
-            className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-          >
-            Tax Mode
-          </label>
+       <div>
+  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+    Tax Mode
+  </label>
 
-          <select
-            id="pricingMode"
-            name="pricingMode"
-            value={formData.pricingMode}
-            onChange={handleChange}
-            disabled={loading}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 dark:border-slate-700 dark:bg-slate-900"
-          >
-            <option value="inclusive">
-              VAT Inclusive
-            </option>
-
-            <option value="exclusive">
-              VAT Exclusive
-            </option>
-
-            <option value="off">
-              VAT Off
-            </option>
-          </select>
+  <input
+    type="text"
+    value={
+      vatEnabled
+        ? configuredPricingMode === "inclusive"
+          ? "VAT Inclusive"
+          : "VAT Exclusive"
+        : "VAT Off"
+    }
+    disabled
+    readOnly
+    className="w-full cursor-not-allowed rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+  />
         </div>
 
-        <div>
-          <label
-            htmlFor="taxRate"
-            className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300"
-          >
-            Tax Rate (%)
-          </label>
+      <div>
+  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+    Tax Rate (%)
+  </label>
 
-          <input
-            id="taxRate"
-            name="taxRate"
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={formData.taxRate}
-            onChange={handleChange}
-            disabled={
-              loading ||
-              formData.pricingMode === "off"
-            }
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-800"
-          />
-        </div>
+  <input
+    type="number"
+    value={vatEnabled ? configuredVatRate : 0}
+    disabled
+    readOnly
+    className="w-full cursor-not-allowed rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+  />
+</div>
       </div>
 
       {/* Payment */}
@@ -387,7 +462,9 @@ function ExpenseForm({
           >
             <option value="OTHER">Other</option>
             <option value="SALE">Sale</option>
-            <option value="CLIENT_PO">Client PO</option>
+            <option value="CLIENT_PO">
+              Client PO
+            </option>
           </select>
         </div>
 
@@ -418,7 +495,9 @@ function ExpenseForm({
                   key={reference._id}
                   value={reference._id}
                 >
-                  {reference.label || reference.number || reference._id}
+                  {reference.label ||
+                    reference.number ||
+                    reference._id}
                 </option>
               ))}
             </select>

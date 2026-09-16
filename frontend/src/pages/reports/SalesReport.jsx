@@ -15,9 +15,11 @@ function SalesReport() {
   const { settings } = useSettings();
 
   const [sales, setSales] = useState([]);
+
   const [summary, setSummary] = useState({
+    totalNetSales: 0,
+    totalOutputVat: 0,
     totalSales: 0,
-    totalAmount: 0,
     totalCost: 0,
     totalProfit: 0,
   });
@@ -27,8 +29,6 @@ function SalesReport() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-
 
   const formatDate = (date) => {
     if (!date) {
@@ -53,18 +53,18 @@ function SalesReport() {
 
       setSummary(
         response.data?.summary || {
+          totalNetSales: 0,
+          totalOutputVat: 0,
           totalSales: 0,
-          totalAmount: 0,
           totalCost: 0,
           totalProfit: 0,
-        }
+        },
       );
     } catch (err) {
       console.error("Failed to load sales report:", err);
 
       setError(
-        err.response?.data?.message ||
-          "Failed to load sales report."
+        err.response?.data?.message || "Failed to load sales report.",
       );
     } finally {
       setLoading(false);
@@ -89,41 +89,36 @@ function SalesReport() {
     loadSalesReport(params);
   };
 
-const handleExportCsv = () => {
-  const headers = [
-    "Date",
-    "Sale No.",
-    "Customer",
-    "Status",
-    "Gross Sales",
-    "Total Amount",
-    "Total Cost",
-    "Total Profit",
-  ];
+  const handleExportCsv = () => {
+    const headers = [
+      "Date",
+      "Sale No.",
+      "Customer",
+      "Status",
+      "Net Sales",
+      "Output VAT",
+      "Total Amount",
+      "Total Cost",
+      "Total Profit",
+    ];
 
-  const rows = sales.map((sale) => [
-    new Date(sale.saleDate).toLocaleDateString("en-PH"),
-    sale.salesNumber,
-    sale.customerId?.name || "Unknown Customer",
-    sale.status,
-    sale.subtotal,
-    sale.totalAmount,
-    sale.totalCost,
-    sale.totalProfit,
-  ]);
+    const rows = sales.map((sale) => [
+      new Date(sale.saleDate).toLocaleDateString("en-PH"),
+      sale.salesNumber,
+      sale.customerId?.name || "Unknown Customer",
+      sale.status,
+      sale.netAmount ?? sale.subtotal ?? 0,
+      sale.taxAmount ?? 0,
+      sale.totalAmount ?? 0,
+      sale.totalCost ?? 0,
+      sale.totalProfit ?? 0,
+    ]);
 
-  exportToCsv("sales-report.csv", headers, rows);
-};
-
-
-
-
-
-
+    exportToCsv("sales-report.csv", headers, rows);
+  };
 
   return (
     <div className="space-y-6">
-
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -154,22 +149,19 @@ const handleExportCsv = () => {
           </div>
         </div>
 
-         {/* Export Button */}
-  <button
-    onClick={handleExportCsv}
-    disabled={loading || sales.length === 0}
-    className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-  >
-    Export CSV
+        {/* Export Button */}
+        <button
+          onClick={handleExportCsv}
+          disabled={loading || sales.length === 0}
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          Export CSV
         </button>
-
-
       </div>
 
       {/* Filters */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-3 md:grid-cols-3">
-
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-400">
               Start Date
@@ -178,9 +170,7 @@ const handleExportCsv = () => {
             <input
               type="date"
               value={startDate}
-              onChange={(event) =>
-                setStartDate(event.target.value)
-              }
+              onChange={(event) => setStartDate(event.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             />
           </div>
@@ -193,9 +183,7 @@ const handleExportCsv = () => {
             <input
               type="date"
               value={endDate}
-              onChange={(event) =>
-                setEndDate(event.target.value)
-              }
+              onChange={(event) => setEndDate(event.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             />
           </div>
@@ -207,12 +195,9 @@ const handleExportCsv = () => {
               disabled={loading}
               className="w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading
-                ? "Generating..."
-                : "Generate Report"}
+              {loading ? "Generating..." : "Generate Report"}
             </button>
           </div>
-
         </div>
       </div>
 
@@ -224,12 +209,34 @@ const handleExportCsv = () => {
       )}
 
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {/* Net Sales */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Net Sales
+          </p>
 
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {formatCurrency(summary.totalNetSales, settings?.currency)}
+          </p>
+        </div>
+
+        {/* Output VAT */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Output VAT
+          </p>
+
+          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {formatCurrency(summary.totalOutputVat, settings?.currency)}
+          </p>
+        </div>
+
+        {/* Total Sales */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Gross Sales
+              Total Sales
             </p>
 
             <FaShoppingCart className="h-4 w-4 text-green-500" />
@@ -240,41 +247,31 @@ const handleExportCsv = () => {
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Total Amount
-          </p>
-
-          <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-          {formatCurrency(summary.totalAmount, settings?.currency)}
-          </p>
-        </div>
-
+        {/* Total Cost */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Total Cost
           </p>
 
           <p className="mt-2 text-2xl font-bold text-blue-600">
-           {formatCurrency(summary.totalCost, settings?.currency)}
+            {formatCurrency(summary.totalCost, settings?.currency)}
           </p>
         </div>
 
+        {/* Total Profit */}
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Total Profit
           </p>
 
           <p className="mt-2 text-2xl font-bold text-green-600">
-           {formatCurrency(summary.totalProfit, settings?.currency)}
+            {formatCurrency(summary.totalProfit, settings?.currency)}
           </p>
         </div>
-
       </div>
 
       {/* Sales Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-
         <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Sales Transactions
@@ -304,12 +301,10 @@ const handleExportCsv = () => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="w-full min-w-[1100px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                   <tr>
-                    <th className="px-6 py-3 font-semibold">
-                      Date
-                    </th>
+                    <th className="px-6 py-3 font-semibold">Date</th>
 
                     <th className="px-6 py-3 font-semibold">
                       Sale No.
@@ -319,8 +314,20 @@ const handleExportCsv = () => {
                       Customer
                     </th>
 
+                    <th className="px-6 py-3 font-semibold">
+                      Status
+                    </th>
+
                     <th className="px-6 py-3 text-right font-semibold">
-                      Sales
+                      Net Sales
+                    </th>
+
+                    <th className="px-6 py-3 text-right font-semibold">
+                      Output VAT
+                    </th>
+
+                    <th className="px-6 py-3 text-right font-semibold">
+                      Total Amount
                     </th>
 
                     <th className="px-6 py-3 text-right font-semibold">
@@ -348,20 +355,46 @@ const handleExportCsv = () => {
                       </td>
 
                       <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        {sale.customerId?.name ||
-                          "Unknown Customer"}
+                        {sale.customerId?.name || "Unknown Customer"}
+                      </td>
+
+                      <td className="px-6 py-4 font-medium text-slate-600 dark:text-slate-300">
+                        {sale.status}
                       </td>
 
                       <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
-                       {formatCurrency(sale.subtotal, settings?.currency)}
+                        {formatCurrency(
+                          sale.netAmount ?? sale.subtotal ?? 0,
+                          settings?.currency,
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
+                        {formatCurrency(
+                          sale.taxAmount ?? 0,
+                          settings?.currency,
+                        )}
+                      </td>
+
+                      <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
+                        {formatCurrency(
+                          sale.totalAmount ?? 0,
+                          settings?.currency,
+                        )}
                       </td>
 
                       <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300">
-                       {formatCurrency(sale.totalCost, settings?.currency)}
+                        {formatCurrency(
+                          sale.totalCost ?? 0,
+                          settings?.currency,
+                        )}
                       </td>
 
                       <td className="px-6 py-4 text-right font-semibold text-green-600">
-                       {formatCurrency(sale.totalProfit, settings?.currency)}
+                        {formatCurrency(
+                          sale.totalProfit ?? 0,
+                          settings?.currency,
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -370,22 +403,45 @@ const handleExportCsv = () => {
                 <tfoot>
                   <tr className="border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
                     <td
-                      colSpan="3"
+                      colSpan="4"
                       className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300"
                     >
                       Total
                     </td>
 
                     <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100">
-                    {formatCurrency(summary.totalSales, settings?.currency)}
+                      {formatCurrency(
+                        summary.totalNetSales,
+                        settings?.currency,
+                      )}
                     </td>
 
                     <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100">
-                     {formatCurrency(summary.totalCost, settings?.currency)}
+                      {formatCurrency(
+                        summary.totalOutputVat,
+                        settings?.currency,
+                      )}
                     </td>
 
                     <td className="px-6 py-4 text-right font-bold text-green-600">
-                     {formatCurrency(summary.totalProfit, settings?.currency)}
+                      {formatCurrency(
+                        summary.totalSales,
+                        settings?.currency,
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100">
+                      {formatCurrency(
+                        summary.totalCost,
+                        settings?.currency,
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4 text-right font-bold text-green-600">
+                      {formatCurrency(
+                        summary.totalProfit,
+                        settings?.currency,
+                      )}
                     </td>
                   </tr>
                 </tfoot>
@@ -400,9 +456,7 @@ const handleExportCsv = () => {
             </div>
           </>
         )}
-
       </div>
-
     </div>
   );
 }

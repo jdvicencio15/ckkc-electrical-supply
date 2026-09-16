@@ -67,6 +67,14 @@ const settingsValidator = [
     .isObject()
     .withMessage("Sales and invoicing settings must be an object"),
 
+  body("salesInvoicing.salesPrefix")
+    .optional()
+    .isString()
+    .withMessage("Sales prefix must be a string")
+    .trim()
+    .isLength({ min: 1, max: 20 })
+    .withMessage("Sales prefix must be between 1 and 20 characters"),
+
   body("salesInvoicing.invoicePrefix")
     .optional()
     .isString()
@@ -81,67 +89,81 @@ const settingsValidator = [
     .withMessage("Quotation prefix must be a string")
     .trim()
     .isLength({ min: 1, max: 20 })
-    .withMessage("Quotation prefix must be between 1 and 20 characters"),
+    .withMessage(
+      "Quotation prefix must be between 1 and 20 characters",
+    ),
 
   body("salesInvoicing.purchasePrefix")
-  .optional()
-  .isString()
-  .withMessage("Purchase prefix must be a string")
-  .trim()
-  .isLength({ min: 1, max: 20 })
-  .withMessage(
-    "Purchase prefix must be between 1 and 20 characters"
-  ),
+    .optional()
+    .isString()
+    .withMessage("Purchase prefix must be a string")
+    .trim()
+    .isLength({ min: 1, max: 20 })
+    .withMessage(
+      "Purchase prefix must be between 1 and 20 characters",
+    ),
 
   body("salesInvoicing.clientPOPrefix")
-  .optional()
-  .isString()
-  .withMessage("Client PO prefix must be a string")
-  .trim()
-  .isLength({ min: 1, max: 20 })
-  .withMessage("Client PO prefix must be between 1 and 20 characters"),
+    .optional()
+    .isString()
+    .withMessage("Client PO prefix must be a string")
+    .trim()
+    .isLength({ min: 1, max: 20 })
+    .withMessage(
+      "Client PO prefix must be between 1 and 20 characters",
+    ),
 
-body("salesInvoicing.supplierPOPrefix")
-  .optional()
-  .isString()
-  .withMessage("Supplier PO prefix must be a string")
-  .trim()
-  .isLength({ min: 1, max: 20 })
-    .withMessage("Supplier PO prefix must be between 1 and 20 characters"),
-
+  body("salesInvoicing.supplierPOPrefix")
+    .optional()
+    .isString()
+    .withMessage("Supplier PO prefix must be a string")
+    .trim()
+    .isLength({ min: 1, max: 20 })
+    .withMessage(
+      "Supplier PO prefix must be between 1 and 20 characters",
+    ),
 
   body("salesInvoicing.invoiceStartingNumber")
     .optional()
     .isInt({ min: 1 })
-    .withMessage("Invoice starting number must be an integer greater than or equal to 1"),
+    .withMessage(
+      "Invoice starting number must be an integer greater than or equal to 1",
+    ),
 
   body("salesInvoicing.quotationStartingNumber")
     .optional()
     .isInt({ min: 1 })
     .withMessage(
-      "Quotation starting number must be an integer greater than or equal to 1"
+      "Quotation starting number must be an integer greater than or equal to 1",
     ),
 
   body("salesInvoicing.purchaseStartingNumber")
-  .optional()
-  .isInt({ min: 1 })
-  .withMessage(
-    "Purchase starting number must be an integer greater than or equal to 1"
-  ),
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage(
+      "Purchase starting number must be an integer greater than or equal to 1",
+    ),
 
   body("salesInvoicing.clientPOStartingNumber")
-  .optional()
-  .isInt({ min: 1 })
-  .withMessage(
-    "Client PO starting number must be an integer greater than or equal to 1"
-  ),
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage(
+      "Client PO starting number must be an integer greater than or equal to 1",
+    ),
 
-body("salesInvoicing.supplierPOStartingNumber")
-  .optional()
-  .isInt({ min: 1 })
-  .withMessage(
-    "Supplier PO starting number must be an integer greater than or equal to 1"
-  ),
+  body("salesInvoicing.supplierPOStartingNumber")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage(
+      "Supplier PO starting number must be an integer greater than or equal to 1",
+    ),
+
+  body("salesInvoicing.salesStartingNumber")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage(
+      "Sales starting number must be an integer greater than or equal to 1",
+    ),
 
   body("salesInvoicing.defaultPaymentTerms")
     .optional()
@@ -150,7 +172,7 @@ body("salesInvoicing.supplierPOStartingNumber")
     .trim()
     .isLength({ min: 1, max: 50 })
     .withMessage(
-      "Default payment terms must be between 1 and 50 characters"
+      "Default payment terms must be between 1 and 50 characters",
     ),
 
   body("salesInvoicing.defaultTaxRate")
@@ -164,7 +186,9 @@ body("salesInvoicing.supplierPOStartingNumber")
     .withMessage("Document footer must be a string")
     .trim()
     .isLength({ max: 500 })
-    .withMessage("Document footer must not exceed 500 characters"),
+    .withMessage(
+      "Document footer must not exceed 500 characters",
+    ),
 
   // =========================
   // Inventory
@@ -178,7 +202,9 @@ body("salesInvoicing.supplierPOStartingNumber")
   body("inventory.lowStockThreshold")
     .optional()
     .isFloat({ min: 0 })
-    .withMessage("Low stock threshold must be greater than or equal to 0"),
+    .withMessage(
+      "Low stock threshold must be greater than or equal to 0",
+    ),
 
   body("inventory.allowNegativeStock")
     .optional()
@@ -188,13 +214,15 @@ body("salesInvoicing.supplierPOStartingNumber")
   body("inventory.autoDeductStockOnSale")
     .optional()
     .isBoolean()
-    .withMessage("Auto deduct stock on sale must be a boolean"),
+    .withMessage(
+      "Auto deduct stock on sale must be a boolean",
+    ),
 
   body("inventory.autoRestoreStockOnSaleCancellation")
     .optional()
     .isBoolean()
     .withMessage(
-      "Auto restore stock on sale cancellation must be a boolean"
+      "Auto restore stock on sale cancellation must be a boolean",
     ),
 
   // =========================
@@ -204,38 +232,52 @@ body("salesInvoicing.supplierPOStartingNumber")
   body("accountingTax")
     .optional()
     .isObject()
-    .withMessage("Accounting and tax settings must be an object"),
+    .withMessage(
+      "Accounting and tax settings must be an object",
+    ),
 
   body("accountingTax.vatEnabled")
     .optional()
     .isBoolean()
     .withMessage("VAT enabled must be a boolean"),
 
+  body("accountingTax.vatRate")
+    .optional()
+    .isFloat({ min: 0, max: 100 })
+    .withMessage("VAT rate must be between 0 and 100"),
+
+  body("accountingTax.pricingMode")
+    .optional()
+    .isIn(["inclusive", "exclusive"])
+    .withMessage(
+      "Pricing mode must be either inclusive or exclusive",
+    ),
+
+  // Reserved for future withholding tax implementation.
+  // Keep disabled for now.
   body("accountingTax.withholdingTaxEnabled")
     .optional()
     .isBoolean()
-    .withMessage("Withholding tax enabled must be a boolean"),
+    .withMessage(
+      "Withholding tax enabled must be a boolean",
+    ),
 
-  body("accountingTax.fiscalYearStartMonth")
+  // =========================
+  // Fiscal Year
+  // =========================
+
+  body("fiscalYear")
+    .optional()
+    .isObject()
+    .withMessage("Fiscal year settings must be an object"),
+
+  body("fiscalYear.startMonth")
     .optional()
     .isInt({ min: 1, max: 12 })
     .withMessage(
-      "Fiscal year start month must be an integer between 1 and 12"
+      "Fiscal year start month must be an integer between 1 and 12",
     ),
 
-  body("accountingTax.vatRate")
-  .optional()
-  .isFloat({ min: 0, max: 100 })
-  .withMessage("VAT rate must be between 0 and 100"),
-
-body("accountingTax.pricingMode")
-  .optional()
-  .isIn(["inclusive", "exclusive"])
-  .withMessage(
-    "Pricing mode must be either inclusive or exclusive"
-  ),
-
-  
   // =========================
   // System Preferences
   // =========================
@@ -243,12 +285,17 @@ body("accountingTax.pricingMode")
   body("lowStockNotifications")
     .optional()
     .isBoolean()
-    .withMessage("Low stock notifications must be a boolean"),
+    .withMessage(
+      "Low stock notifications must be a boolean",
+    ),
 
   body("invoiceNotifications")
     .optional()
     .isBoolean()
-    .withMessage("Invoice notifications must be a boolean"),
+    .withMessage(
+      "Invoice notifications must be a boolean",
+    ),
 ];
 
 module.exports = settingsValidator;
+

@@ -23,7 +23,7 @@ function DocumentNumberPreview({ systemName, prefix, startingNumber }) {
 }
 
 function Settings() {
-  const { systemName } = useSettings();
+  const { systemName, refreshSettings } = useSettings();
 
   const [formData, setFormData] = useState({
     businessName: "",
@@ -464,19 +464,19 @@ function Settings() {
             formData.inventory.autoRestoreStockOnSaleCancellation,
         },
 
-       accountingTax: {
-  vatEnabled: formData.accountingTax.vatEnabled,
+        accountingTax: {
+          vatEnabled: formData.accountingTax.vatEnabled,
 
-  vatRate: Number(formData.accountingTax.vatRate),
+          vatRate: Number(formData.accountingTax.vatRate),
 
-  pricingMode: formData.accountingTax.pricingMode,
+          pricingMode: formData.accountingTax.pricingMode,
 
-  withholdingTaxEnabled: formData.accountingTax.withholdingTaxEnabled,
+          withholdingTaxEnabled: formData.accountingTax.withholdingTaxEnabled,
 
-  fiscalYearStartMonth: Number(
-    formData.accountingTax.fiscalYearStartMonth,
-  ),
-},
+          fiscalYearStartMonth: Number(
+            formData.accountingTax.fiscalYearStartMonth,
+          ),
+        },
 
         lowStockNotifications: formData.lowStockNotifications,
 
@@ -484,6 +484,8 @@ function Settings() {
       };
 
       const response = await settingsService.updateSettings(payload);
+
+      await refreshSettings();
 
       const settings = response.settings;
 
@@ -1388,8 +1390,6 @@ function Settings() {
                 </p>
               </div>
 
-
-
               <div className="grid gap-5 md:grid-cols-2">
                 {/* Default Payment Terms */}
                 <div>
@@ -1458,11 +1458,10 @@ function Settings() {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
 
-         {/* Accounting & Tax */}
+        {/* Accounting & Tax */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -1474,36 +1473,35 @@ function Settings() {
             </p>
           </div>
 
-
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {/* VAT Enabled */}
-<div className="flex items-center justify-between gap-6 px-6 py-6">
-  <div>
-    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-      VAT Enabled
-    </p>
+            <div className="flex items-center justify-between gap-6 px-6 py-6">
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  VAT Enabled
+                </p>
 
-    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-      Enable VAT-related calculations and tax handling.
-    </p>
-  </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Enable VAT-related calculations and tax handling.
+                </p>
+              </div>
 
-  <input
-    type="checkbox"
-    checked={formData.accountingTax.vatEnabled}
-    onChange={(e) =>
-      setFormData((prev) => ({
-        ...prev,
-        accountingTax: {
-          ...prev.accountingTax,
-          vatEnabled: e.target.checked,
-        },
-      }))
-    }
-    disabled={submitting}
-    className="h-4 w-4 accent-green-600"
-  />
-</div>
+              <input
+                type="checkbox"
+                checked={formData.accountingTax.vatEnabled}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    accountingTax: {
+                      ...prev.accountingTax,
+                      vatEnabled: e.target.checked,
+                    },
+                  }))
+                }
+                disabled={submitting}
+                className="h-4 w-4 accent-green-600"
+              />
+            </div>
             {/* VAT Rate */}
             <div className="px-6 py-6">
               <div className="max-w-md">
@@ -1515,33 +1513,31 @@ function Settings() {
                 </label>
 
                 <input
-  id="vatRate"
-  type="number"
-  min="0"
-  max="100"
-  step="0.01"
-  value={
-    formData.accountingTax.vatEnabled
-      ? formData.accountingTax.vatRate
-      : ""
-  }
-  onChange={(e) =>
-    setFormData((prev) => ({
-      ...prev,
-      accountingTax: {
-        ...prev.accountingTax,
-        vatRate: e.target.value,
-      },
-    }))
-  }
-  disabled={submitting || !formData.accountingTax.vatEnabled}
-  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
-  placeholder={
-    formData.accountingTax.vatEnabled
-      ? "12.00"
-      : "VAT Disabled"
-  }
-/>
+                  id="vatRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={
+                    formData.accountingTax.vatEnabled
+                      ? formData.accountingTax.vatRate
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      accountingTax: {
+                        ...prev.accountingTax,
+                        vatRate: e.target.value,
+                      },
+                    }))
+                  }
+                  disabled={submitting || !formData.accountingTax.vatEnabled}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
+                  placeholder={
+                    formData.accountingTax.vatEnabled ? "12.00" : "VAT Disabled"
+                  }
+                />
 
                 <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
                   VAT rate applied to applicable transactions.
@@ -1559,32 +1555,32 @@ function Settings() {
                   Pricing Mode
                 </label>
 
-              <select
-  id="pricingMode"
-  value={
-    formData.accountingTax.vatEnabled
-      ? formData.accountingTax.pricingMode
-      : ""
-  }
-  onChange={(e) =>
-    setFormData((prev) => ({
-      ...prev,
-      accountingTax: {
-        ...prev.accountingTax,
-        pricingMode: e.target.value,
-      },
-    }))
-  }
-  disabled={submitting || !formData.accountingTax.vatEnabled}
-  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
->
-  {!formData.accountingTax.vatEnabled && (
-    <option value="">VAT Disabled</option>
-  )}
+                <select
+                  id="pricingMode"
+                  value={
+                    formData.accountingTax.vatEnabled
+                      ? formData.accountingTax.pricingMode
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      accountingTax: {
+                        ...prev.accountingTax,
+                        pricingMode: e.target.value,
+                      },
+                    }))
+                  }
+                  disabled={submitting || !formData.accountingTax.vatEnabled}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:focus:border-green-500"
+                >
+                  {!formData.accountingTax.vatEnabled && (
+                    <option value="">VAT Disabled</option>
+                  )}
 
-  <option value="inclusive">VAT Inclusive</option>
-  <option value="exclusive">VAT Exclusive</option>
-</select>
+                  <option value="inclusive">VAT Inclusive</option>
+                  <option value="exclusive">VAT Exclusive</option>
+                </select>
 
                 <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
                   Determines whether displayed prices include or exclude VAT.
@@ -1592,7 +1588,15 @@ function Settings() {
               </div>
             </div>
 
-            {/* Withholding Tax */}
+            {/* Withholding Tax
+
+              FUTURE FEATURE: WITHHOLDING TAX
+
+  Temporarily hidden from Settings UI.
+  Backend/model configuration is preserved for future implementation.
+
+  Do not remove permanently
+
             <div className="flex items-center justify-between gap-6 px-6 py-6">
               <div>
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
@@ -1621,7 +1625,9 @@ function Settings() {
               />
             </div>
 
-            {/* Fiscal Year Start */}
+*/}
+            {/* Fiscal Year Start
+
             <div className="px-6 py-6">
               <div className="max-w-md">
                 <label
@@ -1666,6 +1672,8 @@ function Settings() {
                 </p>
               </div>
             </div>
+*/}
+
           </div>
         </div>
 
@@ -1742,8 +1750,6 @@ function Settings() {
             </div>
           </div>
         </div>
-
-
 
         {/* System Preferences */}
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">

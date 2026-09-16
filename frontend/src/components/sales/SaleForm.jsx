@@ -187,33 +187,98 @@ function SaleForm({
     });
   };
 
-  const totals = useMemo(() => {
-    const subtotal = formData.items.reduce(
-      (total, item) =>
-        total + Number(item.quantity || 0) * Number(item.unitPrice || 0),
-      0,
-    );
+const totals = useMemo(() => {
+  const subtotal = formData.items.reduce(
+    (total, item) =>
+      total +
+      Number(item.quantity || 0) *
+        Number(item.unitPrice || 0),
+    0,
+  );
 
-    const totalCost = formData.items.reduce(
-      (total, item) =>
-        total + Number(item.quantity || 0) * Number(item.unitCost || 0),
-      0,
-    );
+  const totalCost = formData.items.reduce(
+    (total, item) =>
+      total +
+      Number(item.quantity || 0) *
+        Number(item.unitCost || 0),
+    0,
+  );
 
-    const directExpenses = Number(formData.directExpenses || 0);
-    const commission = Number(formData.commission || 0);
+  const directExpenses = Number(
+    formData.directExpenses || 0,
+  );
 
-    const totalAmount = subtotal + directExpenses + commission;
+  const commission = Number(
+    formData.commission || 0,
+  );
 
-    const totalProfit = subtotal - totalCost - directExpenses - commission;
+  // VAT configuration from Settings
+  const vatEnabled =
+    settings?.accountingTax?.vatEnabled === true;
 
-    return {
-      subtotal,
-      totalCost,
-      totalAmount,
-      totalProfit,
-    };
-  }, [formData.items, formData.directExpenses, formData.commission]);
+  const vatRate = vatEnabled
+    ? Number(settings?.accountingTax?.vatRate || 0)
+    : 0;
+
+  const pricingMode =
+    settings?.accountingTax?.pricingMode || "inclusive";
+
+  // VAT calculation
+  let netAmount = subtotal;
+  let taxAmount = 0;
+
+  if (vatEnabled && vatRate > 0) {
+    if (pricingMode === "inclusive") {
+      netAmount =
+        subtotal / (1 + vatRate / 100);
+
+      taxAmount =
+        subtotal - netAmount;
+    } else {
+      netAmount = subtotal;
+
+      taxAmount =
+        subtotal * (vatRate / 100);
+    }
+  }
+
+  // Total amount
+  const totalAmount =
+    pricingMode === "inclusive"
+      ? subtotal +
+        directExpenses +
+        commission
+      : subtotal +
+        taxAmount +
+        directExpenses +
+        commission;
+
+  // Profit uses NET sales
+  const totalProfit =
+    netAmount -
+    totalCost -
+    directExpenses -
+    commission;
+
+  return {
+    subtotal,
+    totalCost,
+    directExpenses,
+    commission,
+    netAmount,
+    taxAmount,
+    vatRate,
+    pricingMode,
+    vatEnabled,
+    totalAmount,
+    totalProfit,
+  };
+}, [
+  formData.items,
+  formData.directExpenses,
+  formData.commission,
+  settings,
+]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -571,6 +636,37 @@ function SaleForm({
               {formatCurrency(totals.subtotal, settings?.currency)}
             </span>
           </div>
+
+          {totals.vatEnabled && totals.vatRate > 0 && (
+  <>
+    <div className="flex justify-between text-sm">
+      <span className="text-slate-500 dark:text-slate-400">
+        VAT ({totals.vatRate}%)
+      </span>
+
+      <span className="font-medium text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          totals.taxAmount,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+
+    <div className="flex justify-between text-sm">
+      <span className="text-slate-500 dark:text-slate-400">
+        Net Sales
+      </span>
+
+      <span className="font-medium text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          totals.netAmount,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+  </>
+          )}
+          
 
           <div className="flex justify-between text-sm">
             <span className="text-slate-500 dark:text-slate-400">

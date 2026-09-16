@@ -1,9 +1,12 @@
+const fs = require("fs");
+
 const Settings = require("../models/Settings");
 const logger = require("../utils/logger");
 
-const fs = require("fs");
-
+// ============================================================
 // GET SETTINGS
+// ============================================================
+
 const getSettings = async (req, res) => {
   try {
     let settings = await Settings.findOne();
@@ -18,9 +21,7 @@ const getSettings = async (req, res) => {
       settings,
     });
   } catch (error) {
-    logger.error(
-      `Get settings error: ${error.message}`
-    );
+    logger.error(`Get settings error: ${error.message}`);
 
     return res.status(500).json({
       success: false,
@@ -29,7 +30,10 @@ const getSettings = async (req, res) => {
   }
 };
 
+// ============================================================
 // GET PUBLIC APPLICATION CONFIG
+// ============================================================
+
 const getPublicConfig = async (req, res) => {
   try {
     let settings = await Settings.findOne();
@@ -49,7 +53,7 @@ const getPublicConfig = async (req, res) => {
     });
   } catch (error) {
     logger.error(
-      `Get public application config error: ${error.message}`
+      `Get public application config error: ${error.message}`,
     );
 
     return res.status(500).json({
@@ -59,298 +63,305 @@ const getPublicConfig = async (req, res) => {
   }
 };
 
+// ============================================================
 // UPDATE SETTINGS
+// ============================================================
+
 const updateSettings = async (req, res) => {
   try {
- const {
-  businessName,
-  businessEmail,
-  contactNumber,
-  businessAddress,
-  currency,
-  appearance,
-  salesInvoicing,
-  inventory,
-  accountingTax,
-  lowStockNotifications,
-  invoiceNotifications,
-} = req.body;
+    const {
+      businessName,
+      businessEmail,
+      contactNumber,
+      businessAddress,
+      currency,
+      appearance,
+      salesInvoicing,
+      inventory,
+      accountingTax,
+      lowStockNotifications,
+      invoiceNotifications,
+    } = req.body;
 
     let settings = await Settings.findOne();
 
-    // Create if no settings document exists
+    // Create settings document if none exists
     if (!settings) {
       settings = new Settings();
     }
 
-    // =========================
-    // General Settings
-    // =========================
+    // ========================================================
+    // GENERAL SETTINGS
+    // ========================================================
 
     if (businessName !== undefined) {
-      settings.businessName =
-        businessName.trim();
+      settings.businessName = businessName.trim();
     }
 
     if (businessEmail !== undefined) {
-      settings.businessEmail =
-        businessEmail.trim().toLowerCase();
+      settings.businessEmail = businessEmail.trim().toLowerCase();
     }
 
     if (contactNumber !== undefined) {
-      settings.contactNumber =
-        contactNumber.trim();
+      settings.contactNumber = contactNumber.trim();
     }
 
     if (businessAddress !== undefined) {
-  settings.businessAddress =
-    businessAddress.trim();
+      settings.businessAddress = businessAddress.trim();
     }
 
     if (currency !== undefined) {
       settings.currency = currency;
     }
 
-    // =========================
-    // Appearance
-    // =========================
+    // ========================================================
+    // APPEARANCE
+    // ========================================================
 
     if (appearance !== undefined) {
-      if (
-        appearance.systemName !== undefined
-      ) {
+      if (appearance.systemName !== undefined) {
         settings.appearance.systemName =
           appearance.systemName.trim();
       }
 
       if (appearance.logo !== undefined) {
-        settings.appearance.logo =
-          appearance.logo;
+        settings.appearance.logo = appearance.logo;
       }
     }
 
+    // ========================================================
+    // SALES & INVOICING
+    // ========================================================
 
+    if (salesInvoicing !== undefined) {
+      // ------------------------------------------------------
+      // Sales
+      // ------------------------------------------------------
 
-    // =========================
-    // System Preferences
-    // =========================
+      if (salesInvoicing.salesPrefix !== undefined) {
+        settings.salesInvoicing.salesPrefix =
+          salesInvoicing.salesPrefix.trim();
+      }
 
-  if (salesInvoicing !== undefined) {
-  if (
-    salesInvoicing.invoicePrefix !== undefined
-  ) {
-    settings.salesInvoicing.invoicePrefix =
-      salesInvoicing.invoicePrefix.trim();
-  }
+      if (salesInvoicing.salesStartingNumber !== undefined) {
+        settings.salesInvoicing.salesStartingNumber =
+          Number(salesInvoicing.salesStartingNumber);
+      }
 
-  if (
-    salesInvoicing.quotationPrefix !== undefined
-  ) {
-    settings.salesInvoicing.quotationPrefix =
-      salesInvoicing.quotationPrefix.trim();
+      // ------------------------------------------------------
+      // Invoice
+      // ------------------------------------------------------
+
+      if (salesInvoicing.invoicePrefix !== undefined) {
+        settings.salesInvoicing.invoicePrefix =
+          salesInvoicing.invoicePrefix.trim();
+      }
+
+      if (salesInvoicing.invoiceStartingNumber !== undefined) {
+        settings.salesInvoicing.invoiceStartingNumber =
+          Number(salesInvoicing.invoiceStartingNumber);
+      }
+
+      // ------------------------------------------------------
+      // Quotation
+      // ------------------------------------------------------
+
+      if (salesInvoicing.quotationPrefix !== undefined) {
+        settings.salesInvoicing.quotationPrefix =
+          salesInvoicing.quotationPrefix.trim();
+      }
+
+      if (salesInvoicing.quotationStartingNumber !== undefined) {
+        settings.salesInvoicing.quotationStartingNumber =
+          Number(salesInvoicing.quotationStartingNumber);
+      }
+
+      // ------------------------------------------------------
+      // Purchase
+      // ------------------------------------------------------
+
+      if (salesInvoicing.purchasePrefix !== undefined) {
+        settings.salesInvoicing.purchasePrefix =
+          salesInvoicing.purchasePrefix.trim();
+      }
+
+      if (salesInvoicing.purchaseStartingNumber !== undefined) {
+        settings.salesInvoicing.purchaseStartingNumber =
+          Number(salesInvoicing.purchaseStartingNumber);
+      }
+
+      // ------------------------------------------------------
+      // Client PO
+      // ------------------------------------------------------
+
+      if (salesInvoicing.clientPOPrefix !== undefined) {
+        settings.salesInvoicing.clientPOPrefix =
+          salesInvoicing.clientPOPrefix.trim();
+      }
+
+      if (salesInvoicing.clientPOStartingNumber !== undefined) {
+        settings.salesInvoicing.clientPOStartingNumber =
+          Number(salesInvoicing.clientPOStartingNumber);
+      }
+
+      // ------------------------------------------------------
+      // Supplier PO
+      // ------------------------------------------------------
+
+      if (salesInvoicing.supplierPOPrefix !== undefined) {
+        settings.salesInvoicing.supplierPOPrefix =
+          salesInvoicing.supplierPOPrefix.trim();
+      }
+
+      if (
+        salesInvoicing.supplierPOStartingNumber !== undefined
+      ) {
+        settings.salesInvoicing.supplierPOStartingNumber =
+          Number(salesInvoicing.supplierPOStartingNumber);
+      }
+
+      // ------------------------------------------------------
+      // Default Payment Terms
+      // ------------------------------------------------------
+
+      if (
+        salesInvoicing.defaultPaymentTerms !== undefined
+      ) {
+        settings.salesInvoicing.defaultPaymentTerms =
+          salesInvoicing.defaultPaymentTerms.trim();
+      }
+
+      // ------------------------------------------------------
+      // Default Tax Rate
+      // ------------------------------------------------------
+
+      if (salesInvoicing.defaultTaxRate !== undefined) {
+        settings.salesInvoicing.defaultTaxRate =
+          Number(salesInvoicing.defaultTaxRate);
+      }
+
+      // ------------------------------------------------------
+      // Document Footer
+      // ------------------------------------------------------
+
+      if (salesInvoicing.documentFooter !== undefined) {
+        settings.salesInvoicing.documentFooter =
+          salesInvoicing.documentFooter.trim();
+      }
     }
 
-    if (
-  salesInvoicing.purchasePrefix !== undefined
-) {
-  settings.salesInvoicing.purchasePrefix =
-    salesInvoicing.purchasePrefix.trim();
-}
+    // ========================================================
+    // INVENTORY
+    // ========================================================
 
-  if (
-    salesInvoicing.invoiceStartingNumber !== undefined
-  ) {
-    settings.salesInvoicing.invoiceStartingNumber =
-      Number(
-        salesInvoicing.invoiceStartingNumber
-      );
-  }
+    if (inventory !== undefined) {
+      if (inventory.lowStockThreshold !== undefined) {
+        settings.inventory.lowStockThreshold =
+          Number(inventory.lowStockThreshold);
+      }
 
-  if (
-    salesInvoicing.quotationStartingNumber !== undefined
-  ) {
-    settings.salesInvoicing.quotationStartingNumber =
-      Number(
-        salesInvoicing.quotationStartingNumber
-      );
+      if (inventory.allowNegativeStock !== undefined) {
+        settings.inventory.allowNegativeStock =
+          inventory.allowNegativeStock;
+      }
+
+      if (inventory.autoDeductStockOnSale !== undefined) {
+        settings.inventory.autoDeductStockOnSale =
+          inventory.autoDeductStockOnSale;
+      }
+
+      if (
+        inventory.autoRestoreStockOnSaleCancellation !==
+        undefined
+      ) {
+        settings.inventory.autoRestoreStockOnSaleCancellation =
+          inventory.autoRestoreStockOnSaleCancellation;
+      }
     }
 
-if (
-  salesInvoicing.purchaseStartingNumber !== undefined
-) {
-  settings.salesInvoicing.purchaseStartingNumber =
-    Number(
-      salesInvoicing.purchaseStartingNumber
-    );
-}
+    // ========================================================
+    // ACCOUNTING & TAX
+    // ========================================================
 
-    if (
-  salesInvoicing.clientPOPrefix !== undefined
-) {
-  settings.salesInvoicing.clientPOPrefix =
-    salesInvoicing.clientPOPrefix.trim();
-}
+    if (accountingTax !== undefined) {
+      // ------------------------------------------------------
+      // VAT
+      // ------------------------------------------------------
 
-if (
-  salesInvoicing.clientPOStartingNumber !== undefined
-) {
-  settings.salesInvoicing.clientPOStartingNumber =
-    Number(
-      salesInvoicing.clientPOStartingNumber
-    );
-}
+      if (accountingTax.vatEnabled !== undefined) {
+        settings.accountingTax.vatEnabled =
+          accountingTax.vatEnabled;
+      }
 
-if (
-  salesInvoicing.supplierPOPrefix !== undefined
-) {
-  settings.salesInvoicing.supplierPOPrefix =
-    salesInvoicing.supplierPOPrefix.trim();
-}
+      if (accountingTax.vatRate !== undefined) {
+        settings.accountingTax.vatRate =
+          Number(accountingTax.vatRate);
+      }
 
-if (
-  salesInvoicing.supplierPOStartingNumber !== undefined
-) {
-  settings.salesInvoicing.supplierPOStartingNumber =
-    Number(
-      salesInvoicing.supplierPOStartingNumber
-    );
+      if (accountingTax.pricingMode !== undefined) {
+        settings.accountingTax.pricingMode =
+          accountingTax.pricingMode;
+      }
+
+      // ------------------------------------------------------
+      // Withholding Tax
+      //
+      // Reserved for future implementation.
+      // Existing field remains available and defaults to false.
+      // No additional withholding business logic is applied here.
+      // ------------------------------------------------------
+
+      if (
+        accountingTax.withholdingTaxEnabled !== undefined
+      ) {
+        settings.accountingTax.withholdingTaxEnabled =
+          accountingTax.withholdingTaxEnabled;
+      }
+
+      // ------------------------------------------------------
+      // Fiscal Year Start Month
+      // ------------------------------------------------------
+
+      if (
+        accountingTax.fiscalYearStartMonth !== undefined
+      ) {
+        settings.accountingTax.fiscalYearStartMonth =
+          Number(accountingTax.fiscalYearStartMonth);
+      }
     }
 
-if (
-  salesInvoicing.salesPrefix !== undefined
-) {
-  settings.salesInvoicing.salesPrefix =
-    salesInvoicing.salesPrefix.trim();
-}
+    // ========================================================
+    // SYSTEM PREFERENCES
+    // ========================================================
 
-if (
-  salesInvoicing.salesStartingNumber !== undefined
-) {
-  settings.salesInvoicing.salesStartingNumber =
-    Number(
-      salesInvoicing.salesStartingNumber
-    );
-    }
-
-
-
-
-  if (
-    salesInvoicing.defaultPaymentTerms !== undefined
-  ) {
-    settings.salesInvoicing.defaultPaymentTerms =
-      salesInvoicing.defaultPaymentTerms.trim();
-  }
-
-  if (
-    salesInvoicing.defaultTaxRate !== undefined
-  ) {
-    settings.salesInvoicing.defaultTaxRate =
-      Number(
-        salesInvoicing.defaultTaxRate
-      );
-  }
-
-  if (
-    salesInvoicing.documentFooter !== undefined
-  ) {
-    settings.salesInvoicing.documentFooter =
-      salesInvoicing.documentFooter.trim();
-  }
-    }
-
-  if (inventory !== undefined) {
-  if (inventory.lowStockThreshold !== undefined) {
-    settings.inventory.lowStockThreshold =
-      Number(inventory.lowStockThreshold);
-  }
-
-  if (inventory.allowNegativeStock !== undefined) {
-    settings.inventory.allowNegativeStock =
-      inventory.allowNegativeStock;
-  }
-
-  if (inventory.autoDeductStockOnSale !== undefined) {
-    settings.inventory.autoDeductStockOnSale =
-      inventory.autoDeductStockOnSale;
-  }
-
-  if (
-    inventory.autoRestoreStockOnSaleCancellation !==
-    undefined
-  ) {
-    settings.inventory.autoRestoreStockOnSaleCancellation =
-      inventory.autoRestoreStockOnSaleCancellation;
-  }
-}
-
- if (accountingTax !== undefined) {
-  if (accountingTax.vatEnabled !== undefined) {
-    settings.accountingTax.vatEnabled =
-      accountingTax.vatEnabled;
-  }
-
-  if (accountingTax.vatRate !== undefined) {
-    settings.accountingTax.vatRate =
-      Number(accountingTax.vatRate);
-  }
-
-  if (accountingTax.pricingMode !== undefined) {
-    settings.accountingTax.pricingMode =
-      accountingTax.pricingMode;
-  }
-
-  if (
-    accountingTax.withholdingTaxEnabled !==
-    undefined
-  ) {
-    settings.accountingTax.withholdingTaxEnabled =
-      accountingTax.withholdingTaxEnabled;
-  }
-
-  if (
-    accountingTax.fiscalYearStartMonth !==
-    undefined
-  ) {
-    settings.accountingTax.fiscalYearStartMonth =
-      Number(
-        accountingTax.fiscalYearStartMonth
-      );
-  }
-}
-
-
-
-
-    if (
-      lowStockNotifications !== undefined
-    ) {
+    if (lowStockNotifications !== undefined) {
       settings.lowStockNotifications =
         lowStockNotifications;
     }
 
-    if (
-      invoiceNotifications !== undefined
-    ) {
+    if (invoiceNotifications !== undefined) {
       settings.invoiceNotifications =
         invoiceNotifications;
     }
 
+    // ========================================================
+    // SAVE
+    // ========================================================
+
     await settings.save();
 
     logger.info(
-      `System settings updated by user ${req.user._id}`
+      `System settings updated by user ${req.user._id}`,
     );
 
     return res.status(200).json({
       success: true,
-      message:
-        "Settings updated successfully.",
+      message: "Settings updated successfully.",
       settings,
     });
   } catch (error) {
     logger.error(
-      `Update settings error: ${error.message}`
+      `Update settings error: ${error.message}`,
     );
 
     return res.status(500).json({
@@ -360,9 +371,10 @@ if (
   }
 };
 
-
-
+// ============================================================
 // UPLOAD BUSINESS LOGO
+// ============================================================
+
 const uploadLogo = async (req, res) => {
   try {
     if (!req.file) {
@@ -387,38 +399,38 @@ const uploadLogo = async (req, res) => {
     const oldPublicId =
       settings.appearance.logo.publicId;
 
-    // =========================
+    // ========================================================
     // Upload new logo first
-    // =========================
+    // ========================================================
 
     const uploadedLogo = await uploadToCloudinary(
-      req.file.path
+      req.file.path,
     );
 
-    // =========================
+    // ========================================================
     // Delete temporary local file
-    // =========================
+    // ========================================================
 
     fs.unlink(req.file.path, (error) => {
       if (error) {
         logger.error(
-          `Failed to delete temporary logo file: ${error.message}`
+          `Failed to delete temporary logo file: ${error.message}`,
         );
       }
     });
 
-    // =========================
+    // ========================================================
     // Delete old Cloudinary logo
     // Only after new upload succeeds
-    // =========================
+    // ========================================================
 
     if (oldPublicId) {
       await deleteLogo(oldPublicId);
     }
 
-    // =========================
+    // ========================================================
     // Save new logo
-    // =========================
+    // ========================================================
 
     settings.appearance.logo = {
       url: uploadedLogo.url,
@@ -428,13 +440,12 @@ const uploadLogo = async (req, res) => {
     await settings.save();
 
     logger.info(
-      `Business logo updated by user ${req.user._id}`
+      `Business logo updated by user ${req.user._id}`,
     );
 
     return res.status(200).json({
       success: true,
-      message:
-        "Business logo uploaded successfully.",
+      message: "Business logo uploaded successfully.",
       logo: settings.appearance.logo,
       settings,
     });
@@ -444,26 +455,27 @@ const uploadLogo = async (req, res) => {
       fs.unlink(req.file.path, (unlinkError) => {
         if (unlinkError) {
           logger.error(
-            `Failed to cleanup temporary logo file: ${unlinkError.message}`
+            `Failed to cleanup temporary logo file: ${unlinkError.message}`,
           );
         }
       });
     }
 
     logger.error(
-      `Upload logo error: ${error.message}`
+      `Upload logo error: ${error.message}`,
     );
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to upload business logo.",
+      message: "Failed to upload business logo.",
     });
   }
 };
 
-
+// ============================================================
 // REMOVE BUSINESS LOGO
+// ============================================================
+
 const removeLogo = async (req, res) => {
   try {
     const settings = await Settings.findOne();
@@ -486,12 +498,20 @@ const removeLogo = async (req, res) => {
       });
     }
 
-    const { deleteLogo } = require("../services/cloudinaryService");
+    const {
+      deleteLogo,
+    } = require("../services/cloudinaryService");
 
+    // ========================================================
     // Remove from Cloudinary
+    // ========================================================
+
     await deleteLogo(publicId);
 
+    // ========================================================
     // Remove from MongoDB
+    // ========================================================
+
     settings.appearance.logo = {
       url: "",
       publicId: "",
@@ -500,27 +520,29 @@ const removeLogo = async (req, res) => {
     await settings.save();
 
     logger.info(
-      `Business logo removed by user ${req.user._id}`
+      `Business logo removed by user ${req.user._id}`,
     );
 
     return res.status(200).json({
       success: true,
-      message:
-        "Business logo removed successfully.",
+      message: "Business logo removed successfully.",
       settings,
     });
   } catch (error) {
     logger.error(
-      `Remove logo error: ${error.message}`
+      `Remove logo error: ${error.message}`,
     );
 
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to remove business logo.",
+      message: "Failed to remove business logo.",
     });
   }
 };
+
+// ============================================================
+// EXPORTS
+// ============================================================
 
 module.exports = {
   getSettings,
@@ -529,4 +551,3 @@ module.exports = {
   uploadLogo,
   removeLogo,
 };
-

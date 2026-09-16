@@ -1,7 +1,11 @@
+
 const mongoose = require("mongoose");
 
 const settingsSchema = new mongoose.Schema(
   {
+    // =========================
+    // Business Information
+    // =========================
     businessName: {
       type: String,
       trim: true,
@@ -22,10 +26,10 @@ const settingsSchema = new mongoose.Schema(
     },
 
     businessAddress: {
-  type: String,
-  trim: true,
-  default: "",
-},
+      type: String,
+      trim: true,
+      default: "",
+    },
 
     currency: {
       type: String,
@@ -37,17 +41,18 @@ const settingsSchema = new mongoose.Schema(
     // Appearance
     // =========================
     appearance: {
-  logo: {
-    url: {
-      type: String,
-      default: "",
-    },
+      logo: {
+        url: {
+          type: String,
+          default: "",
+        },
 
-    publicId: {
-      type: String,
-      default: "",
-    },
-  },
+        publicId: {
+          type: String,
+          default: "",
+        },
+      },
+
       systemName: {
         type: String,
         trim: true,
@@ -55,156 +60,171 @@ const settingsSchema = new mongoose.Schema(
       },
     },
 
-salesInvoicing: {
-
+    // =========================
+    // Sales & Invoicing
+    // =========================
+    salesInvoicing: {
       salesPrefix: {
-    type: String,
-    trim: true,
-    default: "SAL-",
-  },
-
-  salesStartingNumber: {
-    type: Number,
-    default: 1,
-    min: 1,
+        type: String,
+        trim: true,
+        default: "SAL-",
       },
 
-  invoicePrefix: {
-    type: String,
-    trim: true,
-    default: "INV-",
-  },
+      salesStartingNumber: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
 
-  quotationPrefix: {
-    type: String,
-    trim: true,
-    default: "QUO-",
-  },
+      invoicePrefix: {
+        type: String,
+        trim: true,
+        default: "INV-",
+      },
 
-  invoiceStartingNumber: {
-    type: Number,
-    default: 1,
-    min: 1,
-  },
+      quotationPrefix: {
+        type: String,
+        trim: true,
+        default: "QUO-",
+      },
 
-  quotationStartingNumber: {
-    type: Number,
-    default: 1,
-    min: 1,
-  },
+      invoiceStartingNumber: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
 
-  purchasePrefix: {
-    type: String,
-    trim: true,
-    default: "PUR-",
-  },
+      quotationStartingNumber: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
 
-  purchaseStartingNumber: {
-    type: Number,
-    default: 1,
-    min: 1,
-  },
+      purchasePrefix: {
+        type: String,
+        trim: true,
+        default: "PUR-",
+      },
 
-  clientPOPrefix: {
-    type: String,
-    trim: true,
-    default: "CPO-",
-  },
+      purchaseStartingNumber: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
 
-  clientPOStartingNumber: {
-    type: Number,
-    default: 1,
-    min: 1,
+      clientPOPrefix: {
+        type: String,
+        trim: true,
+        default: "CPO-",
+      },
+
+      clientPOStartingNumber: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
+
+      supplierPOPrefix: {
+        type: String,
+        trim: true,
+        default: "SPO-",
+      },
+
+      supplierPOStartingNumber: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
+
+      defaultPaymentTerms: {
+        type: String,
+        trim: true,
+        default: "Due on Receipt",
+      },
+
+      defaultTaxRate: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100,
+      },
+
+      // Used by generated business documents such as
+      // quotations, invoices, purchase orders, etc.
+      documentFooter: {
+        type: String,
+        trim: true,
+        default: "",
+      },
     },
 
-  supplierPOPrefix: {
-  type: String,
-  trim: true,
-  default: "SPO-",
-},
-
-supplierPOStartingNumber: {
-  type: Number,
-  default: 1,
-  min: 1,
-    },
-
-
-  defaultPaymentTerms: {
-    type: String,
-    trim: true,
-    default: "Due on Receipt",
-  },
-
-  defaultTaxRate: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 100,
-  },
-
-  documentFooter: {
-    type: String,
-    trim: true,
-    default: "",
-  },
-},
-
+    // =========================
+    // Inventory
+    // =========================
     inventory: {
-  lowStockThreshold: {
-    type: Number,
-    default: 10,
-    min: 0,
-  },
+      lowStockThreshold: {
+        type: Number,
+        default: 10,
+        min: 0,
+      },
 
-  allowNegativeStock: {
-    type: Boolean,
-    default: false,
-  },
+      allowNegativeStock: {
+        type: Boolean,
+        default: false,
+      },
 
-  autoDeductStockOnSale: {
-    type: Boolean,
-    default: true,
-  },
+      autoDeductStockOnSale: {
+        type: Boolean,
+        default: true,
+      },
 
-  autoRestoreStockOnSaleCancellation: {
-    type: Boolean,
-    default: true,
-  },
+      autoRestoreStockOnSaleCancellation: {
+        type: Boolean,
+        default: true,
+      },
     },
 
-accountingTax: {
-  vatEnabled: {
-    type: Boolean,
-    default: false,
-  },
+    // =========================
+    // Accounting & Tax
+    // =========================
+    accountingTax: {
+      vatEnabled: {
+        type: Boolean,
+        default: false,
+      },
 
-  vatRate: {
-    type: Number,
-    default: 12,
-    min: 0,
-    max: 100,
-  },
+      vatRate: {
+        type: Number,
+        default: 12,
+        min: 0,
+        max: 100,
+      },
 
-  pricingMode: {
-    type: String,
-    enum: ["inclusive", "exclusive"],
-    default: "inclusive",
-  },
+      pricingMode: {
+        type: String,
+        enum: ["inclusive", "exclusive"],
+        default: "inclusive",
+      },
 
-  withholdingTaxEnabled: {
-    type: Boolean,
-    default: false,
-  },
+      // Reserved for future withholding tax implementation.
+      // Keep disabled for now.
+      withholdingTaxEnabled: {
+        type: Boolean,
+        default: false,
+      },
+    },
 
-  fiscalYearStartMonth: {
-    type: Number,
-    default: 1,
-    min: 1,
-    max: 12,
-  },
-},
-
+    // =========================
+    // Fiscal Year
+    // =========================
+    fiscalYear: {
+      startMonth: {
+        type: Number,
+        default: 1,
+        min: 1,
+        max: 12,
+      },
+    },
 
     // =========================
     // System Preferences
@@ -221,10 +241,8 @@ accountingTax: {
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-module.exports = mongoose.model(
-  "Settings",
-  settingsSchema
-);
+module.exports = mongoose.model("Settings", settingsSchema);
+
