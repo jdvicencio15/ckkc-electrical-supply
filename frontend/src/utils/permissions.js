@@ -1,86 +1,154 @@
 const permissions = {
   "admin-owner": {
     dashboard: "full",
+
+    // Inventory / Master Data
     products: "full",
     units: "full",
     categories: "full",
+
+    // Sales
     sales: "full",
-    purchases: "full",
-    inventory: "full",
-    customers: "full",
-    suppliers: "full",
     quotations: "full",
+    clientPO: "full",
     invoices: "full",
     payments: "full",
+
+    // Purchasing
+    purchases: "full",
+    supplierPricing: "full",
+    supplierPO: "full",
+
+    // Inventory
+    inventory: "full",
+
+    // Master Data
+    customers: "full",
+    suppliers: "full",
+
+    // Accounting / Reports
     accounting: "full",
     reports: "full",
+
+    // Administration
     users: "full",
     rolesPermissions: "full",
     settings: "full",
-    supplierPricing: "full",
+    auditTrails: "full",
   },
 
- sales: {
+  sales: {
+    dashboard: "view",
+
+    // Inventory / Master Data
+    products: "view",
+    units: "view",
+    categories: "view",
+
+    // Sales
+    sales: "full",
+    quotations: "full",
+    clientPO: "full",
+    invoices: "full",
+    payments: "none",
+
+    // Purchasing
+    purchases: "none",
+    supplierPricing: "view",
+    supplierPO: "none",
+
+    // Inventory
+    inventory: "view",
+
+    // Master Data
+    customers: "full",
+    suppliers: "none",
+
+    // Accounting / Reports
+    accounting: "none",
+    reports: "none",
+
+    // Administration
+    users: "none",
+    rolesPermissions: "none",
+    settings: "none",
+    auditTrails: "none",
+  },
+
+  purchasing: {
   dashboard: "view",
-   products: "view",
+
+  // Inventory / Master Data
+  products: "full",
   units: "view",
   categories: "view",
-  sales: "full",
-  purchases: "none",
-  inventory: "view",
-  customers: "full",
-  suppliers: "none",
-  quotations: "full",
-  invoices: "full",
-  payments: "none",
-  accounting: "none",
-  reports: "none",
-  users: "none",
-  rolesPermissions: "none",
-   settings: "none",
-  supplierPricing: "view",
-},
 
-purchasing: {
-  dashboard: "view",
-  products: "full",
-  units: "full",
-  categories: "full",
+  // Sales
   sales: "none",
-  purchases: "full",
-  inventory: "full",
-  customers: "none",
-  suppliers: "full",
   quotations: "none",
+  clientPO: "none",
   invoices: "none",
   payments: "none",
+
+  // Purchasing
+  purchases: "full",
+  supplierPricing: "full",
+  supplierPO: "full",
+
+  // Inventory
+  inventory: "full",
+
+  // Master Data
+  customers: "none",
+  suppliers: "full",
+
+  // Accounting / Reports
   accounting: "none",
   reports: "none",
+
+  // Administration
   users: "none",
   rolesPermissions: "none",
   settings: "none",
-  supplierPricing: "full",
+  auditTrails: "none",
 },
 
   accounting: {
     dashboard: "view",
+
+    // Inventory / Master Data
     products: "none",
     units: "none",
     categories: "none",
+
+    // Sales
     sales: "view",
-    purchases: "view",
-    inventory: "view",
-    customers: "view",
-    suppliers: "view",
     quotations: "none",
+    clientPO: "view",
     invoices: "full",
     payments: "full",
+
+    // Purchasing
+    purchases: "view",
+    supplierPricing: "view",
+    supplierPO: "view",
+
+    // Inventory
+    inventory: "view",
+
+    // Master Data
+    customers: "view",
+    suppliers: "view",
+
+    // Accounting / Reports
     accounting: "full",
     reports: "full",
+
+    // Administration
     users: "none",
     rolesPermissions: "none",
     settings: "none",
-    supplierPricing: "view",
+    auditTrails: "none",
   },
 };
 

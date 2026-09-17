@@ -1,8 +1,7 @@
 import { useSettings } from "../../context/SettingsContext";
 import { formatCurrency } from "../../utils/currency";
 
-function SalesByCategory({ sales, products }) {
-
+function SalesByCategory({ sales = [], products = [] }) {
   const { settings } = useSettings();
 
   const categories = [
@@ -12,9 +11,11 @@ function SalesByCategory({ sales, products }) {
     "Accessories",
   ];
 
+  // Normalize product IDs to strings so they match
+  // the productId stored inside sale items.
   const productCategoryMap = new Map(
     products.map((product) => [
-      product._id,
+      String(product._id),
       product.categoryId?.name,
     ]),
   );
@@ -22,13 +23,22 @@ function SalesByCategory({ sales, products }) {
   const categorySales = categories.map((categoryName) => {
     const categoryTotal = sales.reduce((total, sale) => {
       const itemTotal = (sale.items || []).reduce((itemSum, item) => {
-        const productCategory = productCategoryMap.get(item.productId);
+        const productCategory = productCategoryMap.get(
+          String(
+            typeof item.productId === "object"
+              ? item.productId?._id
+              : item.productId,
+          ),
+        );
 
         if (productCategory !== categoryName) {
           return itemSum;
         }
 
-        return itemSum + item.quantity * item.unitPrice;
+        return (
+          itemSum +
+          Number(item.quantity || 0) * Number(item.unitPrice || 0)
+        );
       }, 0);
 
       return total + itemTotal;
@@ -76,11 +86,11 @@ function SalesByCategory({ sales, products }) {
               </span>
 
               <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-  {formatCurrency(
-    category.sales,
-    settings?.currency
-  )}
-</span>
+                {formatCurrency(
+                  category.sales,
+                  settings?.currency,
+                )}
+              </span>
             </div>
 
             <div className="h-2 overflow-hidden rounded-full bg-green-50 dark:bg-slate-700">

@@ -55,39 +55,63 @@ const roleConfig = [
 
 const moduleLabels = {
   dashboard: "Dashboard",
+
   products: "Products",
   categories: "Categories",
+  units: "Units",
+
   sales: "Sales",
-  purchases: "Purchases",
-  inventory: "Inventory",
-  customers: "Customers",
-  suppliers: "Suppliers",
   quotations: "Quotations",
+  clientPO: "Client POs",
   invoices: "Invoices",
   payments: "Payments",
+
+  purchases: "Purchases",
+  supplierPricing: "Supplier Pricing",
+  supplierPO: "Supplier POs",
+
+  inventory: "Inventory",
+
+  customers: "Customers",
+  suppliers: "Suppliers",
+
   accounting: "Accounting",
   reports: "Reports",
+
   users: "Users",
   rolesPermissions: "Roles & Permissions",
+  auditTrails: "Audit Trails",
   settings: "System Settings",
 };
 
 const moduleOrder = [
   "dashboard",
+
   "products",
   "categories",
-  "sales",
-  "purchases",
-  "inventory",
-  "customers",
-  "suppliers",
+  "units",
+
   "quotations",
+  "clientPO",
+  "sales",
   "invoices",
   "payments",
+
+  "supplierPricing",
+  "supplierPO",
+  "purchases",
+
+  "inventory",
+
+  "customers",
+  "suppliers",
+
   "accounting",
   "reports",
+
   "users",
   "rolesPermissions",
+  "auditTrails",
   "settings",
 ];
 

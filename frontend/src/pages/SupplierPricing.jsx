@@ -15,7 +15,18 @@ import Spinner from "../components/ui/Spinner";
 import { useSettings } from "../context/SettingsContext";
 import { formatCurrency } from "../utils/currency";
 
+import { useAuth } from "../context/AuthContext";
+import { hasPermission } from "../utils/permissions";
+
 function SupplierPricing() {
+  const { user } = useAuth();
+
+  const canManageSupplierPricing = hasPermission(
+    user?.role,
+    "supplierPricing",
+    "edit",
+  );
+
   const [searchParams] = useSearchParams();
   const { settings } = useSettings();
 
@@ -35,11 +46,9 @@ function SupplierPricing() {
   const [selectedStatus, setSelectedStatus] = useState("all");
 
   const [showForm, setShowForm] = useState(false);
-  const [editingSupplierPricing, setEditingSupplierPricing] =
-    useState(null);
+  const [editingSupplierPricing, setEditingSupplierPricing] = useState(null);
 
-  const [deletingSupplierPricing, setDeletingSupplierPricing] =
-    useState(null);
+  const [deletingSupplierPricing, setDeletingSupplierPricing] = useState(null);
 
   const [toast, setToast] = useState({
     type: "success",
@@ -47,33 +56,20 @@ function SupplierPricing() {
   });
 
   const loadData = async () => {
-    const [
-      pricingResponse,
-      suppliersResponse,
-      productsResponse,
-    ] = await Promise.all([
-      supplierPricingService.getSupplierPricings(),
-      supplierService.getSuppliers(),
-      productService.getProducts(),
-    ]);
+    const [pricingResponse, suppliersResponse, productsResponse] =
+      await Promise.all([
+        supplierPricingService.getSupplierPricings(),
+        supplierService.getSuppliers(),
+        productService.getProducts(),
+      ]);
 
     setSupplierPricings(
-      pricingResponse.supplierPricings ||
-        pricingResponse.data ||
-        [],
+      pricingResponse.supplierPricings || pricingResponse.data || [],
     );
 
-    setSuppliers(
-      suppliersResponse.suppliers ||
-        suppliersResponse.data ||
-        [],
-    );
+    setSuppliers(suppliersResponse.suppliers || suppliersResponse.data || []);
 
-    setProducts(
-      productsResponse.products ||
-        productsResponse.data ||
-        [],
-    );
+    setProducts(productsResponse.products || productsResponse.data || []);
   };
 
   useEffect(() => {
@@ -81,16 +77,12 @@ function SupplierPricing() {
       try {
         await loadData();
       } catch (error) {
-        console.error(
-          "Failed to load supplier pricing:",
-          error,
-        );
+        console.error("Failed to load supplier pricing:", error);
 
         setToast({
           type: "error",
           message:
-            error.response?.data?.message ||
-            "Failed to load supplier pricing.",
+            error.response?.data?.message || "Failed to load supplier pricing.",
         });
       } finally {
         setLoading(false);
@@ -119,9 +111,7 @@ function SupplierPricing() {
     try {
       setFormLoading(true);
 
-      await supplierPricingService.createSupplierPricing(
-        formData,
-      );
+      await supplierPricingService.createSupplierPricing(formData);
 
       await loadData();
 
@@ -132,16 +122,12 @@ function SupplierPricing() {
         message: "Supplier pricing created successfully.",
       });
     } catch (error) {
-      console.error(
-        "Failed to create supplier pricing:",
-        error,
-      );
+      console.error("Failed to create supplier pricing:", error);
 
       setToast({
         type: "error",
         message:
-          error.response?.data?.message ||
-          "Failed to create supplier pricing.",
+          error.response?.data?.message || "Failed to create supplier pricing.",
       });
     } finally {
       setFormLoading(false);
@@ -171,16 +157,12 @@ function SupplierPricing() {
         message: "Supplier pricing updated successfully.",
       });
     } catch (error) {
-      console.error(
-        "Failed to update supplier pricing:",
-        error,
-      );
+      console.error("Failed to update supplier pricing:", error);
 
       setToast({
         type: "error",
         message:
-          error.response?.data?.message ||
-          "Failed to update supplier pricing.",
+          error.response?.data?.message || "Failed to update supplier pricing.",
       });
     } finally {
       setFormLoading(false);
@@ -212,16 +194,12 @@ function SupplierPricing() {
         message: "Supplier pricing deleted successfully.",
       });
     } catch (error) {
-      console.error(
-        "Failed to delete supplier pricing:",
-        error,
-      );
+      console.error("Failed to delete supplier pricing:", error);
 
       setToast({
         type: "error",
         message:
-          error.response?.data?.message ||
-          "Failed to delete supplier pricing.",
+          error.response?.data?.message || "Failed to delete supplier pricing.",
       });
     } finally {
       setDeleting(false);
@@ -268,9 +246,7 @@ function SupplierPricing() {
         value: supplier._id,
         label: supplier.name,
       }))
-      .sort((a, b) =>
-        a.label.localeCompare(b.label),
-      );
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [suppliers]);
 
   const filteredSupplierPricings = useMemo(() => {
@@ -281,24 +257,15 @@ function SupplierPricing() {
       const product = pricing.productId;
 
       const supplierName =
-        typeof supplier === "object"
-          ? supplier?.name || ""
-          : "";
+        typeof supplier === "object" ? supplier?.name || "" : "";
 
       const supplierCode =
-        typeof supplier === "object"
-          ? supplier?.supplierCode || ""
-          : "";
+        typeof supplier === "object" ? supplier?.supplierCode || "" : "";
 
       const productName =
-        typeof product === "object"
-          ? product?.name || ""
-          : "";
+        typeof product === "object" ? product?.name || "" : "";
 
-      const productSku =
-        typeof product === "object"
-          ? product?.sku || ""
-          : "";
+      const productSku = typeof product === "object" ? product?.sku || "" : "";
 
       const matchesSearch =
         supplierName.toLowerCase().includes(search) ||
@@ -307,38 +274,21 @@ function SupplierPricing() {
         productSku.toLowerCase().includes(search);
 
       const supplierId =
-        typeof supplier === "object"
-          ? supplier?._id
-          : supplier;
+        typeof supplier === "object" ? supplier?._id : supplier;
 
       const matchesSupplier =
-        selectedSupplier === "all" ||
-        supplierId === selectedSupplier;
+        selectedSupplier === "all" || supplierId === selectedSupplier;
 
       const matchesStatus =
-        selectedStatus === "all" ||
-        pricing.status === selectedStatus;
+        selectedStatus === "all" || pricing.status === selectedStatus;
 
-      return (
-        matchesSearch &&
-        matchesSupplier &&
-        matchesStatus
-      );
+      return matchesSearch && matchesSupplier && matchesStatus;
     });
-  }, [
-    supplierPricings,
-    searchTerm,
-    selectedSupplier,
-    selectedStatus,
-  ]);
+  }, [supplierPricings, searchTerm, selectedSupplier, selectedStatus]);
 
   return (
     <>
-      <Toast
-        type={toast.type}
-        message={toast.message}
-        onClose={closeToast}
-      />
+      <Toast type={toast.type} message={toast.message} onClose={closeToast} />
 
       <ConfirmModal
         isOpen={!!deletingSupplierPricing}
@@ -346,8 +296,7 @@ function SupplierPricing() {
         onConfirm={handleConfirmDelete}
         title="Delete Supplier Pricing"
         message={`Are you sure you want to delete this pricing for "${
-          deletingSupplierPricing?.productId?.name ||
-          "this product"
+          deletingSupplierPricing?.productId?.name || "this product"
         }"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
@@ -367,12 +316,11 @@ function SupplierPricing() {
             </p>
           </div>
 
-          <Button
-            type="button"
-            onClick={openCreateForm}
-          >
-            + Add Pricing
-          </Button>
+          {canManageSupplierPricing && (
+            <Button type="button" onClick={openCreateForm}>
+              + Add Pricing
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -387,20 +335,13 @@ function SupplierPricing() {
 
           <select
             value={selectedSupplier}
-            onChange={(e) =>
-              setSelectedSupplier(e.target.value)
-            }
+            onChange={(e) => setSelectedSupplier(e.target.value)}
             className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-700 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:focus:ring-green-950"
           >
-            <option value="all">
-              All Suppliers
-            </option>
+            <option value="all">All Suppliers</option>
 
             {supplierFilterOptions.map((supplier) => (
-              <option
-                key={supplier.value}
-                value={supplier.value}
-              >
+              <option key={supplier.value} value={supplier.value}>
                 {supplier.label}
               </option>
             ))}
@@ -408,9 +349,7 @@ function SupplierPricing() {
 
           <select
             value={selectedStatus}
-            onChange={(e) =>
-              setSelectedStatus(e.target.value)
-            }
+            onChange={(e) => setSelectedStatus(e.target.value)}
             className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base text-slate-700 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:focus:ring-green-950"
           >
             <option value="all">All Status</option>
@@ -425,29 +364,17 @@ function SupplierPricing() {
             <table className="w-full min-w-[1000px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                 <tr>
-                  <th className="px-6 py-3 font-semibold">
-                    Supplier
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Supplier</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Product
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Product</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    SKU
-                  </th>
+                  <th className="px-6 py-3 font-semibold">SKU</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Unit Cost
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Unit Cost</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Effective From
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Effective From</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Status
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Status</th>
 
                   <th className="px-6 py-3 text-right font-semibold">
                     Actions
@@ -458,10 +385,7 @@ function SupplierPricing() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td
-                      colSpan="7"
-                      className="px-6 py-12"
-                    >
+                    <td colSpan="7" className="px-6 py-12">
                       <div className="flex justify-center">
                         <Spinner size="md" />
                       </div>
@@ -480,15 +404,12 @@ function SupplierPricing() {
                   [...filteredSupplierPricings]
                     .sort(
                       (a, b) =>
-                        new Date(b.createdAt || 0) -
-                        new Date(a.createdAt || 0),
+                        new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
                     )
                     .map((pricing) => {
-                      const supplier =
-                        pricing.supplierId;
+                      const supplier = pricing.supplierId;
 
-                      const product =
-                        pricing.productId;
+                      const product = pricing.productId;
 
                       return (
                         <tr
@@ -503,8 +424,7 @@ function SupplierPricing() {
                               </p>
 
                               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                {supplier?.supplierCode ||
-                                  "—"}
+                                {supplier?.supplierCode || "—"}
                               </p>
                             </div>
                           </td>
@@ -534,14 +454,11 @@ function SupplierPricing() {
                             {pricing.effectiveFrom
                               ? new Date(
                                   pricing.effectiveFrom,
-                                ).toLocaleDateString(
-                                  "en-PH",
-                                  {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  },
-                                )
+                                ).toLocaleDateString("en-PH", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })
                               : "—"}
                           </td>
 
@@ -549,14 +466,12 @@ function SupplierPricing() {
                           <td className="px-6 py-4">
                             <span
                               className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                                pricing.status ===
-                                "active"
+                                pricing.status === "active"
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                   : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                               }`}
                             >
-                              {pricing.status ===
-                              "active"
+                              {pricing.status === "active"
                                 ? "Active"
                                 : "Inactive"}
                             </span>
@@ -565,37 +480,31 @@ function SupplierPricing() {
                           {/* Actions */}
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openEditForm(
-                                    pricing,
-                                  )
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                                aria-label={`Edit pricing for ${
-                                  product?.name ||
-                                  "product"
-                                }`}
-                              >
-                                <FaEdit className="h-3.5 w-3.5" />
-                              </button>
+                              {canManageSupplierPricing && (
+                                <button
+                                  type="button"
+                                  onClick={() => openEditForm(pricing)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                  aria-label={`Edit pricing for ${
+                                    product?.name || "product"
+                                  }`}
+                                >
+                                  <FaEdit className="h-3.5 w-3.5" />
+                                </button>
+                              )}
 
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDelete(
-                                    pricing,
-                                  )
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                                aria-label={`Delete pricing for ${
-                                  product?.name ||
-                                  "product"
-                                }`}
-                              >
-                                <FaTrash className="h-3.5 w-3.5" />
-                              </button>
+                              {canManageSupplierPricing && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(pricing)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+                                  aria-label={`Delete pricing for ${
+                                    product?.name || "product"
+                                  }`}
+                                >
+                                  <FaTrash className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -621,11 +530,7 @@ function SupplierPricing() {
             supplierPricing={editingSupplierPricing}
             suppliers={suppliers}
             products={products}
-            onSubmit={
-              editingSupplierPricing
-                ? handleUpdate
-                : handleCreate
-            }
+            onSubmit={editingSupplierPricing ? handleUpdate : handleCreate}
             onClose={closeForm}
             submitting={formLoading}
           />

@@ -49,7 +49,7 @@ router.get(
 router.post(
   "/",
   protect,
-  authorize("owner", "admin"),
+  authorize("owner", "admin", "purchasing"),
   unitValidator,
   validationMiddleware,
   createUnit
@@ -59,7 +59,7 @@ router.post(
 router.put(
   "/:id",
   protect,
-  authorize("owner", "admin"),
+  authorize("owner", "admin", "purchasing"),
   unitUpdateValidator,
   validationMiddleware,
   updateUnit

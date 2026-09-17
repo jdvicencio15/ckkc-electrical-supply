@@ -151,6 +151,17 @@ const createPayment = async (req, res, next) => {
 
     const paymentAmount = roundMoney(amount);
 
+    const newTotalPaid = roundMoney(
+  totalPaid + paymentAmount,
+);
+
+const paymentStatus =
+  newTotalPaid >= roundMoney(invoice.totalAmount)
+    ? "paid"
+    : newTotalPaid > 0
+      ? "partial"
+          : "unpaid";
+    
     // ------------------------------
     // Prevent overpayment
     // ------------------------------

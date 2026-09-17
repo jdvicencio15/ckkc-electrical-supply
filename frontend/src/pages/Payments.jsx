@@ -238,7 +238,6 @@ function Payments() {
       .reduce((total, payment) => total + Number(payment.amount || 0), 0);
   }, [payments]);
 
-
   const formatDate = (date) => {
     if (!date) {
       return "—";
@@ -263,6 +262,25 @@ function Payments() {
 
     return methods[method] || method || "—";
   };
+
+const getInvoicePaymentStatus = (invoice) => {
+  if (!invoice) {
+    return "Unpaid";
+  }
+
+  const invoiceTotal = Number(invoice.totalAmount || 0);
+  const totalPaid = getInvoiceTotalPaid(invoice._id);
+
+  if (totalPaid <= 0) {
+    return "Unpaid";
+  }
+
+  if (totalPaid >= invoiceTotal) {
+    return "Paid in Full";
+  }
+
+  return "Partial Payment";
+};
 
   const openCreateForm = () => {
     setEditingPayment(null);
@@ -403,9 +421,9 @@ function Payments() {
         onConfirm={handleConfirmDelete}
         title="Delete Payment"
         message={`Are you sure you want to delete this payment of ${formatCurrency(
-  deletingPayment?.amount,
-  settings?.currency,
-)}? This action cannot be undone.`}
+          deletingPayment?.amount,
+          settings?.currency,
+        )}? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         loading={deleting}
@@ -471,8 +489,7 @@ function Payments() {
             </p>
 
             <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {formatCurrency(totalCollected,
-                settings?.currency,)}
+              {formatCurrency(totalCollected, settings?.currency)}
             </p>
           </div>
 
@@ -492,9 +509,7 @@ function Payments() {
             </p>
 
             <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {formatCurrency(outstandingReceivables,
-                settings?.currency,
-              )}
+              {formatCurrency(outstandingReceivables, settings?.currency)}
             </p>
           </div>
 
@@ -504,9 +519,7 @@ function Payments() {
             </p>
 
             <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {formatCurrency(collectedThisMonth,
-                settings?.currency,
-              )}
+              {formatCurrency(collectedThisMonth, settings?.currency)}
             </p>
           </div>
         </div>
@@ -595,6 +608,8 @@ function Payments() {
 
                       <th className="px-6 py-3 font-semibold">Reference</th>
 
+                      <th className="px-6 py-3 font-semibold">Status</th>
+
                       <th className="px-6 py-3 font-semibold">Amount</th>
 
                       <th className="px-6 py-3 font-semibold">Method</th>
@@ -632,15 +647,29 @@ function Payments() {
                             {payment.referenceNumber || "—"}
                           </td>
 
+                          <td className="px-6 py-4">
+  <span
+    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+      payment.status === "posted"
+        ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
+        : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+    }`}
+  >
+    {payment.status === "posted"
+      ? "Posted"
+      : "Cancelled"}
+  </span>
+</td>
+
                           <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
-                            {formatCurrency(payment.amount,
-                              settings?.currency,
-                            )}
+                            {formatCurrency(payment.amount, settings?.currency)}
                           </td>
 
                           <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                             {formatPaymentMethod(payment.paymentMethod)}
                           </td>
+
+
 
                           <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                             {formatDate(payment.paymentDate)}
@@ -649,34 +678,43 @@ function Payments() {
                           {canManagePayments && (
                             <td className="px-6 py-4">
                               <div className="flex justify-end gap-2">
+                                {/* View */}
                                 <button
                                   type="button"
                                   onClick={() => openView(payment)}
                                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                                   aria-label="View payment"
+                                  title="View payment"
                                 >
                                   <FaEye className="h-3.5 w-3.5" />
                                 </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => openEditForm(payment)}
-                                  disabled={formLoading}
-                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                                  aria-label="Edit payment"
-                                >
-                                  <FaEdit className="h-3.5 w-3.5" />
-                                </button>
+                                {/* Posted payments are immutable */}
+                                {payment.status !== "posted" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => openEditForm(payment)}
+                                      disabled={formLoading}
+                                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                      aria-label="Edit payment"
+                                      title="Edit payment"
+                                    >
+                                      <FaEdit className="h-3.5 w-3.5" />
+                                    </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(payment)}
-                                  disabled={formLoading}
-                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                                  aria-label="Delete payment"
-                                >
-                                  <FaTrash className="h-3.5 w-3.5" />
-                                </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(payment)}
+                                      disabled={formLoading}
+                                      className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                                      aria-label="Delete payment"
+                                      title="Delete payment"
+                                    >
+                                      <FaTrash className="h-3.5 w-3.5" />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           )}
@@ -787,7 +825,8 @@ function Payments() {
                       </p>
 
                       <p className="mt-1 text-lg font-bold text-green-600">
-                        {formatCurrency(viewingPayment.amount,
+                        {formatCurrency(
+                          viewingPayment.amount,
                           settings?.currency,
                         )}
                       </p>
@@ -809,9 +848,9 @@ function Payments() {
 
                       <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
                         {formatCurrency(
-  viewingPayment.invoiceId?.totalAmount,
-  settings?.currency,
-)}
+                          viewingPayment.invoiceId?.totalAmount,
+                          settings?.currency,
+                        )}
                       </p>
                     </div>
 
@@ -822,9 +861,9 @@ function Payments() {
 
                       <p className="mt-1 font-semibold text-green-600">
                         {formatCurrency(
-  viewingPayment.invoiceId?.totalAmount,
-  settings?.currency,
-)}
+                          getInvoiceTotalPaid(viewingPayment.invoiceId?._id),
+                          settings?.currency,
+                        )}
                       </p>
                     </div>
 
@@ -834,13 +873,33 @@ function Payments() {
                       </p>
 
                       <p className="mt-1 font-semibold text-amber-500">
-                       {formatCurrency(
-  getInvoiceBalance(viewingPayment.invoiceId),
-  settings?.currency,
-)}
+                        {formatCurrency(
+                          getInvoiceBalance(viewingPayment.invoiceId),
+                          settings?.currency,
+                        )}
                       </p>
                     </div>
                   </div>
+
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+  <p className="text-xs text-slate-500 dark:text-slate-400">
+    Payment Status
+  </p>
+
+  <span
+    className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+      getInvoicePaymentStatus(viewingPayment.invoiceId) === "Paid in Full"
+        ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
+        : getInvoicePaymentStatus(viewingPayment.invoiceId) ===
+            "Partial Payment"
+          ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+          : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+    }`}
+  >
+    {getInvoicePaymentStatus(viewingPayment.invoiceId)}
+  </span>
+</div>
+                  
                 </div>
 
                 {/* Notes */}

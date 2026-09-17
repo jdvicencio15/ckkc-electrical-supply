@@ -17,7 +17,12 @@ export function SettingsProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const { isAuthenticated, loading: authLoading } = useAuth();
+const {
+  user,
+  isAuthenticated,
+  loading: authLoading,
+  } = useAuth();
+
 
   const loadSettings = useCallback(async () => {
     try {
@@ -98,17 +103,36 @@ useEffect(() => {
     return;
   }
 
-  loadSettings();
+  const canAccessFullSettings =
+    user?.role === "owner" ||
+    user?.role === "admin";
+
+  if (canAccessFullSettings) {
+    loadSettings();
+  } else {
+    loadPublicConfig();
+  }
 }, [
   authLoading,
   isAuthenticated,
+  user?.role,
   loadPublicConfig,
   loadSettings,
 ]);
 
-  const refreshSettings = useCallback(() => {
-    return loadSettings();
-  }, [loadSettings]);
+const refreshSettings = useCallback(() => {
+  const canAccessFullSettings =
+    user?.role === "owner" ||
+    user?.role === "admin";
+
+  return canAccessFullSettings
+    ? loadSettings()
+    : loadPublicConfig();
+}, [
+  user?.role,
+  loadSettings,
+  loadPublicConfig,
+]);
 
   // =====================================================
   // BUSINESS IDENTITY

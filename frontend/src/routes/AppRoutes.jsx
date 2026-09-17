@@ -52,7 +52,6 @@ import UnitEdit from "../pages/UnitEdit";
 
 import Expenses from "../pages/accounting/Expenses";
 
-
 function AppRoutes() {
   return (
     <BrowserRouter>
@@ -73,11 +72,25 @@ function AppRoutes() {
         {/* Protected Application Routes */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            {/* Dashboard */}
+            <Route
+              element={<PermissionRoute module="dashboard" action="view" />}
+            >
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Route>
 
-            <Route path="/products" element={<Products />} />
+          {/* Product Master Data */}
+            <Route
+              element={<PermissionRoute module="products" action="view" />}
+            >
+              <Route path="/products" element={<Products />} />
+            </Route>
 
-            <Route path="/categories" element={<Categories />} />
+            <Route
+              element={<PermissionRoute module="categories" action="view" />}
+            >
+              <Route path="/categories" element={<Categories />} />
+            </Route>
 
             {/* Units */}
             <Route element={<PermissionRoute module="units" action="view" />}>
@@ -86,20 +99,41 @@ function AppRoutes() {
 
             <Route element={<PermissionRoute module="units" action="full" />}>
               <Route path="/units/new" element={<UnitCreate />} />
-
               <Route path="/units/:id/edit" element={<UnitEdit />} />
             </Route>
 
-            <Route path="/sales" element={<Sales />} />
+            <Route element={<PermissionRoute module="sales" action="view" />}>
+              <Route path="/sales" element={<Sales />} />
+            </Route>
 
-            <Route path="/purchases" element={<Purchases />} />
+            {/* Purchasing */}
+            <Route
+              element={<PermissionRoute module="purchases" action="view" />}
+            >
+              <Route path="/purchases" element={<Purchases />} />
+            </Route>
 
-            <Route path="/inventory" element={<Inventory />} />
+            {/* Inventory */}
+            <Route
+              element={<PermissionRoute module="inventory" action="view" />}
+            >
+              <Route path="/inventory" element={<Inventory />} />
+            </Route>
 
-            <Route path="/customers" element={<Customers />} />
+            {/* Master Data */}
+            <Route
+              element={<PermissionRoute module="customers" action="view" />}
+            >
+              <Route path="/customers" element={<Customers />} />
+            </Route>
 
-            <Route path="/suppliers" element={<Suppliers />} />
+            <Route
+              element={<PermissionRoute module="suppliers" action="view" />}
+            >
+              <Route path="/suppliers" element={<Suppliers />} />
+            </Route>
 
+            {/* Supplier Pricing */}
             <Route
               element={
                 <PermissionRoute module="supplierPricing" action="view" />
@@ -108,66 +142,94 @@ function AppRoutes() {
               <Route path="/supplier-pricing" element={<SupplierPricing />} />
             </Route>
 
-            <Route path="/quotations" element={<Quotations />} />
-
-            <Route path="/invoices" element={<Invoices />} />
-
-            <Route path="/payments" element={<Payments />} />
-
-            <Route path="/accounting" element={<Accounting />} />
+            {/* Sales Documents */}
+            <Route
+              element={<PermissionRoute module="quotations" action="view" />}
+            >
+              <Route path="/quotations" element={<Quotations />} />
+            </Route>
 
             <Route
-              path="/accounting/chart-of-accounts"
-              element={<ChartOfAccounts />}
-            />
+              element={<PermissionRoute module="invoices" action="view" />}
+            >
+              <Route path="/invoices" element={<Invoices />} />
+            </Route>
 
             <Route
-              path="/accounting/journal-entries"
-              element={<JournalEntries />}
-            />
+              element={<PermissionRoute module="payments" action="view" />}
+            >
+              <Route path="/payments" element={<Payments />} />
+            </Route>
 
+            {/* Accounting */}
             <Route
-              path="/accounting/general-ledger"
-              element={<GeneralLedger />}
-            />
+              element={<PermissionRoute module="accounting" action="view" />}
+            >
+              <Route path="/accounting" element={<Accounting />} />
 
-            <Route
-              path="/accounting/trial-balance"
-              element={<TrialBalance />}
-            />
+              <Route
+                path="/accounting/chart-of-accounts"
+                element={<ChartOfAccounts />}
+              />
 
-            <Route
-  path="/accounting/expenses"
-  element={<Expenses />}
-/>
+              <Route
+                path="/accounting/journal-entries"
+                element={<JournalEntries />}
+              />
+
+              <Route
+                path="/accounting/general-ledger"
+                element={<GeneralLedger />}
+              />
+
+              <Route
+                path="/accounting/trial-balance"
+                element={<TrialBalance />}
+              />
+
+              <Route path="/accounting/expenses" element={<Expenses />} />
+            </Route>
 
             {/* Reports */}
-            <Route path="/reports" element={<Reports />} />
+            <Route element={<PermissionRoute module="reports" action="view" />}>
+              <Route path="/reports" element={<Reports />} />
 
-            <Route path="/reports/sales" element={<SalesReport />} />
+              <Route path="/reports/sales" element={<SalesReport />} />
 
-            <Route path="/reports/purchases" element={<PurchaseReport />} />
+              <Route path="/reports/purchases" element={<PurchaseReport />} />
 
-            <Route path="/reports/inventory" element={<InventoryReport />} />
+              <Route path="/reports/inventory" element={<InventoryReport />} />
 
-            <Route path="/reports/expenses" element={<ExpenseReport />} />
+              <Route path="/reports/expenses" element={<ExpenseReport />} />
 
-            <Route
-              path="/reports/income-statement"
-              element={<IncomeStatement />}
-            />
+              <Route
+                path="/reports/income-statement"
+                element={<IncomeStatement />}
+              />
 
-            <Route path="/reports/balance-sheet" element={<BalanceSheet />} />
+              <Route path="/reports/balance-sheet" element={<BalanceSheet />} />
+            </Route>
 
-            {/* Users */}
+            {/* Administration */}
             <Route element={<PermissionRoute module="users" action="view" />}>
               <Route path="/users" element={<Users />} />
             </Route>
 
-            <Route path="/roles-permissions" element={<RolesPermissions />} />
+            <Route
+              element={
+                <PermissionRoute module="rolesPermissions" action="view" />
+              }
+            >
+              <Route path="/roles-permissions" element={<RolesPermissions />} />
+            </Route>
 
-            <Route path="/settings" element={<Settings />} />
+            <Route
+              element={<PermissionRoute module="settings" action="view" />}
+            >
+              <Route path="/settings" element={<Settings />} />
+            </Route>
 
+            {/* Profile / Support */}
             <Route path="/profile-settings" element={<ProfileSettings />} />
 
             <Route path="/contact-support" element={<ContactSupport />} />

@@ -3,6 +3,9 @@ const Sale = require("../models/Sale");
 const Customer = require("../models/Customer");
 const Product = require("../models/Product");
 
+const Payment = require("../models/Payment");
+const { roundMoney } = require("../utils/money");
+
 const {
   generateInvoicePDF,
 } = require("../services/pdfService");
@@ -65,10 +68,75 @@ const getInvoices = async (req, res, next) => {
       .populate("updatedBy", "firstName lastName")
       .sort({ createdAt: -1 });
 
+    // --------------------------------
+    // Calculate payment status
+    // --------------------------------
+    const invoiceIds = invoices.map(
+      (invoice) => invoice._id,
+    );
+
+    const paymentSummary = await Payment.aggregate([
+      {
+        $match: {
+          invoiceId: {
+            $in: invoiceIds,
+          },
+          status: "posted",
+        },
+      },
+      {
+        $group: {
+          _id: "$invoiceId",
+          totalPaid: {
+            $sum: "$amount",
+          },
+        },
+      },
+    ]);
+
+    const paymentMap = new Map(
+      paymentSummary.map((payment) => [
+        payment._id.toString(),
+        roundMoney(payment.totalPaid),
+      ]),
+    );
+
+    const invoicesWithPaymentStatus =
+      invoices.map((invoice) => {
+        const invoiceTotal = roundMoney(
+          invoice.totalAmount || 0,
+        );
+
+        const totalPaid =
+          paymentMap.get(invoice._id.toString()) || 0;
+
+        const remainingBalance = roundMoney(
+          Math.max(invoiceTotal - totalPaid, 0),
+        );
+
+        let paymentStatus = "unpaid";
+
+        if (
+          invoiceTotal > 0 &&
+          totalPaid >= invoiceTotal
+        ) {
+          paymentStatus = "paid";
+        } else if (totalPaid > 0) {
+          paymentStatus = "partial";
+        }
+
+        return {
+          ...invoice.toObject(),
+          totalPaid,
+          remainingBalance,
+          paymentStatus,
+        };
+      });
+
     res.status(200).json({
       success: true,
-      count: invoices.length,
-      invoices,
+      count: invoicesWithPaymentStatus.length,
+      invoices: invoicesWithPaymentStatus,
     });
   } catch (error) {
     next(error);
