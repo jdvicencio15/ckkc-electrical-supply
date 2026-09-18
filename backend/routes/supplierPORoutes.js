@@ -8,6 +8,7 @@ const {
   updateSupplierPO,
   deleteSupplierPO,
   exportSupplierPOPDF,
+  releaseSupplierPO,
 } = require("../controllers/supplierPOController");
 
 const authorize = require("../middleware/authorize");
@@ -39,6 +40,7 @@ router.get(
   getSupplierPOs
 );
 
+
 // READ SINGLE
 router.get(
   "/:id",
@@ -48,13 +50,22 @@ router.get(
 );
 
 //PDF
-
 router.get(
   "/:id/pdf",
   protect,
   authorize("owner", "admin", "sales", "purchasing", "accounting"),
   exportSupplierPOPDF
 );
+
+
+// RELEASE
+router.post(
+  "/:id/release",
+  protect,
+  authorize("owner", "admin", "purchasing"),
+  releaseSupplierPO
+);
+
 
 
 // UPDATE

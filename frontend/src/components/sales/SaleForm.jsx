@@ -12,7 +12,10 @@ const initialItem = {
   quantity: 1,
   unitPrice: 0,
   unitCost: 0,
+  unitId: "",
+  unitCode: "",
 };
+
 const initialForm = {
   customerId: "",
   clientPOId: "",
@@ -83,7 +86,14 @@ function SaleForm({
                 description: item.description || "",
                 quantity: item.quantity || 1,
                 unitPrice: item.unitPrice || 0,
-                unitCost: item.unitCost || 0,
+              unitCost: item.unitCost || 0,
+
+               unitId: item.unitId?._id || item.unitId || "",
+        unitCode:
+          item.unitCode ||
+          item.unitId?.code ||
+                "",
+
               }))
             : [initialItem],
         directExpenses: sale.directExpenses || 0,
@@ -136,6 +146,17 @@ function SaleForm({
             unitPrice: Number(item.agreedUnitPrice || 0),
 
             unitCost: Number(selectedProduct?.productCost || 0),
+
+            unitId:
+    selectedProduct?.unitId?._id ||
+    selectedProduct?.unitId ||
+    "",
+
+  unitCode:
+    selectedProduct?.unitCode ||
+    selectedProduct?.unitId?.code ||
+              "",
+
           };
         }) || [];
 
@@ -172,9 +193,19 @@ function SaleForm({
         items[index].supplierId = "";
         items[index].unitCost = selectedProduct?.productCost ?? 0;
 
-        if (selectedProduct) {
-          items[index].description = selectedProduct.name;
-        }
+       if (selectedProduct) {
+  items[index].description = selectedProduct.name;
+
+  items[index].unitId =
+    selectedProduct.unitId?._id ||
+    selectedProduct.unitId ||
+    "";
+
+  items[index].unitCode =
+    selectedProduct.unitCode ||
+    selectedProduct.unitId?.code ||
+    "";
+}
       }
 
       return {
@@ -321,6 +352,8 @@ function SaleForm({
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
         unitCost: Number(item.unitCost),
+        unitId: item.unitId || undefined,
+  unitCode: item.unitCode || undefined,
       })),
       directExpenses: Number(formData.directExpenses || 0),
       commission: Number(formData.commission || 0),
@@ -371,6 +404,12 @@ function SaleForm({
               </option>
             ))}
           </select>
+
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+  Optional — select a Client PO to automatically populate the customer and
+  sale items.
+          </p>
+
         </div>
 
         <div>
@@ -565,6 +604,33 @@ function SaleForm({
                   </div>
 
                   <div>
+  <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+    Unit
+  </label>
+
+  <input
+    type="text"
+    value={item.unitCode || ""}
+    readOnly
+    className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+  />
+</div>
+
+
+                   <div>
+                    <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                      Unit Cost
+                    </label>
+
+                    <input
+                      type="number"
+                      value={item.unitCost}
+                      readOnly
+                      className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                    />
+                  </div>
+
+                  <div>
                     <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
                       Unit Price
                     </label>
@@ -582,18 +648,7 @@ function SaleForm({
                     />
                   </div>
 
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                      Unit Cost
-                    </label>
 
-                    <input
-                      type="number"
-                      value={item.unitCost}
-                      readOnly
-                      className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-                    />
-                  </div>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">

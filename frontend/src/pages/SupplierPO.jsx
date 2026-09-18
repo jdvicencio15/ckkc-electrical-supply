@@ -1,57 +1,84 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FaEdit, FaTrash, FaEye } from "react-icons/fa";
+import { FaEdit, FaTrash, FaEye, FaRocket } from "react-icons/fa";
 
-import clientPOService from "../services/clientPOService";
+import supplierPOService from "../services/supplierPOService";
+
 import Toast from "../components/common/Toast";
 import ConfirmModal from "../components/ui/ConfirmModal";
-import ClientPOForm from "../components/clientPO/ClientPOForm";
+
+import SupplierPOForm from "../components/supplierPO/SupplierPOForm";
+import SupplierPOView from "../components/supplierPO/SupplierPOView";
+
 import { useSettings } from "../context/SettingsContext";
+import { useAuth } from "../context/AuthContext";
+import { hasPermission } from "../utils/permissions";
 import { formatCurrency } from "../utils/currency";
 
-import { hasPermission } from "../utils/permissions";
-import { useAuth } from "../context/AuthContext";
-
-import ClientPOView from "../components/clientPO/ClientPOView";
-
-function ClientPO() {
+function SupplierPO() {
   const { user } = useAuth();
-
-  const canViewClientPO = hasPermission(user?.role, "clientPO", "view");
-
-  const canCreateClientPO = hasPermission(user?.role, "clientPO", "create");
-
-  const canEditClientPO = hasPermission(user?.role, "clientPO", "edit");
-
-  const canDeleteClientPO = hasPermission(user?.role, "clientPO", "delete");
-
-  const [clientPOs, setClientPOs] = useState([]);
-
   const { settings } = useSettings();
+
   const [searchParams] = useSearchParams();
+
+  // ================================
+  // PERMISSIONS
+  // ================================
+
+  const canViewSupplierPO = hasPermission(user?.role, "supplierPO", "view");
+
+  const canCreateSupplierPO = hasPermission(user?.role, "supplierPO", "create");
+
+  const canEditSupplierPO = hasPermission(user?.role, "supplierPO", "edit");
+
+  const canDeleteSupplierPO = hasPermission(user?.role, "supplierPO", "delete");
+
+  const canReleaseSupplierPO = hasPermission(
+    user?.role,
+    "supplierPO",
+    "release",
+  );
+
+  // ================================
+  // DATA
+  // ================================
+
+  const [supplierPOs, setSupplierPOs] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
+
+  // ================================
+  // FILTERS
+  // ================================
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || "",
   );
 
-  const [selectedCustomer, setSelectedCustomer] = useState("all");
+  const [selectedSupplier, setSelectedSupplier] = useState("all");
 
   const [selectedStatus, setSelectedStatus] = useState("all");
 
   const [selectedDate, setSelectedDate] = useState("");
 
-  const [showClientPOForm, setShowClientPOForm] = useState(false);
+  // ================================
+  // MODALS
+  // ================================
 
-  const [editingClientPO, setEditingClientPO] = useState(null);
+  const [showSupplierPOForm, setShowSupplierPOForm] = useState(false);
 
-  const [viewingClientPO, setViewingClientPO] = useState(null);
+  const [editingSupplierPO, setEditingSupplierPO] = useState(null);
 
-  const [deletingClientPO, setDeletingClientPO] = useState(null);
+  const [viewingSupplierPO, setViewingSupplierPO] = useState(null);
+
+  const [deletingSupplierPO, setDeletingSupplierPO] = useState(null);
 
   const [deleting, setDeleting] = useState(false);
+
+  // ================================
+  // TOAST
+  // ================================
 
   const [toast, setToast] = useState({
     type: "success",
@@ -59,13 +86,13 @@ function ClientPO() {
   });
 
   // ================================
-  // LOAD CLIENT POS
+  // LOAD SUPPLIER POS
   // ================================
 
-  const loadClientPOs = async () => {
-    const response = await clientPOService.getClientPOs();
+  const loadSupplierPOs = async () => {
+    const response = await supplierPOService.getSupplierPOs();
 
-    setClientPOs(response.clientPOs || []);
+    setSupplierPOs(response.supplierPOs || []);
   };
 
   // ================================
@@ -75,14 +102,14 @@ function ClientPO() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        await loadClientPOs();
+        await loadSupplierPOs();
       } catch (error) {
-        console.error("Failed to load Client POs:", error);
+        console.error("Failed to load Supplier POs:", error);
 
         setToast({
           type: "error",
           message:
-            error.response?.data?.message || "Failed to load Client POs.",
+            error.response?.data?.message || "Failed to load Supplier POs.",
         });
       } finally {
         setLoading(false);
@@ -112,38 +139,41 @@ function ClientPO() {
   }, [toast]);
 
   // ================================
-  // CREATE / UPDATE CLIENT PO
+  // CREATE / UPDATE
   // ================================
 
   const handleSubmit = async (formData) => {
     try {
       setFormLoading(true);
 
-      if (editingClientPO) {
-        await clientPOService.updateClientPO(editingClientPO._id, formData);
+      if (editingSupplierPO) {
+        await supplierPOService.updateSupplierPO(
+          editingSupplierPO._id,
+          formData,
+        );
 
         setToast({
           type: "success",
-          message: "Client PO updated successfully.",
+          message: "Supplier PO updated successfully.",
         });
       } else {
-        await clientPOService.createClientPO(formData);
+        await supplierPOService.createSupplierPO(formData);
 
         setToast({
           type: "success",
-          message: "Client PO created successfully.",
+          message: "Supplier PO created successfully.",
         });
       }
 
-      await loadClientPOs();
+      await loadSupplierPOs();
 
-      setShowClientPOForm(false);
-      setEditingClientPO(null);
+      setShowSupplierPOForm(false);
+      setEditingSupplierPO(null);
     } catch (error) {
       console.error(
-        editingClientPO
-          ? "Failed to update Client PO:"
-          : "Failed to create Client PO:",
+        editingSupplierPO
+          ? "Failed to update Supplier PO:"
+          : "Failed to create Supplier PO:",
         error,
       );
 
@@ -151,9 +181,9 @@ function ClientPO() {
         type: "error",
         message:
           error.response?.data?.message ||
-          (editingClientPO
-            ? "Failed to update Client PO."
-            : "Failed to create Client PO."),
+          (editingSupplierPO
+            ? "Failed to update Supplier PO."
+            : "Failed to create Supplier PO."),
       });
     } finally {
       setFormLoading(false);
@@ -161,87 +191,128 @@ function ClientPO() {
   };
 
   // ================================
-  // OPEN CREATE FORM
+  // CREATE
   // ================================
 
   const openCreateForm = () => {
-    setEditingClientPO(null);
-    setShowClientPOForm(true);
+    setEditingSupplierPO(null);
+    setShowSupplierPOForm(true);
   };
 
   // ================================
-  // OPEN EDIT FORM
+  // EDIT
   // ================================
 
-  const openEditForm = (clientPO) => {
-    setEditingClientPO(clientPO);
-    setShowClientPOForm(true);
+  const openEditForm = (supplierPO) => {
+    setEditingSupplierPO(supplierPO);
+    setShowSupplierPOForm(true);
   };
 
-  const openView = async (clientPO) => {
+  // ================================
+  // VIEW
+  // ================================
+
+  const openView = async (supplierPO) => {
     try {
-      const response = await clientPOService.getClientPOById(clientPO._id);
+      const response = await supplierPOService.getSupplierPOById(
+        supplierPO._id,
+      );
 
-      setViewingClientPO(response.clientPO || response.data || response);
+      setViewingSupplierPO(response.supplierPO || response.data || response);
     } catch (error) {
-      console.error("Failed to load Client PO:", error);
+      console.error("Failed to load Supplier PO:", error);
 
       setToast({
         type: "error",
-        message: error.response?.data?.message || "Failed to load Client PO.",
+        message: error.response?.data?.message || "Failed to load Supplier PO.",
       });
     }
   };
 
-  const closeClientPOView = () => {
-    setViewingClientPO(null);
+  // ================================
+  // RELEASE SUPPLIER PO
+  // ================================
+
+const handleReleaseSupplierPO = async (supplierPO) => {
+  if (!supplierPO?._id) {
+    return;
+  }
+
+  try {
+    setFormLoading(true);
+
+    await supplierPOService.releaseSupplierPO(supplierPO._id);
+
+    await loadSupplierPOs();
+
+    setToast({
+      type: "success",
+      message: "Supplier PO released successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to release Supplier PO:", error);
+
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to release Supplier PO.",
+    });
+  } finally {
+    setFormLoading(false);
+  }
+  };
+
+  const closeSupplierPOView = () => {
+    setViewingSupplierPO(null);
   };
 
   // ================================
   // CLOSE FORM
   // ================================
 
-  const closeClientPOForm = () => {
+  const closeSupplierPOForm = () => {
     if (formLoading) {
       return;
     }
 
-    setShowClientPOForm(false);
-    setEditingClientPO(null);
+    setShowSupplierPOForm(false);
+    setEditingSupplierPO(null);
   };
 
   // ================================
-  // DELETE CLIENT PO
+  // DELETE
   // ================================
 
-  const handleDelete = (clientPO) => {
-    setDeletingClientPO(clientPO);
+  const handleDelete = (supplierPO) => {
+    setDeletingSupplierPO(supplierPO);
   };
 
   const handleConfirmDelete = async () => {
-    if (!deletingClientPO) {
+    if (!deletingSupplierPO) {
       return;
     }
 
     try {
       setDeleting(true);
 
-      await clientPOService.deleteClientPO(deletingClientPO._id);
+      await supplierPOService.deleteSupplierPO(deletingSupplierPO._id);
 
-      await loadClientPOs();
+      await loadSupplierPOs();
 
-      setDeletingClientPO(null);
+      setDeletingSupplierPO(null);
 
       setToast({
         type: "success",
-        message: "Client PO deleted successfully.",
+        message: "Supplier PO deleted successfully.",
       });
     } catch (error) {
-      console.error("Failed to delete Client PO:", error);
+      console.error("Failed to delete Supplier PO:", error);
 
       setToast({
         type: "error",
-        message: error.response?.data?.message || "Failed to delete Client PO.",
+        message:
+          error.response?.data?.message || "Failed to delete Supplier PO.",
       });
     } finally {
       setDeleting(false);
@@ -253,7 +324,7 @@ function ClientPO() {
       return;
     }
 
-    setDeletingClientPO(null);
+    setDeletingSupplierPO(null);
   };
 
   // ================================
@@ -268,35 +339,35 @@ function ClientPO() {
   };
 
   // ================================
-  // FILTER CLIENT POS
+  // FILTER
   // ================================
 
-  const filteredClientPOs = useMemo(() => {
-    return clientPOs.filter((clientPO) => {
+  const filteredSupplierPOs = useMemo(() => {
+    return supplierPOs.filter((supplierPO) => {
       const search = searchTerm.toLowerCase().trim();
 
       const matchesSearch =
         !search ||
-        clientPO.poNumber?.toLowerCase().includes(search) ||
-        clientPO.customerId?.name?.toLowerCase().includes(search) ||
-        clientPO.customerId?.customerCode?.toLowerCase().includes(search);
+        supplierPO.poNumber?.toLowerCase().includes(search) ||
+        supplierPO.supplierId?.name?.toLowerCase().includes(search) ||
+        supplierPO.supplierId?.supplierCode?.toLowerCase().includes(search);
 
-      const matchesCustomer =
-        selectedCustomer === "all" ||
-        clientPO.customerId?._id === selectedCustomer;
+      const matchesSupplier =
+        selectedSupplier === "all" ||
+        supplierPO.supplierId?._id === selectedSupplier;
 
       const matchesStatus =
-        selectedStatus === "all" || clientPO.status === selectedStatus;
+        selectedStatus === "all" || supplierPO.status === selectedStatus;
 
       const matchesDate =
-        !selectedDate || clientPO.poDate?.startsWith(selectedDate);
+        !selectedDate || supplierPO.supplierPODate?.startsWith(selectedDate);
 
-      return matchesSearch && matchesCustomer && matchesStatus && matchesDate;
+      return matchesSearch && matchesSupplier && matchesStatus && matchesDate;
     });
-  }, [clientPOs, searchTerm, selectedCustomer, selectedStatus, selectedDate]);
+  }, [supplierPOs, searchTerm, selectedSupplier, selectedStatus, selectedDate]);
 
   // ================================
-  // STATUS STYLING
+  // STATUS
   // ================================
 
   const getStatusClass = (status) => {
@@ -304,20 +375,17 @@ function ClientPO() {
       case "draft":
         return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
 
-      case "received":
+      case "sent":
         return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
 
       case "confirmed":
         return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
 
-      case "partially_fulfilled":
-        return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
-
-      case "fulfilled":
-        return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+      case "received":
+        return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
 
       case "cancelled":
-        return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+        return "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400";
 
       default:
         return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
@@ -334,23 +402,33 @@ function ClientPO() {
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
   };
 
-  const isTerminalClientPO = (status) => {
-    return ["fulfilled", "cancelled"].includes(status);
+  // ================================
+  // TERMINAL STATE
+  // ================================
+
+  const isTerminalSupplierPO = (status) => {
+    return ["received", "cancelled"].includes(status);
   };
+
+  // ================================
+  // RENDER
+  // ================================
 
   return (
     <>
       {/* TOAST */}
+
       <Toast type={toast.type} message={toast.message} onClose={closeToast} />
 
       {/* DELETE CONFIRMATION */}
+
       <ConfirmModal
-        isOpen={!!deletingClientPO}
+        isOpen={!!deletingSupplierPO}
         onClose={handleCancelDelete}
         onConfirm={handleConfirmDelete}
-        title="Delete Client PO"
-        message={`Are you sure you want to delete Client PO "${
-          deletingClientPO?.poNumber || "this Client PO"
+        title="Delete Supplier PO"
+        message={`Are you sure you want to delete Supplier PO "${
+          deletingSupplierPO?.poNumber || "this Supplier PO"
         }"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
@@ -360,27 +438,27 @@ function ClientPO() {
 
       <div className="space-y-6">
         {/* ================================
-            PAGE HEADER
+            HEADER
         ================================= */}
 
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              Client Purchase Orders
+              Supplier Purchase Orders
             </h1>
 
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Create and manage customer purchase orders.
+              Create and manage supplier purchase orders.
             </p>
           </div>
 
-          {canCreateClientPO && (
+          {canCreateSupplierPO && (
             <button
               type="button"
               onClick={openCreateForm}
               className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
             >
-              + New Client PO
+              + New Supplier PO
             </button>
           )}
         </div>
@@ -394,33 +472,33 @@ function ClientPO() {
 
           <input
             type="search"
-            placeholder="Search Client POs..."
+            placeholder="Search Supplier POs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
 
-          {/* CUSTOMER */}
+          {/* SUPPLIER */}
 
           <select
-            value={selectedCustomer}
-            onChange={(e) => setSelectedCustomer(e.target.value)}
+            value={selectedSupplier}
+            onChange={(e) => setSelectedSupplier(e.target.value)}
             className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
           >
-            <option value="all">All Customers</option>
+            <option value="all">All Suppliers</option>
 
             {[
               ...new Map(
-                clientPOs
-                  .filter((clientPO) => clientPO.customerId)
-                  .map((clientPO) => [
-                    clientPO.customerId._id,
-                    clientPO.customerId,
+                supplierPOs
+                  .filter((supplierPO) => supplierPO.supplierId)
+                  .map((supplierPO) => [
+                    supplierPO.supplierId._id,
+                    supplierPO.supplierId,
                   ]),
               ).values(),
-            ].map((customer) => (
-              <option key={customer._id} value={customer._id}>
-                {customer.name}
+            ].map((supplier) => (
+              <option key={supplier._id} value={supplier._id}>
+                {supplier.name}
               </option>
             ))}
           </select>
@@ -433,10 +511,11 @@ function ClientPO() {
             className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
           >
             <option value="all">All Status</option>
+
             <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="confirmed">Confirmed</option>
             <option value="received">Received</option>
-            <option value="processing">Processing</option>
-            <option value="fulfilled">Fulfilled</option>
             <option value="cancelled">Cancelled</option>
           </select>
 
@@ -451,7 +530,7 @@ function ClientPO() {
         </div>
 
         {/* ================================
-            CLIENT PO TABLE
+            TABLE
         ================================= */}
 
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -459,9 +538,11 @@ function ClientPO() {
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                 <tr>
-                  <th className="px-6 py-3 font-semibold">Client PO No.</th>
+                  <th className="px-6 py-3 font-semibold">Supplier PO No.</th>
 
-                  <th className="px-6 py-3 font-semibold">Customer</th>
+                  <th className="px-6 py-3 font-semibold">Supplier</th>
+
+                  <th className="px-6 py-3 font-semibold">Client PO</th>
 
                   <th className="px-6 py-3 font-semibold">Items</th>
 
@@ -481,23 +562,23 @@ function ClientPO() {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                     >
-                      Loading Client POs...
+                      Loading Supplier POs...
                     </td>
                   </tr>
-                ) : filteredClientPOs.length === 0 ? (
+                ) : filteredSupplierPOs.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="px-6 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                     >
-                      No Client POs found.
+                      No Supplier POs found.
                     </td>
                   </tr>
                 ) : (
-                  [...filteredClientPOs]
+                  [...filteredSupplierPOs]
                     .sort((a, b) => {
                       const sequenceA = Number(a.poNumber?.split("-").pop());
 
@@ -505,36 +586,42 @@ function ClientPO() {
 
                       return sequenceB - sequenceA;
                     })
-                    .map((clientPO) => (
+                    .map((supplierPO) => (
                       <tr
-                        key={clientPO._id}
+                        key={supplierPO._id}
                         className="border-t border-slate-100 dark:border-slate-800"
                       >
                         {/* PO NUMBER */}
 
                         <td className="px-6 py-4">
                           <p className="font-medium text-slate-900 dark:text-slate-100">
-                            {clientPO.poNumber || "—"}
+                            {supplierPO.poNumber || "—"}
                           </p>
                         </td>
 
-                        {/* CUSTOMER */}
+                        {/* SUPPLIER */}
 
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                          {clientPO.customerId?.name || "—"}
+                          {supplierPO.supplierId?.name || "—"}
+                        </td>
+
+                        {/* CLIENT PO */}
+
+                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                          {supplierPO.relatedClientPOId?.poNumber || "—"}
                         </td>
 
                         {/* ITEMS */}
 
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                          {clientPO.items?.length || 0}
+                          {supplierPO.items?.length || 0}
                         </td>
 
                         {/* TOTAL */}
 
                         <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
                           {formatCurrency(
-                            clientPO.totalAmount || clientPO.total || 0,
+                            supplierPO.totalAmount || 0,
                             settings?.currency,
                           )}
                         </td>
@@ -544,20 +631,20 @@ function ClientPO() {
                         <td className="px-6 py-4">
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(
-                              clientPO.status,
+                              supplierPO.status,
                             )}`}
                           >
-                            {formatStatus(clientPO.status)}
+                            {formatStatus(supplierPO.status)}
                           </span>
                         </td>
 
                         {/* DATE */}
 
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                          {clientPO.poDate
-                            ? new Date(clientPO.poDate).toLocaleDateString(
-                                "en-PH",
-                              )
+                          {supplierPO.supplierPODate
+                            ? new Date(
+                                supplierPO.supplierPODate,
+                              ).toLocaleDateString("en-PH")
                             : "—"}
                         </td>
 
@@ -565,39 +652,57 @@ function ClientPO() {
 
                         <td className="px-6 py-4">
                           <div className="flex justify-end gap-2">
-                            {/* VIEW — always available */}
-                            {canViewClientPO && (
+                            {/* VIEW */}
+
+                            {canViewSupplierPO && (
                               <button
                                 type="button"
-                                onClick={() => openView(clientPO)}
+                                onClick={() => openView(supplierPO)}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                                aria-label={`View ${clientPO.poNumber}`}
+                                aria-label={`View ${supplierPO.poNumber}`}
                               >
                                 <FaEye className="h-3.5 w-3.5" />
                               </button>
                             )}
 
-                            {/* EDIT — hidden for terminal Client POs */}
-                            {canEditClientPO &&
-                              !isTerminalClientPO(clientPO.status) && (
+                         {/* RELEASE */}
+
+{canReleaseSupplierPO &&
+  supplierPO.status === "draft" && (
+    <button
+      type="button"
+      onClick={() => handleReleaseSupplierPO(supplierPO)}
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-green-600 transition hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
+      aria-label={`Release ${supplierPO.poNumber}`}
+      title="Release Supplier PO"
+    >
+      <FaRocket className="h-3.5 w-3.5" />
+    </button>
+  )}
+
+                            {/* EDIT */}
+
+                            {canEditSupplierPO &&
+                              !isTerminalSupplierPO(supplierPO.status) && (
                                 <button
                                   type="button"
-                                  onClick={() => openEditForm(clientPO)}
+                                  onClick={() => openEditForm(supplierPO)}
                                   className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                                  aria-label={`Edit ${clientPO.poNumber}`}
+                                  aria-label={`Edit ${supplierPO.poNumber}`}
                                 >
                                   <FaEdit className="h-3.5 w-3.5" />
                                 </button>
                               )}
 
-                            {/* DELETE — hidden for terminal Client POs */}
-                            {canDeleteClientPO &&
-                              !isTerminalClientPO(clientPO.status) && (
+                            {/* DELETE */}
+
+                            {canDeleteSupplierPO &&
+                              supplierPO.status === "draft" && (
                                 <button
                                   type="button"
-                                  onClick={() => handleDelete(clientPO)}
+                                  onClick={() => handleDelete(supplierPO)}
                                   className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                                  aria-label={`Delete ${clientPO.poNumber}`}
+                                  aria-label={`Delete ${supplierPO.poNumber}`}
                                 >
                                   <FaTrash className="h-3.5 w-3.5" />
                                 </button>
@@ -615,29 +720,33 @@ function ClientPO() {
 
           <div className="border-t border-slate-200 px-6 py-3 dark:border-slate-800">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Showing {filteredClientPOs.length} of {clientPOs.length} Client
-              POs
+              Showing {filteredSupplierPOs.length} of {supplierPOs.length}{" "}
+              Supplier POs
             </p>
           </div>
         </div>
 
         {/* ================================
-            CLIENT PO FORM
+            FORM
         ================================= */}
 
-        {showClientPOForm && (
-          <ClientPOForm
-            initialData={editingClientPO}
+        {showSupplierPOForm && (
+          <SupplierPOForm
+            initialData={editingSupplierPO}
             onSubmit={handleSubmit}
-            onClose={closeClientPOForm}
+            onClose={closeSupplierPOForm}
             submitting={formLoading}
           />
         )}
 
-        {viewingClientPO && (
-          <ClientPOView
-            clientPO={viewingClientPO}
-            onClose={closeClientPOView}
+        {/* ================================
+            VIEW
+        ================================= */}
+
+        {viewingSupplierPO && (
+          <SupplierPOView
+            supplierPO={viewingSupplierPO}
+            onClose={closeSupplierPOView}
           />
         )}
       </div>
@@ -645,4 +754,4 @@ function ClientPO() {
   );
 }
 
-export default ClientPO;
+export default SupplierPO;

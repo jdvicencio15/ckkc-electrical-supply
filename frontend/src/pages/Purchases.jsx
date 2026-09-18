@@ -6,6 +6,7 @@ import purchaseService from "../services/purchaseService";
 import productService from "../services/productService";
 import supplierService from "../services/supplierService";
 import clientPOService from "../services/clientPOService";
+import supplierPOService from "../services/supplierPOService";
 
 import PurchaseForm from "../components/purchases/PurchaseForm";
 import Toast from "../components/common/Toast";
@@ -24,8 +25,9 @@ function Purchases() {
 
   const [purchases, setPurchases] = useState([]);
   const [products, setProducts] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [clientPOs, setClientPOs] = useState([]);
+const [suppliers, setSuppliers] = useState([]);
+const [supplierPOs, setSupplierPOs] = useState([]);
+const [clientPOs, setClientPOs] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
@@ -66,11 +68,20 @@ const [confirmLoading, setConfirmLoading] = useState(false);
     setProducts(response.products || []);
   };
 
+
   const loadSuppliers = async () => {
     const response = await supplierService.getSuppliers();
 
     setSuppliers(response.suppliers || []);
   };
+
+  const loadSupplierPOs = async () => {
+  const response = await supplierPOService.getSupplierPOs();
+
+
+
+  setSupplierPOs(response.supplierPOs || []);
+};
 
   const loadClientPOs = async () => {
     const response = await clientPOService.getClientPOs();
@@ -78,28 +89,27 @@ const [confirmLoading, setConfirmLoading] = useState(false);
     setClientPOs(response.clientPOs || []);
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setError("");
+ useEffect(() => {
+  const loadData = async () => {
+    try {
+      setError("");
 
-        await Promise.all([
-          loadPurchases(),
-          loadProducts(),
-          loadSuppliers(),
-          loadClientPOs(),
-        ]);
-      } catch (error) {
-        console.error("Failed to load purchases:", error);
+      await Promise.all([
+        loadPurchases(),
+        loadProducts(),
+        loadSuppliers(),
+        loadSupplierPOs(),
+        loadClientPOs(),
+      ]);
+    } catch (error) {
+      setError("Failed to load purchases.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setError("Failed to load purchases.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
+  loadData();
+}, []);
 
   useEffect(() => {
     if (!toast.message) {
@@ -379,14 +389,15 @@ const handleCancelConfirmation = () => {
             </div>
 
             <PurchaseForm
-              suppliers={suppliers}
-              products={products}
-              clientPOs={clientPOs}
-              purchase={editingPurchase}
-              onSubmit={editingPurchase ? handleUpdate : handleCreate}
-              onCancel={closeForm}
-              submitting={formLoading}
-            />
+  suppliers={suppliers}
+  products={products}
+  supplierPOs={supplierPOs}
+  clientPOs={clientPOs}
+  purchase={editingPurchase}
+  onSubmit={editingPurchase ? handleUpdate : handleCreate}
+  onCancel={closeForm}
+  submitting={formLoading}
+/>
           </div>
         )}
 

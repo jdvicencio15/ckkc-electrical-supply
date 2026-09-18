@@ -53,6 +53,7 @@ import UnitCreate from "../pages/UnitCreate";
 import UnitEdit from "../pages/UnitEdit";
 
 import Expenses from "../pages/accounting/Expenses";
+import SupplierPO from "../pages/SupplierPO";
 
 function AppRoutes() {
   return (
@@ -144,6 +145,15 @@ function AppRoutes() {
               <Route path="/supplier-pricing" element={<SupplierPricing />} />
             </Route>
 
+            {/* Supplier Purchase Orders */}
+<Route
+  element={
+    <PermissionRoute module="supplierPO" action="view" />
+  }
+>
+  <Route path="/supplier-pos" element={<SupplierPO />} />
+            </Route>
+            
             {/* Sales Documents */}
             <Route
               element={<PermissionRoute module="quotations" action="view" />}

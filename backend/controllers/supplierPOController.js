@@ -17,6 +17,10 @@ const {
 } = require("../utils/referenceValidator");
 
 
+const {
+  resolveProductCost,
+} = require("../services/pricingService");
+
 const { resolveProductUnit } = require("../services/unitService");
 
 const {
@@ -116,8 +120,27 @@ const createSupplierPO = async (req, res, next) => {
       items,
       supplierId,
       relatedClientPOId,
+      status,
+      poNumber,
       ...supplierPOData
     } = req.body;
+
+    // STATUS AND PO NUMBER ARE SERVER-CONTROLLED
+    if (status !== undefined) {
+      const error = new Error(
+        "Supplier PO status cannot be set during creation"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (poNumber !== undefined) {
+      const error = new Error(
+        "Supplier PO number cannot be set during creation"
+      );
+      error.statusCode = 400;
+      throw error;
+    }
 
     // CHECK SUPPLIER
     const supplier = await Supplier.findById(supplierId);
@@ -182,32 +205,38 @@ const createSupplierPO = async (req, res, next) => {
       throw error;
     }
 
-    // RESOLVE PRODUCT UOM SERVER-SIDE
-    const calculatedItems = [];
+  // RESOLVE PRODUCT UOM AND COST SERVER-SIDE
+const calculatedItems = [];
 
-    for (const item of items) {
-      const { unitId, unitCode } = await resolveProductUnit(
-        item.productId
-      );
+for (const item of items) {
+  const { unitId, unitCode } =
+    await resolveProductUnit(item.productId);
 
-      calculatedItems.push({
-        ...item,
-        unitId,
-        unitCode,
-      });
-    }
+  const { unitCost } =
+    await resolveProductCost({
+      productId: item.productId,
+      supplierId,
+    });
 
+  calculatedItems.push({
+    ...item,
+    unitId,
+    unitCode,
+    expectedUnitCost: unitCost,
+  });
+}
     // CALCULATE TOTAL SERVER-SIDE
-    const totalAmount = calculateSupplierPOTotal(items);
+    const totalAmount =
+      calculateSupplierPOTotal(calculatedItems);
 
     // GENERATE DOCUMENT NUMBER SERVER-SIDE
-    const poNumber =
+    const generatedPONumber =
       await generateDocumentNumber("supplierPO");
 
     // CREATE SUPPLIER PO
     const supplierPO = await SupplierPO.create({
       ...supplierPOData,
-      poNumber,
+      poNumber: generatedPONumber,
       supplierId,
       relatedClientPOId,
       items: calculatedItems,
@@ -239,27 +268,26 @@ const updateSupplierPO = async (req, res, next) => {
       });
     }
 
+    // ==========================================
     // SUPPLIER PO STATE TRANSITIONS
-    const SUPPLIER_PO_STATE_TRANSITIONS = {
-      draft: ["sent", "cancelled"],
-      sent: ["confirmed", "cancelled"],
-      confirmed: [
-        "partially_received",
-        "received",
-        "cancelled",
-      ],
-      partially_received: ["received"],
-      received: [],
-      cancelled: [],
-    };
+    // ==========================================
 
+const SUPPLIER_PO_STATE_TRANSITIONS = {
+  draft: ["sent", "cancelled"],
+  sent: [],
+  cancelled: [],
+};
+    // ==========================================
     // TERMINAL SUPPLIER PO STATUSES
-    const TERMINAL_SUPPLIER_PO_STATUSES = [
-      "received",
-      "cancelled",
+    // ==========================================
+
+const TERMINAL_SUPPLIER_PO_STATUSES = [
+  "sent",
+  "cancelled",
     ];
 
     const {
+      poNumber,
       supplierId,
       supplierPODate,
       status,
@@ -267,7 +295,23 @@ const updateSupplierPO = async (req, res, next) => {
       items,
     } = req.body;
 
-    // PREVENT ANY MODIFICATION TO TERMINAL SUPPLIER PO
+    // ==========================================
+    // DOCUMENT NUMBER PROTECTION
+    // ==========================================
+
+    if (poNumber !== undefined) {
+      const error = new Error(
+        "Supplier PO number cannot be modified"
+      );
+
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // TERMINAL STATE PROTECTION
+    // ==========================================
+
     if (
       TERMINAL_SUPPLIER_PO_STATUSES.includes(
         supplierPO.status
@@ -276,53 +320,76 @@ const updateSupplierPO = async (req, res, next) => {
       const error = new Error(
         `Cannot modify a ${supplierPO.status} Supplier PO`
       );
+
       error.statusCode = 400;
       throw error;
     }
 
-    // VALIDATE SUPPLIER PO STATE TRANSITION
+    // ==========================================
+    // VALIDATE STATE TRANSITION
+    // ==========================================
+
     if (
       status !== undefined &&
       status !== supplierPO.status
     ) {
       const allowedTransitions =
-        SUPPLIER_PO_STATE_TRANSITIONS[supplierPO.status] ||
-        [];
+        SUPPLIER_PO_STATE_TRANSITIONS[
+          supplierPO.status
+        ] || [];
 
       if (!allowedTransitions.includes(status)) {
         const error = new Error(
           `Invalid Supplier PO state transition: ${supplierPO.status} → ${status}`
         );
+
         error.statusCode = 400;
         throw error;
       }
     }
 
-    // CHECK UPDATED SUPPLIER REFERENCE
+    // ==========================================
+    // CHECK UPDATED SUPPLIER
+    // ==========================================
+
     if (supplierId !== undefined) {
-      const supplier = await Supplier.findById(supplierId);
+      const supplier = await Supplier.findById(
+        supplierId
+      );
 
       if (!supplier) {
-        const error = new Error("Supplier not found");
+        const error = new Error(
+          "Supplier not found"
+        );
+
         error.statusCode = 404;
         throw error;
       }
 
       if (supplier.status !== "active") {
-        const error = new Error("Supplier is inactive");
+        const error = new Error(
+          "Supplier is inactive"
+        );
+
         error.statusCode = 400;
         throw error;
       }
     }
 
-    // CHECK UPDATED CLIENT PO REFERENCE
+    // ==========================================
+    // CHECK UPDATED CLIENT PO
+    // ==========================================
+
     if (relatedClientPOId !== undefined) {
       const clientPO = await ClientPO.findById(
         relatedClientPOId
       );
 
       if (!clientPO) {
-        const error = new Error("Client PO not found");
+        const error = new Error(
+          "Client PO not found"
+        );
+
         error.statusCode = 404;
         throw error;
       }
@@ -335,18 +402,24 @@ const updateSupplierPO = async (req, res, next) => {
         const error = new Error(
           `Cannot associate Supplier PO with a ${clientPO.status} Client PO`
         );
+
         error.statusCode = 400;
         throw error;
       }
     }
 
-    // CHECK UPDATED PRODUCT REFERENCES
+    // ==========================================
+    // CHECK UPDATED ITEMS
+    // ==========================================
+
     let calculatedItems;
 
     if (items !== undefined) {
       const productIds = [
         ...new Set(
-          items.map((item) => item.productId.toString())
+          items.map((item) =>
+            item.productId.toString()
+          )
         ),
       ];
 
@@ -358,44 +431,68 @@ const updateSupplierPO = async (req, res, next) => {
         const error = new Error(
           "One or more products not found"
         );
+
         error.statusCode = 404;
         throw error;
       }
 
       const inactiveProduct = products.find(
-        (product) => product.status !== "active"
+        (product) =>
+          product.status !== "active"
       );
 
       if (inactiveProduct) {
         const error = new Error(
           `Product ${inactiveProduct._id} is inactive`
         );
+
         error.statusCode = 400;
         throw error;
       }
 
-      // RESOLVE PRODUCT UOM SERVER-SIDE
+      // ==========================================
+      // RESOLVE PRODUCT UOM AND COST SERVER-SIDE
+      // ==========================================
+
       calculatedItems = [];
+
+      const effectiveSupplierId =
+        supplierId !== undefined
+          ? supplierId
+          : supplierPO.supplierId;
 
       for (const item of items) {
         const { unitId, unitCode } =
-          await resolveProductUnit(item.productId);
+          await resolveProductUnit(
+            item.productId
+          );
+
+        const { unitCost } =
+          await resolveProductCost({
+            productId: item.productId,
+            supplierId: effectiveSupplierId,
+          });
 
         calculatedItems.push({
           ...item,
           unitId,
           unitCode,
+          expectedUnitCost: unitCost,
         });
       }
     }
 
+    // ==========================================
     // APPLY UPDATES
+    // ==========================================
+
     if (supplierId !== undefined) {
       supplierPO.supplierId = supplierId;
     }
 
     if (supplierPODate !== undefined) {
-      supplierPO.supplierPODate = supplierPODate;
+      supplierPO.supplierPODate =
+        supplierPODate;
     }
 
     if (status !== undefined) {
@@ -409,16 +506,64 @@ const updateSupplierPO = async (req, res, next) => {
 
     if (items !== undefined) {
       supplierPO.items = calculatedItems;
+
       supplierPO.totalAmount =
-        calculateSupplierPOTotal(calculatedItems);
+        calculateSupplierPOTotal(
+          calculatedItems
+        );
     }
 
+    // ==========================================
+    // AUDIT
+    // ==========================================
+
+    supplierPO.updatedBy = req.user._id;
+
+    await supplierPO.save();
+
+    // ==========================================
+    // RESPONSE
+    // ==========================================
+
+    res.status(200).json({
+      success: true,
+      supplierPO,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// RELEASE SUPPLIER PO
+const releaseSupplierPO = async (req, res, next) => {
+  try {
+    const supplierPO = await SupplierPO.findById(req.params.id);
+
+    if (!supplierPO) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier PO not found",
+      });
+    }
+
+    if (supplierPO.status !== "draft") {
+      const error = new Error(
+        `Cannot release a ${supplierPO.status} Supplier PO`
+      );
+
+      error.statusCode = 400;
+      throw error;
+    }
+
+    supplierPO.status = "sent";
     supplierPO.updatedBy = req.user._id;
 
     await supplierPO.save();
 
     res.status(200).json({
       success: true,
+      message: "Supplier PO released successfully.",
       supplierPO,
     });
   } catch (error) {
@@ -479,5 +624,6 @@ module.exports = {
   createSupplierPO,
   updateSupplierPO,
   deleteSupplierPO,
+  releaseSupplierPO,
   exportSupplierPOPDF,
 };

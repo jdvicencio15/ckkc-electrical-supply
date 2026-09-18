@@ -24,6 +24,9 @@ const { generateDocumentNumber } = require("../services/documentNumberService");
 
 const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+
+const { resolveProductCost } = require("../services/pricingService");
+
 const calculatePurchaseTotals = (
   items,
   { vatEnabled, vatRate, pricingMode },
@@ -156,12 +159,18 @@ const getPurchaseById = async (req, res, next) => {
 // CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
-    const { items, supplierId, supplierPOId, relatedClientPOId, purchaseDate } =
-      req.body;
+    const {
+      items,
+      supplierId,
+      supplierPOId,
+      relatedClientPOId,
+      purchaseDate,
+    } = req.body;
 
     const settings = await Settings.findOne().select("accountingTax");
 
-    const vatEnabled = settings?.accountingTax?.vatEnabled === true;
+    const vatEnabled =
+      settings?.accountingTax?.vatEnabled === true;
 
     const vatRate = vatEnabled
       ? Number(settings?.accountingTax?.vatRate || 0)
@@ -172,7 +181,9 @@ const createPurchase = async (req, res, next) => {
         ? "inclusive"
         : "exclusive";
 
+    // ==========================================
     // SUPPLIER
+    // ==========================================
     const supplier = await Supplier.findById(supplierId);
 
     if (!supplier) {
@@ -189,7 +200,9 @@ const createPurchase = async (req, res, next) => {
       throw error;
     }
 
+    // ==========================================
     // SUPPLIER PO
+    // ==========================================
     let supplierPO = null;
 
     if (supplierPOId !== undefined) {
@@ -201,7 +214,10 @@ const createPurchase = async (req, res, next) => {
         throw error;
       }
 
-      if (supplierPO.supplierId.toString() !== supplierId.toString()) {
+      if (
+        supplierPO.supplierId.toString() !==
+        supplierId.toString()
+      ) {
         const error = new Error(
           "Supplier PO does not belong to the selected supplier",
         );
@@ -234,9 +250,13 @@ const createPurchase = async (req, res, next) => {
       }
     }
 
+    // ==========================================
     // CLIENT PO
+    // ==========================================
     if (relatedClientPOId !== undefined) {
-      const clientPO = await ClientPO.findById(relatedClientPOId);
+      const clientPO = await ClientPO.findById(
+        relatedClientPOId,
+      );
 
       if (!clientPO) {
         const error = new Error("Client PO not found");
@@ -247,15 +267,20 @@ const createPurchase = async (req, res, next) => {
       if (
         supplierPO &&
         supplierPO.relatedClientPOId &&
-        supplierPO.relatedClientPOId.toString() !== relatedClientPOId.toString()
+        supplierPO.relatedClientPOId.toString() !==
+          relatedClientPOId.toString()
       ) {
-        const error = new Error("Client PO does not match the Supplier PO");
+        const error = new Error(
+          "Client PO does not match the Supplier PO",
+        );
         error.statusCode = 400;
         throw error;
       }
     }
 
+    // ==========================================
     // PRODUCTS
+    // ==========================================
     await checkReferencesExist(
       Product,
       items.map((item) => item.productId),
@@ -273,25 +298,46 @@ const createPurchase = async (req, res, next) => {
     );
 
     if (inactiveProduct) {
-      const error = new Error("Cannot add inactive product to Purchase");
+      const error = new Error(
+        "Cannot add inactive product to Purchase",
+      );
       error.statusCode = 400;
       throw error;
     }
 
-    // RESOLVE PRODUCT UOM SERVER-SIDE
+    // ==========================================
+    // RESOLVE UOM + SUPPLIER COST SERVER-SIDE
+    // ==========================================
     const calculatedItemsWithUOM = [];
 
     for (const item of items) {
-      const { unitId, unitCode } = await resolveProductUnit(item.productId);
+      // Resolve Product UOM
+      const { unitId, unitCode } =
+        await resolveProductUnit(item.productId);
+
+      // Resolve Purchase Cost
+      // Supplier Pricing → Product Cost fallback
+      const { unitCost } = await resolveProductCost({
+        productId: item.productId,
+        supplierId,
+      });
 
       calculatedItemsWithUOM.push({
-        ...item,
+        productId: item.productId,
+        quantity: item.quantity,
+
+        // SERVER-RESOLVED COST
+        // Frontend value is NOT trusted
+        enteredUnitCost: unitCost,
+
         unitId,
         unitCode,
       });
     }
 
-    // COMPUTE TOTAL ON BACKEND
+    // ==========================================
+    // COMPUTE TOTALS + VAT ON BACKEND
+    // ==========================================
     const {
       calculatedItems,
       netAmount,
@@ -299,15 +345,24 @@ const createPurchase = async (req, res, next) => {
       taxAmount,
       pricingMode: purchasePricingMode,
       totalAmount,
-    } = calculatePurchaseTotals(calculatedItemsWithUOM, {
-      vatEnabled,
-      vatRate,
-      pricingMode,
-    });
+    } = calculatePurchaseTotals(
+      calculatedItemsWithUOM,
+      {
+        vatEnabled,
+        vatRate,
+        pricingMode,
+      },
+    );
 
+    // ==========================================
     // GENERATE PURCHASE NUMBER SERVER-SIDE
-    const purchaseNumber = await generateDocumentNumber("purchase");
+    // ==========================================
+    const purchaseNumber =
+      await generateDocumentNumber("purchase");
 
+    // ==========================================
+    // CREATE PURCHASE
+    // ==========================================
     const purchase = await Purchase.create({
       purchaseNumber,
       supplierId,
@@ -323,7 +378,9 @@ const createPurchase = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
+    // ==========================================
     // CREATE NOTIFICATION
+    // ==========================================
     try {
       await createNotificationsForRoles({
         roles: ["owner", "admin"],
@@ -343,13 +400,35 @@ const createPurchase = async (req, res, next) => {
       );
     }
 
-    const populatedPurchase = await Purchase.findById(purchase._id)
-      .populate("supplierId", "supplierCode name")
-      .populate("supplierPOId", "poNumber")
-      .populate("relatedClientPOId", "poNumber")
-      .populate("items.unitId", "code name")
-      .populate("items.productId", "sku name")
-      .populate("createdBy", "firstName lastName");
+    // ==========================================
+    // RETURN POPULATED PURCHASE
+    // ==========================================
+    const populatedPurchase =
+      await Purchase.findById(purchase._id)
+        .populate(
+          "supplierId",
+          "supplierCode name",
+        )
+        .populate(
+          "supplierPOId",
+          "poNumber",
+        )
+        .populate(
+          "relatedClientPOId",
+          "poNumber",
+        )
+        .populate(
+          "items.unitId",
+          "code name",
+        )
+        .populate(
+          "items.productId",
+          "sku name",
+        )
+        .populate(
+          "createdBy",
+          "firstName lastName",
+        );
 
     res.status(201).json({
       success: true,
@@ -372,6 +451,7 @@ const updatePurchase = async (req, res, next) => {
       });
     }
 
+    // ONLY DRAFT PURCHASES CAN BE UPDATED
     if (purchase.status !== "draft") {
       return res.status(400).json({
         success: false,
@@ -387,8 +467,11 @@ const updatePurchase = async (req, res, next) => {
       items,
     } = req.body;
 
+    // ==========================================
     // GET CURRENT TAX SETTINGS
-    const settings = await Settings.findOne().select("accountingTax");
+    // ==========================================
+    const settings =
+      await Settings.findOne().select("accountingTax");
 
     const vatEnabled =
       settings?.accountingTax?.vatEnabled === true;
@@ -402,9 +485,9 @@ const updatePurchase = async (req, res, next) => {
         ? "inclusive"
         : "exclusive";
 
+    // ==========================================
     // DETERMINE FINAL REFERENCES
-    let supplierPO = null;
-
+    // ==========================================
     const nextSupplierId =
       supplierId !== undefined
         ? supplierId
@@ -420,28 +503,32 @@ const updatePurchase = async (req, res, next) => {
         ? relatedClientPOId
         : purchase.relatedClientPOId;
 
+    let supplierPO = null;
+
+    // ==========================================
     // SUPPLIER
-    if (supplierId !== undefined) {
-      const supplier = await Supplier.findById(
-        nextSupplierId,
-      );
+    // ==========================================
+    const supplier = await Supplier.findById(
+      nextSupplierId,
+    );
 
-      if (!supplier) {
-        const error = new Error("Supplier not found");
-        error.statusCode = 400;
-        throw error;
-      }
-
-      if (supplier.status !== "active") {
-        const error = new Error(
-          "Cannot assign Purchase to an inactive supplier",
-        );
-        error.statusCode = 400;
-        throw error;
-      }
+    if (!supplier) {
+      const error = new Error("Supplier not found");
+      error.statusCode = 400;
+      throw error;
     }
 
+    if (supplier.status !== "active") {
+      const error = new Error(
+        "Cannot assign Purchase to an inactive supplier",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
     // SUPPLIER PO
+    // ==========================================
     if (nextSupplierPOId !== undefined) {
       supplierPO = await SupplierPO.findById(
         nextSupplierPOId,
@@ -476,8 +563,10 @@ const updatePurchase = async (req, res, next) => {
       }
     }
 
+    // ==========================================
     // CLIENT PO
-    if (relatedClientPOId !== undefined) {
+    // ==========================================
+    if (nextRelatedClientPOId !== undefined) {
       const clientPO = await ClientPO.findById(
         nextRelatedClientPOId,
       );
@@ -502,7 +591,9 @@ const updatePurchase = async (req, res, next) => {
       }
     }
 
-    // PRODUCTS + UOM
+    // ==========================================
+    // PRODUCTS + UOM + SUPPLIER COST
+    // ==========================================
     let calculatedItemsWithUOM = null;
 
     if (items !== undefined) {
@@ -530,25 +621,39 @@ const updatePurchase = async (req, res, next) => {
         throw error;
       }
 
-      // RESOLVE PRODUCT UOM SERVER-SIDE
       calculatedItemsWithUOM = [];
 
       for (const item of items) {
+        // Resolve Product UOM server-side
         const { unitId, unitCode } =
           await resolveProductUnit(item.productId);
 
+        // Resolve Purchase Cost server-side
+        // Supplier Pricing → Product Cost fallback
+        const { unitCost } =
+          await resolveProductCost({
+            productId: item.productId,
+            supplierId: nextSupplierId,
+          });
+
         calculatedItemsWithUOM.push({
-          ...item,
+          productId: item.productId,
+          quantity: item.quantity,
+
+          // SERVER-RESOLVED COST
+          // Frontend cost is NOT trusted
+          enteredUnitCost: unitCost,
+
           unitId,
           unitCode,
         });
       }
     }
 
+    // ==========================================
     // UPDATE FIELDS
-    if (supplierId !== undefined) {
-      purchase.supplierId = supplierId;
-    }
+    // ==========================================
+    purchase.supplierId = nextSupplierId;
 
     if (supplierPOId !== undefined) {
       purchase.supplierPOId = supplierPOId;
@@ -562,7 +667,9 @@ const updatePurchase = async (req, res, next) => {
       purchase.purchaseDate = purchaseDate;
     }
 
-    // RECALCULATE PURCHASE TOTALS + VAT
+    // ==========================================
+    // RECALCULATE TOTALS + VAT
+    // ==========================================
     if (items !== undefined) {
       const {
         calculatedItems,
@@ -588,19 +695,46 @@ const updatePurchase = async (req, res, next) => {
       purchase.totalAmount = totalAmount;
     }
 
+    // ==========================================
+    // AUDIT USER
+    // ==========================================
     purchase.updatedBy = req.user._id;
 
     await purchase.save();
 
+    // ==========================================
+    // RETURN POPULATED PURCHASE
+    // ==========================================
     const populatedPurchase =
       await Purchase.findById(purchase._id)
-        .populate("supplierId", "supplierCode name")
-        .populate("supplierPOId", "poNumber")
-        .populate("relatedClientPOId", "poNumber")
-        .populate("items.unitId", "code name")
-        .populate("items.productId", "sku name")
-        .populate("createdBy", "firstName lastName")
-        .populate("updatedBy", "firstName lastName");
+        .populate(
+          "supplierId",
+          "supplierCode name",
+        )
+        .populate(
+          "supplierPOId",
+          "poNumber",
+        )
+        .populate(
+          "relatedClientPOId",
+          "poNumber",
+        )
+        .populate(
+          "items.unitId",
+          "code name",
+        )
+        .populate(
+          "items.productId",
+          "sku name",
+        )
+        .populate(
+          "createdBy",
+          "firstName lastName",
+        )
+        .populate(
+          "updatedBy",
+          "firstName lastName",
+        );
 
     res.status(200).json({
       success: true,
@@ -610,6 +744,8 @@ const updatePurchase = async (req, res, next) => {
     next(error);
   }
 };
+
+
 // DELETE PURCHASE
 const deletePurchase = async (req, res, next) => {
   try {

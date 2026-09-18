@@ -12,18 +12,6 @@ const supplierPOValidator = [
     .isISO8601()
     .withMessage("Supplier PO date must be a valid date"),
 
-  body("status")
-    .optional()
-    .isIn([
-      "draft",
-      "sent",
-      "confirmed",
-      "partially_received",
-      "received",
-      "cancelled",
-    ])
-    .withMessage("Invalid supplier PO status"),
-
   body("relatedClientPOId")
     .optional()
     .isMongoId()
