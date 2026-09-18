@@ -24,6 +24,8 @@ import Inventory from "../pages/Inventory";
 import Customers from "../pages/Customers";
 import Suppliers from "../pages/Suppliers";
 import Quotations from "../pages/Quotations";
+import ClientPOs from "../pages/ClientPOs";
+
 import Invoices from "../pages/Invoices";
 import Payments from "../pages/Payments";
 import Accounting from "../pages/Accounting";
@@ -148,6 +150,13 @@ function AppRoutes() {
             >
               <Route path="/quotations" element={<Quotations />} />
             </Route>
+
+            <Route
+  element={<PermissionRoute module="clientPO" action="view" />}
+>
+  <Route path="/client-pos" element={<ClientPOs />} />
+</Route>
+
 
             <Route
               element={<PermissionRoute module="invoices" action="view" />}

@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import customerService from "../services/customerService";
@@ -9,18 +8,25 @@ import { useSearchParams } from "react-router-dom";
 import { useSettings } from "../context/SettingsContext";
 import { formatCurrency } from "../utils/currency";
 
+import { useAuth } from "../context/AuthContext";
+import { hasPermission } from "../utils/permissions";
+
 function Customers() {
+   const { user } = useAuth();
+  const canCreate = hasPermission(user?.role, "customers", "create");
+  const canEdit = hasPermission(user?.role, "customers", "edit");
+  const canDelete = hasPermission(user?.role, "customers", "delete");
+
   const [searchParams] = useSearchParams();
-const { settings } = useSettings();
+  const { settings } = useSettings();
   const [customers, setCustomers] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
-
   const [searchTerm, setSearchTerm] = useState(
-  searchParams.get("search") || ""
-);
+    searchParams.get("search") || "",
+  );
   const [selectedStatus, setSelectedStatus] = useState("all");
 
   const [showCustomerForm, setShowCustomerForm] = useState(false);
@@ -49,9 +55,7 @@ const { settings } = useSettings();
 
         setToast({
           type: "error",
-          message:
-            error.response?.data?.message ||
-            "Failed to load customers.",
+          message: error.response?.data?.message || "Failed to load customers.",
         });
       } finally {
         setLoading(false);
@@ -95,9 +99,7 @@ const { settings } = useSettings();
 
       setToast({
         type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to create customer.",
+        message: error.response?.data?.message || "Failed to create customer.",
       });
     } finally {
       setFormLoading(false);
@@ -108,10 +110,7 @@ const { settings } = useSettings();
     try {
       setFormLoading(true);
 
-      await customerService.updateCustomer(
-        editingCustomer._id,
-        formData,
-      );
+      await customerService.updateCustomer(editingCustomer._id, formData);
 
       await loadCustomers();
 
@@ -127,64 +126,54 @@ const { settings } = useSettings();
 
       setToast({
         type: "error",
-        message:
-          error.response?.data?.message ||
-          "Failed to update customer.",
+        message: error.response?.data?.message || "Failed to update customer.",
       });
     } finally {
       setFormLoading(false);
     }
   };
 
+  const handleDelete = (customer) => {
+    setDeletingCustomer(customer);
+  };
 
-const handleDelete = (customer) => {
-  setDeletingCustomer(customer);
-};
+  const handleConfirmDelete = async () => {
+    if (!deletingCustomer) {
+      return;
+    }
 
-const handleConfirmDelete = async () => {
-  if (!deletingCustomer) {
-    return;
-  }
+    try {
+      setDeleting(true);
 
-  try {
-    setDeleting(true);
+      await customerService.deleteCustomer(deletingCustomer._id);
 
-    await customerService.deleteCustomer(deletingCustomer._id);
+      await loadCustomers();
 
-    await loadCustomers();
+      setDeletingCustomer(null);
+
+      setToast({
+        type: "success",
+        message: "Customer deleted successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to delete customer:", error);
+
+      setToast({
+        type: "error",
+        message: error.response?.data?.message || "Failed to delete customer.",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    if (deleting) {
+      return;
+    }
 
     setDeletingCustomer(null);
-
-    setToast({
-      type: "success",
-      message: "Customer deleted successfully.",
-    });
-  } catch (error) {
-    console.error("Failed to delete customer:", error);
-
-    setToast({
-      type: "error",
-      message:
-        error.response?.data?.message ||
-        "Failed to delete customer.",
-    });
-  } finally {
-    setDeleting(false);
-  }
-};
-
-const handleCancelDelete = () => {
-  if (deleting) {
-    return;
-  }
-
-  setDeletingCustomer(null);
-};
-
-
-
-
-
+  };
 
   const openCreateForm = () => {
     setEditingCustomer(null);
@@ -224,8 +213,7 @@ const handleCancelDelete = () => {
         customer.phone?.toLowerCase().includes(search);
 
       const matchesStatus =
-        selectedStatus === "all" ||
-        customer.status === selectedStatus;
+        selectedStatus === "all" || customer.status === selectedStatus;
 
       return matchesSearch && matchesStatus;
     });
@@ -233,24 +221,19 @@ const handleCancelDelete = () => {
 
   return (
     <>
-      <Toast
-        type={toast.type}
-        message={toast.message}
-        onClose={closeToast}
-      />
-
+      <Toast type={toast.type} message={toast.message} onClose={closeToast} />
 
       <ConfirmModal
-  isOpen={!!deletingCustomer}
-  onClose={handleCancelDelete}
-  onConfirm={handleConfirmDelete}
-  title="Delete Customer"
-  message={`Are you sure you want to delete "${
-    deletingCustomer?.name || "this customer"
-  }"? This action cannot be undone.`}
-  confirmText="Delete"
-  cancelText="Cancel"
-  loading={deleting}
+        isOpen={!!deletingCustomer}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete Customer"
+        message={`Are you sure you want to delete "${
+          deletingCustomer?.name || "this customer"
+        }"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={deleting}
       />
 
       <div className="space-y-6">
@@ -266,13 +249,15 @@ const handleCancelDelete = () => {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
-          >
-            + Add Customer
-          </button>
+          {canCreate && (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700"
+            >
+              + Add Customer
+            </button>
+          )}
         </div>
 
         {/* Filters */}
@@ -302,25 +287,15 @@ const handleCancelDelete = () => {
             <table className="w-full min-w-[1000px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                 <tr>
-                  <th className="px-6 py-3 font-semibold">
-                    Customer
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Customer</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Contact
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Contact</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Total Orders
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Total Orders</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Total Purchases
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Total Purchases</th>
 
-                  <th className="px-6 py-3 font-semibold">
-                    Status
-                  </th>
+                  <th className="px-6 py-3 font-semibold">Status</th>
 
                   <th className="px-6 py-3 text-right font-semibold">
                     Actions
@@ -349,87 +324,90 @@ const handleCancelDelete = () => {
                   </tr>
                 ) : (
                   [...filteredCustomers]
-  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-  .map((customer) => (
-                    <tr
-                      key={customer._id}
-                      className="border-t border-slate-100 dark:border-slate-800"
-                    >
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-slate-100">
-                            {customer.name}
-                          </p>
+                    .sort(
+                      (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+                    )
+                    .map((customer) => (
+                      <tr
+                        key={customer._id}
+                        className="border-t border-slate-100 dark:border-slate-800"
+                      >
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-slate-100">
+                              {customer.name}
+                            </p>
 
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            {customer.customerCode}
-                          </p>
-                        </div>
-                      </td>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {customer.customerCode}
+                            </p>
+                          </div>
+                        </td>
 
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-slate-700 dark:text-slate-300">
-                            {customer.contactPerson || "—"}
-                          </p>
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="text-slate-700 dark:text-slate-300">
+                              {customer.contactPerson || "—"}
+                            </p>
 
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            {customer.email || customer.phone || "—"}
-                          </p>
-                        </div>
-                      </td>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {customer.email || customer.phone || "—"}
+                            </p>
+                          </div>
+                        </td>
 
-                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-                        {customer.totalOrders ?? 0}
-                      </td>
+                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
+                          {customer.totalOrders ?? 0}
+                        </td>
 
-                     <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
-  {formatCurrency(
-    customer.totalPurchases ?? 0,
-    settings?.currency
-  )}
-</td>
+                        <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">
+                          {formatCurrency(
+                            customer.totalPurchases ?? 0,
+                            settings?.currency,
+                          )}
+                        </td>
 
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                            customer.status === "active"
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                          }`}
-                        >
-                          {customer.status === "active"
-                            ? "Active"
-                            : "Inactive"}
-                        </span>
-                      </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                              customer.status === "active"
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                            }`}
+                          >
+                            {customer.status === "active"
+                              ? "Active"
+                              : "Inactive"}
+                          </span>
+                        </td>
 
-                      <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            {canEdit && (
+                              <button
+                                type="button"
+                                onClick={() => openEditForm(customer)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                                aria-label={`Edit ${customer.name}`}
+                              >
+                                <FaEdit className="h-3.5 w-3.5" />
+                              </button>
+                            )}
 
-<div className="flex justify-end gap-2">
-  <button
-    type="button"
-    onClick={() => openEditForm(customer)}
-    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-    aria-label={`Edit ${customer.name}`}
-  >
-    <FaEdit className="h-3.5 w-3.5" />
-  </button>
-
-  <button
-    type="button"
-    onClick={() => handleDelete(customer)}
-    className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-    aria-label={`Delete ${customer.name}`}
-  >
-    <FaTrash className="h-3.5 w-3.5" />
-  </button>
-</div>
-
-
-                      </td>
-                    </tr>
-                  ))
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(customer)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+                                aria-label={`Delete ${customer.name}`}
+                              >
+                                <FaTrash className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                 )}
               </tbody>
             </table>
@@ -438,8 +416,7 @@ const handleCancelDelete = () => {
           {/* Footer */}
           <div className="border-t border-slate-200 px-6 py-3 dark:border-slate-800">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Showing {filteredCustomers.length} of{" "}
-              {customers.length} customers
+              Showing {filteredCustomers.length} of {customers.length} customers
             </p>
           </div>
         </div>
@@ -448,11 +425,7 @@ const handleCancelDelete = () => {
         {showCustomerForm && (
           <CustomerForm
             customer={editingCustomer}
-            onSubmit={
-              editingCustomer
-                ? handleUpdate
-                : handleCreate
-            }
+            onSubmit={editingCustomer ? handleUpdate : handleCreate}
             onClose={closeCustomerForm}
             submitting={formLoading}
           />
@@ -463,4 +436,3 @@ const handleCancelDelete = () => {
 }
 
 export default Customers;
-

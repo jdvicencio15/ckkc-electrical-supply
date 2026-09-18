@@ -5,25 +5,10 @@ const Quotation = require("../models/Quotation");
 const Product = require("../models/Product");
 const Settings = require("../models/Settings");
 
-const SupplierPO = require("../models/SupplierPO");
-const Purchase = require("../models/Purchase");
+const { checkReferencesExist } = require("../utils/referenceValidator");
 
-const {
-  checkReferencesExist,
-} = require("../utils/referenceValidator");
+const { generateDocumentNumber } = require("../services/documentNumberService");
 
-const {
-  generateDocumentNumber,
-} = require("../services/documentNumberService");
-
-// CLIENT PO STATE TRANSITIONS
-const CLIENT_PO_STATE_TRANSITIONS = {
-  draft: ["received", "cancelled"],
-  received: ["processing", "cancelled"],
-  processing: ["fulfilled", "cancelled"],
-  fulfilled: [],
-  cancelled: [],
-};
 
 // =========================
 // CALCULATE CLIENT PO TOTALS
@@ -53,25 +38,19 @@ const calculateClientPOTotals = ({
     !Number.isFinite(safeOtherDirectCosts) ||
     !Number.isFinite(safeTaxRate)
   ) {
-    const error = new Error(
-      "Client PO financial values must be valid numbers",
-    );
+    const error = new Error("Client PO financial values must be valid numbers");
     error.statusCode = 400;
     throw error;
   }
 
   if (safeLaborCost < 0 || safeOtherDirectCosts < 0) {
-    const error = new Error(
-      "Client PO costs cannot be negative",
-    );
+    const error = new Error("Client PO costs cannot be negative");
     error.statusCode = 400;
     throw error;
   }
 
   if (safeTaxRate < 0 || safeTaxRate > 100) {
-    const error = new Error(
-      "Client PO tax rate must be between 0 and 100",
-    );
+    const error = new Error("Client PO tax rate must be between 0 and 100");
     error.statusCode = 400;
     throw error;
   }
@@ -96,23 +75,20 @@ const calculateClientPOTotals = ({
     return total + quantity * agreedUnitPrice;
   }, 0);
 
-  const taxableAmount =
-    subtotal + safeLaborCost + safeOtherDirectCosts;
+  const taxableAmount = subtotal + safeLaborCost + safeOtherDirectCosts;
 
   let netAmount = taxableAmount;
   let taxAmount = 0;
 
   if (safeTaxRate > 0) {
     if (pricingMode === "inclusive") {
-      netAmount =
-        taxableAmount / (1 + safeTaxRate / 100);
+      netAmount = taxableAmount / (1 + safeTaxRate / 100);
 
       taxAmount = taxableAmount - netAmount;
     } else {
       netAmount = taxableAmount;
 
-      taxAmount =
-        taxableAmount * (safeTaxRate / 100);
+      taxAmount = taxableAmount * (safeTaxRate / 100);
     }
   }
 
@@ -130,9 +106,7 @@ const calculateClientPOTotals = ({
   return {
     subtotal: roundedSubtotal,
     laborCost: Number(safeLaborCost.toFixed(2)),
-    otherDirectCosts: Number(
-      safeOtherDirectCosts.toFixed(2),
-    ),
+    otherDirectCosts: Number(safeOtherDirectCosts.toFixed(2)),
     taxRate: safeTaxRate,
     taxAmount: roundedTaxAmount,
     pricingMode,
@@ -147,9 +121,7 @@ const calculateClientPOTotals = ({
 
 const prepareClientPOItems = async (items) => {
   if (!Array.isArray(items) || items.length === 0) {
-    const error = new Error(
-      "Client PO must contain at least one item",
-    );
+    const error = new Error("Client PO must contain at least one item");
     error.statusCode = 400;
     throw error;
   }
@@ -173,24 +145,17 @@ const prepareClientPOItems = async (items) => {
   );
 
   if (inactiveProduct) {
-    const error = new Error(
-      "Cannot add inactive product to Client PO",
-    );
+    const error = new Error("Cannot add inactive product to Client PO");
     error.statusCode = 400;
     throw error;
   }
 
   const productMap = new Map(
-    products.map((product) => [
-      product._id.toString(),
-      product,
-    ]),
+    products.map((product) => [product._id.toString(), product]),
   );
 
   return items.map((item) => {
-    const product = productMap.get(
-      item.productId.toString(),
-    );
+    const product = productMap.get(item.productId.toString());
 
     if (!product) {
       const error = new Error("Product not found");
@@ -281,18 +246,11 @@ const validateQuotationItems = ({
       throw error;
     }
 
-    const quotationPrice = Number(
-      quotationItem.quotedUnitPrice,
-    );
+    const quotationPrice = Number(quotationItem.quotedUnitPrice);
 
-    const clientPOPrice = Number(
-      item.agreedUnitPrice,
-    );
+    const clientPOPrice = Number(item.agreedUnitPrice);
 
-    if (
-      Math.abs(quotationPrice - clientPOPrice) >
-      0.01
-    ) {
+    if (Math.abs(quotationPrice - clientPOPrice) > 0.01) {
       const error = new Error(
         `Agreed unit price for product ${item.productId} must match the accepted quotation`,
       );
@@ -325,9 +283,7 @@ const getQuotationCommittedQuantities = async ({
     };
   }
 
-  const existingPOs = await ClientPO.find(query).select(
-    "_id items",
-  );
+  const existingPOs = await ClientPO.find(query).select("_id items");
 
   const committedQuantities = new Map();
 
@@ -335,13 +291,9 @@ const getQuotationCommittedQuantities = async ({
     for (const item of po.items || []) {
       const key = `${item.productId.toString()}::${item.unitCode}`;
 
-      const existingQuantity =
-        committedQuantities.get(key) || 0;
+      const existingQuantity = committedQuantities.get(key) || 0;
 
-      committedQuantities.set(
-        key,
-        existingQuantity + Number(item.quantity),
-      );
+      committedQuantities.set(key, existingQuantity + Number(item.quantity));
     }
   }
 
@@ -378,23 +330,15 @@ const validateQuotationQuantities = ({
       throw error;
     }
 
-    const quotationQuantity = Number(
-      quotationItem.quantity,
-    );
+    const quotationQuantity = Number(quotationItem.quantity);
 
-    const alreadyCommitted =
-      committedQuantities.get(key) || 0;
+    const alreadyCommitted = committedQuantities.get(key) || 0;
 
-    const requestedQuantity =
-      Number(item.quantity);
+    const requestedQuantity = Number(item.quantity);
 
-    const remainingQuantity =
-      quotationQuantity - alreadyCommitted;
+    const remainingQuantity = quotationQuantity - alreadyCommitted;
 
-    if (
-      requestedQuantity >
-      remainingQuantity + 0.000001
-    ) {
+    if (requestedQuantity > remainingQuantity + 0.000001) {
       const error = new Error(
         `Quantity for product ${item.productId} exceeds the remaining quotation quantity. Remaining: ${remainingQuantity}`,
       );
@@ -411,30 +355,12 @@ const validateQuotationQuantities = ({
 const getClientPOs = async (req, res, next) => {
   try {
     const clientPOs = await ClientPO.find()
-      .populate(
-        "customerId",
-        "customerCode name",
-      )
-      .populate(
-        "quotationId",
-        "quotationNumber",
-      )
-      .populate(
-        "items.productId",
-        "sku name unit",
-      )
-      .populate(
-        "items.unitId",
-        "code name",
-      )
-      .populate(
-        "createdBy",
-        "firstName lastName",
-      )
-      .populate(
-        "updatedBy",
-        "firstName lastName",
-      )
+      .populate("customerId", "customerCode name")
+      .populate("quotationId", "quotationNumber")
+      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -453,32 +379,13 @@ const getClientPOs = async (req, res, next) => {
 
 const getClientPOById = async (req, res, next) => {
   try {
-    const clientPO =
-      await ClientPO.findById(req.params.id)
-        .populate(
-          "customerId",
-          "customerCode name",
-        )
-        .populate(
-          "quotationId",
-          "quotationNumber",
-        )
-        .populate(
-          "items.productId",
-          "sku name unit",
-        )
-        .populate(
-          "items.unitId",
-          "code name",
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName",
-        )
-        .populate(
-          "updatedBy",
-          "firstName lastName",
-        );
+    const clientPO = await ClientPO.findById(req.params.id)
+      .populate("customerId", "customerCode name")
+      .populate("quotationId", "quotationNumber")
+      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName");
 
     if (!clientPO) {
       return res.status(404).json({
@@ -517,13 +424,10 @@ const createClientPO = async (req, res, next) => {
     // CUSTOMER
     // =========================
 
-    const customer =
-      await Customer.findById(customerId);
+    const customer = await Customer.findById(customerId);
 
     if (!customer) {
-      const error = new Error(
-        "Customer not found",
-      );
+      const error = new Error("Customer not found");
       error.statusCode = 400;
       throw error;
     }
@@ -540,8 +444,7 @@ const createClientPO = async (req, res, next) => {
     // PREPARE ITEMS
     // =========================
 
-    const clientPOItems =
-      await prepareClientPOItems(items);
+    const clientPOItems = await prepareClientPOItems(items);
 
     let finalLaborCost = 0;
     let finalOtherDirectCosts = 0;
@@ -552,16 +455,11 @@ const createClientPO = async (req, res, next) => {
     // QUOTATION-LINKED PO
     // =========================
 
-    if (quotationId !== undefined) {
-      const quotation =
-        await Quotation.findById(
-          quotationId,
-        );
+   if (quotationId) {
+      const quotation = await Quotation.findById(quotationId);
 
       if (!quotation) {
-        const error = new Error(
-          "Quotation not found",
-        );
+        const error = new Error("Quotation not found");
         error.statusCode = 400;
         throw error;
       }
@@ -574,10 +472,7 @@ const createClientPO = async (req, res, next) => {
         throw error;
       }
 
-      if (
-        quotation.customerId.toString() !==
-        customerId.toString()
-      ) {
+      if (quotation.customerId.toString() !== customerId.toString()) {
         const error = new Error(
           "Quotation does not belong to the selected customer",
         );
@@ -598,10 +493,9 @@ const createClientPO = async (req, res, next) => {
       // PARTIAL PO QUANTITY
       // =========================
 
-      const committedQuantities =
-        await getQuotationCommittedQuantities({
-          quotationId,
-        });
+      const committedQuantities = await getQuotationCommittedQuantities({
+        quotationId,
+      });
 
       validateQuotationQuantities({
         quotation,
@@ -613,164 +507,109 @@ const createClientPO = async (req, res, next) => {
       // INHERIT TAX SNAPSHOT
       // =========================
 
-      taxRate = Number(
-        quotation.taxRate || 0,
-      );
+      taxRate = Number(quotation.taxRate || 0);
 
-      pricingMode =
-        quotation.pricingMode ||
-        "inclusive";
+      pricingMode = quotation.pricingMode || "inclusive";
 
       // =========================
       // PROPORTIONAL COMMERCIAL COST
       // =========================
 
-      const quotationSubtotal =
-        Number(quotation.subtotal || 0);
+      const quotationSubtotal = Number(quotation.subtotal || 0);
 
-      const clientPOSubtotal =
-        clientPOItems.reduce(
-          (total, item) =>
-            total +
-            Number(item.quantity) *
-              Number(item.agreedUnitPrice),
-          0,
-        );
+      const clientPOSubtotal = clientPOItems.reduce(
+        (total, item) =>
+          total + Number(item.quantity) * Number(item.agreedUnitPrice),
+        0,
+      );
 
       const allocationRatio =
-        quotationSubtotal > 0
-          ? clientPOSubtotal /
-            quotationSubtotal
-          : 0;
+        quotationSubtotal > 0 ? clientPOSubtotal / quotationSubtotal : 0;
 
       finalLaborCost = Number(
-        (
-          Number(quotation.laborCost || 0) *
-          allocationRatio
-        ).toFixed(2),
+        (Number(quotation.laborCost || 0) * allocationRatio).toFixed(2),
       );
 
       finalOtherDirectCosts = Number(
-        (
-          Number(
-            quotation.otherDirectCosts || 0,
-          ) * allocationRatio
-        ).toFixed(2),
+        (Number(quotation.otherDirectCosts || 0) * allocationRatio).toFixed(2),
       );
-    } else {
-      // =========================
-      // MANUAL PO
-      // SNAPSHOT CURRENT SETTINGS
-      // =========================
+   } else {
+  // =========================
+  // MANUAL PO
+  // SNAPSHOT CURRENT SETTINGS
+  // =========================
 
-      const settings =
-        await Settings.findOne().select(
-          "accountingTax",
-        );
+  const settings = await Settings.findOne().select("accountingTax");
 
-      const vatEnabled =
-        settings?.accountingTax
-          ?.vatEnabled === true;
+  const vatEnabled = settings?.accountingTax?.vatEnabled === true;
 
-      taxRate = vatEnabled
-        ? Number(
-            settings?.accountingTax
-              ?.vatRate || 0,
-          )
-        : 0;
+  taxRate = vatEnabled
+    ? Number(settings?.accountingTax?.vatRate || 0)
+    : 0;
 
-      pricingMode =
-        settings?.accountingTax
-          ?.pricingMode ||
-        "inclusive";
+  pricingMode =
+    settings?.accountingTax?.pricingMode || "inclusive";
 
-      finalLaborCost =
-        laborCost !== undefined
-          ? Number(laborCost)
-          : 0;
+  finalLaborCost =
+    laborCost !== undefined ? Number(laborCost) : 0;
 
-      finalOtherDirectCosts =
-        otherDirectCosts !== undefined
-          ? Number(otherDirectCosts)
-          : 0;
-    }
+  finalOtherDirectCosts =
+    otherDirectCosts !== undefined
+      ? Number(otherDirectCosts)
+      : 0;
+}
 
     // =========================
     // CALCULATE TOTALS
     // =========================
 
-    const totals =
-      calculateClientPOTotals({
-        items: clientPOItems,
-        laborCost: finalLaborCost,
-        otherDirectCosts:
-          finalOtherDirectCosts,
-        taxRate,
-        pricingMode,
-      });
+    const totals = calculateClientPOTotals({
+      items: clientPOItems,
+      laborCost: finalLaborCost,
+      otherDirectCosts: finalOtherDirectCosts,
+      taxRate,
+      pricingMode,
+    });
 
     // =========================
     // GENERATE DOCUMENT NUMBER
     // =========================
 
-    const poNumber =
-      await generateDocumentNumber(
-        "clientPO",
-      );
+    const poNumber = await generateDocumentNumber("clientPO");
 
     // =========================
     // CREATE CLIENT PO
     // =========================
 
-    const clientPO =
-      await ClientPO.create({
-        ...clientPOData,
-        poNumber,
-        customerId,
-        quotationId,
-        items: clientPOItems,
+    const clientPO = await ClientPO.create({
+      ...clientPOData,
+      poNumber,
+      customerId,
+      quotationId,
+      items: clientPOItems,
 
-        laborCost: totals.laborCost,
-        otherDirectCosts:
-          totals.otherDirectCosts,
+      laborCost: totals.laborCost,
+      otherDirectCosts: totals.otherDirectCosts,
 
-        subtotal: totals.subtotal,
-        taxRate: totals.taxRate,
-        taxAmount: totals.taxAmount,
-        pricingMode: totals.pricingMode,
-        netAmount: totals.netAmount,
-        totalAmount: totals.totalAmount,
+      subtotal: totals.subtotal,
+      taxRate: totals.taxRate,
+      taxAmount: totals.taxAmount,
+      pricingMode: totals.pricingMode,
+      netAmount: totals.netAmount,
+      totalAmount: totals.totalAmount,
 
-        // A created customer PO is considered received.
-        status: "received",
+      // A created customer PO is considered received.
+      status: "received",
 
-        createdBy: req.user._id,
-      });
+      createdBy: req.user._id,
+    });
 
-    const populatedClientPO =
-      await ClientPO.findById(
-        clientPO._id,
-      )
-        .populate(
-          "customerId",
-          "customerCode name",
-        )
-        .populate(
-          "quotationId",
-          "quotationNumber",
-        )
-        .populate(
-          "items.productId",
-          "sku name unit",
-        )
-        .populate(
-          "items.unitId",
-          "code name",
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName",
-        );
+    const populatedClientPO = await ClientPO.findById(clientPO._id)
+      .populate("customerId", "customerCode name")
+      .populate("quotationId", "quotationNumber")
+      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
       success: true,
@@ -785,16 +624,9 @@ const createClientPO = async (req, res, next) => {
 // UPDATE CLIENT PO
 // =========================
 
-const updateClientPO = async (
-  req,
-  res,
-  next,
-) => {
+const updateClientPO = async (req, res, next) => {
   try {
-    const clientPO =
-      await ClientPO.findById(
-        req.params.id,
-      );
+    const clientPO = await ClientPO.findById(req.params.id);
 
     if (!clientPO) {
       return res.status(404).json({
@@ -803,19 +635,10 @@ const updateClientPO = async (
       });
     }
 
-    const TERMINAL_CLIENT_PO_STATUSES = [
-      "fulfilled",
-      "cancelled",
-    ];
+    const TERMINAL_CLIENT_PO_STATUSES = ["fulfilled", "cancelled"];
 
-    if (
-      TERMINAL_CLIENT_PO_STATUSES.includes(
-        clientPO.status,
-      )
-    ) {
-      const error = new Error(
-        `Cannot modify a ${clientPO.status} Client PO`,
-      );
+    if (TERMINAL_CLIENT_PO_STATUSES.includes(clientPO.status)) {
+      const error = new Error(`Cannot modify a ${clientPO.status} Client PO`);
       error.statusCode = 400;
       throw error;
     }
@@ -824,10 +647,14 @@ const updateClientPO = async (
       customerId,
       quotationId,
       poDate,
-      status,
       items,
       laborCost,
       otherDirectCosts,
+
+      // Intentionally ignored:
+      // status and poNumber cannot be changed through this endpoint.
+      status: _status,
+      poNumber: _poNumber,
     } = req.body;
 
     // =========================
@@ -835,21 +662,56 @@ const updateClientPO = async (
     // AFTER PROCESSING STARTS
     // =========================
 
-    const hasCommercialChanges =
-      customerId !== undefined ||
-      quotationId !== undefined ||
-      items !== undefined ||
-      laborCost !== undefined ||
-      otherDirectCosts !== undefined;
+    const hasCustomerChange =
+      customerId !== undefined &&
+      customerId.toString() !== clientPO.customerId.toString();
 
-    if (
-      hasCommercialChanges &&
-      clientPO.status === "processing"
-    ) {
+    const hasQuotationChange =
+      quotationId !== undefined &&
+      (quotationId || null)?.toString() !==
+        (clientPO.quotationId?._id || clientPO.quotationId || null)?.toString();
+
+    const hasItemsChange =
+      items !== undefined &&
+      JSON.stringify(
+        items.map((item) => ({
+          productId: item.productId?.toString?.() || item.productId || "",
+          description: item.description?.trim() || "",
+          quantity: Number(item.quantity),
+          agreedUnitPrice: Number(item.agreedUnitPrice),
+        })),
+      ) !==
+        JSON.stringify(
+          clientPO.items.map((item) => ({
+            productId: item.productId?.toString?.() || item.productId || "",
+            description: item.description?.trim() || "",
+            quantity: Number(item.quantity),
+            agreedUnitPrice: Number(item.agreedUnitPrice),
+          })),
+        );
+
+    const hasLaborCostChange =
+      laborCost !== undefined &&
+      Number(laborCost) !== Number(clientPO.laborCost || 0);
+
+    const hasOtherDirectCostsChange =
+      otherDirectCosts !== undefined &&
+      Number(otherDirectCosts) !== Number(clientPO.otherDirectCosts || 0);
+
+    const hasCommercialChanges =
+      hasCustomerChange ||
+      hasQuotationChange ||
+      hasItemsChange ||
+      hasLaborCostChange ||
+      hasOtherDirectCostsChange;
+
+    if (clientPO.status === "processing" && hasCommercialChanges) {
       const error = new Error(
         "Cannot modify commercial details after Client PO processing has started",
       );
+
       error.statusCode = 400;
+
       throw error;
     }
 
@@ -864,29 +726,20 @@ const updateClientPO = async (
     // =========================
 
     const nextCustomerId =
-      customerId !== undefined
-        ? customerId
-        : clientPO.customerId;
+      customerId !== undefined ? customerId : clientPO.customerId;
 
     const nextQuotationId =
-      quotationId !== undefined
-        ? quotationId
-        : clientPO.quotationId;
+      quotationId !== undefined ? quotationId : clientPO.quotationId;
 
     // =========================
     // CUSTOMER
     // =========================
 
     if (customerId !== undefined) {
-      const customer =
-        await Customer.findById(
-          customerId,
-        );
+      const customer = await Customer.findById(customerId);
 
       if (!customer) {
-        const error = new Error(
-          "Customer not found",
-        );
+        const error = new Error("Customer not found");
         error.statusCode = 400;
         throw error;
       }
@@ -911,9 +764,7 @@ const updateClientPO = async (
             productId: item.productId,
             description: item.description,
             quantity: Number(item.quantity),
-            agreedUnitPrice: Number(
-              item.agreedUnitPrice,
-            ),
+            agreedUnitPrice: Number(item.agreedUnitPrice),
             unitId: item.unitId,
             unitCode: item.unitCode,
           }));
@@ -928,15 +779,10 @@ const updateClientPO = async (
     let pricingMode = "inclusive";
 
     if (nextQuotationId) {
-      const quotation =
-        await Quotation.findById(
-          nextQuotationId,
-        );
+      const quotation = await Quotation.findById(nextQuotationId);
 
       if (!quotation) {
-        const error = new Error(
-          "Quotation not found",
-        );
+        const error = new Error("Quotation not found");
         error.statusCode = 400;
         throw error;
       }
@@ -949,10 +795,7 @@ const updateClientPO = async (
         throw error;
       }
 
-      if (
-        quotation.customerId.toString() !==
-        nextCustomerId.toString()
-      ) {
+      if (quotation.customerId.toString() !== nextCustomerId.toString()) {
         const error = new Error(
           "Quotation does not belong to the selected customer",
         );
@@ -963,17 +806,13 @@ const updateClientPO = async (
       validateQuotationItems({
         quotation,
         clientPOItems: nextItems,
-        currentClientPOId:
-          clientPO._id,
+        currentClientPOId: clientPO._id,
       });
 
-      const committedQuantities =
-        await getQuotationCommittedQuantities({
-          quotationId:
-            quotation._id,
-          excludeClientPOId:
-            clientPO._id,
-        });
+      const committedQuantities = await getQuotationCommittedQuantities({
+        quotationId: quotation._id,
+        excludeClientPOId: clientPO._id,
+      });
 
       validateQuotationQuantities({
         quotation,
@@ -981,175 +820,96 @@ const updateClientPO = async (
         committedQuantities,
       });
 
-      taxRate = Number(
-        quotation.taxRate || 0,
+      taxRate = Number(quotation.taxRate || 0);
+
+      pricingMode = quotation.pricingMode || "inclusive";
+
+      const quotationSubtotal = Number(quotation.subtotal || 0);
+
+      const clientPOSubtotal = nextItems.reduce(
+        (total, item) =>
+          total + Number(item.quantity) * Number(item.agreedUnitPrice),
+        0,
       );
 
-      pricingMode =
-        quotation.pricingMode ||
-        "inclusive";
-
-      const quotationSubtotal =
-        Number(quotation.subtotal || 0);
-
-      const clientPOSubtotal =
-        nextItems.reduce(
-          (total, item) =>
-            total +
-            Number(item.quantity) *
-              Number(item.agreedUnitPrice),
-          0,
-        );
-
       const allocationRatio =
-        quotationSubtotal > 0
-          ? clientPOSubtotal /
-            quotationSubtotal
-          : 0;
+        quotationSubtotal > 0 ? clientPOSubtotal / quotationSubtotal : 0;
 
       finalLaborCost = Number(
-        (
-          Number(quotation.laborCost || 0) *
-          allocationRatio
-        ).toFixed(2),
+        (Number(quotation.laborCost || 0) * allocationRatio).toFixed(2),
       );
 
       finalOtherDirectCosts = Number(
-        (
-          Number(
-            quotation.otherDirectCosts || 0,
-          ) * allocationRatio
-        ).toFixed(2),
+        (Number(quotation.otherDirectCosts || 0) * allocationRatio).toFixed(2),
       );
     } else {
-      // =========================
-      // MANUAL PO
-      // =========================
+  // =========================
+  // MANUAL PO
+  // PRESERVE EXISTING TAX SNAPSHOT
+  // =========================
 
-      const settings =
-        await Settings.findOne().select(
-          "accountingTax",
-        );
+  taxRate = Number(clientPO.taxRate || 0);
 
-      const vatEnabled =
-        settings?.accountingTax
-          ?.vatEnabled === true;
+  pricingMode = clientPO.pricingMode || "inclusive";
 
-      taxRate = vatEnabled
-        ? Number(
-            settings?.accountingTax
-              ?.vatRate || 0,
-          )
-        : 0;
+  finalLaborCost =
+    laborCost !== undefined
+      ? Number(laborCost)
+      : Number(clientPO.laborCost || 0);
 
-      pricingMode =
-        settings?.accountingTax
-          ?.pricingMode ||
-        "inclusive";
-
-      finalLaborCost =
-        laborCost !== undefined
-          ? Number(laborCost)
-          : Number(
-              clientPO.laborCost || 0,
-            );
-
-      finalOtherDirectCosts =
-        otherDirectCosts !== undefined
-          ? Number(otherDirectCosts)
-          : Number(
-              clientPO.otherDirectCosts || 0,
-            );
-    }
-
-    // =========================
-    // STATE TRANSITION
-    // =========================
-
-    if (
-      status !== undefined &&
-      status !== clientPO.status
-    ) {
-      const allowedTransitions =
-        CLIENT_PO_STATE_TRANSITIONS[
-          clientPO.status
-        ] || [];
-
-      if (
-        !allowedTransitions.includes(status)
-      ) {
-        const error = new Error(
-          `Invalid Client PO state transition: ${clientPO.status} → ${status}`,
-        );
-        error.statusCode = 400;
-        throw error;
-      }
-    }
+  finalOtherDirectCosts =
+    otherDirectCosts !== undefined
+      ? Number(otherDirectCosts)
+      : Number(clientPO.otherDirectCosts || 0);
+}
 
     // =========================
     // CALCULATE TOTALS
     // =========================
 
-    const totals =
-      calculateClientPOTotals({
-        items: nextItems,
-        laborCost: finalLaborCost,
-        otherDirectCosts:
-          finalOtherDirectCosts,
-        taxRate,
-        pricingMode,
-      });
+    const totals = calculateClientPOTotals({
+      items: nextItems,
+      laborCost: finalLaborCost,
+      otherDirectCosts: finalOtherDirectCosts,
+      taxRate,
+      pricingMode,
+    });
 
     // =========================
     // UPDATE FIELDS
     // =========================
 
     if (customerId !== undefined) {
-      clientPO.customerId =
-        customerId;
+      clientPO.customerId = customerId;
     }
 
     if (quotationId !== undefined) {
-      clientPO.quotationId =
-        quotationId;
+      clientPO.quotationId = quotationId;
     }
 
     if (poDate !== undefined) {
       clientPO.poDate = poDate;
     }
 
-    if (status !== undefined) {
-      clientPO.status = status;
-    }
-
     clientPO.items = nextItems;
 
-    clientPO.laborCost =
-      totals.laborCost;
+    clientPO.laborCost = totals.laborCost;
 
-    clientPO.otherDirectCosts =
-      totals.otherDirectCosts;
+    clientPO.otherDirectCosts = totals.otherDirectCosts;
 
-    clientPO.subtotal =
-      totals.subtotal;
+    clientPO.subtotal = totals.subtotal;
 
-    clientPO.taxRate =
-      totals.taxRate;
+    clientPO.taxRate = totals.taxRate;
 
-    clientPO.taxAmount =
-      totals.taxAmount;
+    clientPO.taxAmount = totals.taxAmount;
 
-    clientPO.pricingMode =
-      totals.pricingMode;
+    clientPO.pricingMode = totals.pricingMode;
 
-    clientPO.netAmount =
-      totals.netAmount;
+    clientPO.netAmount = totals.netAmount;
 
-    clientPO.totalAmount =
-      totals.totalAmount;
+    clientPO.totalAmount = totals.totalAmount;
 
-    clientPO.updatedBy =
-      req.user._id;
+    clientPO.updatedBy = req.user._id;
 
     await clientPO.save();
 
@@ -1157,34 +917,13 @@ const updateClientPO = async (
     // POPULATE RESPONSE
     // =========================
 
-    const populatedClientPO =
-      await ClientPO.findById(
-        clientPO._id,
-      )
-        .populate(
-          "customerId",
-          "customerCode name",
-        )
-        .populate(
-          "quotationId",
-          "quotationNumber",
-        )
-        .populate(
-          "items.productId",
-          "sku name unit",
-        )
-        .populate(
-          "items.unitId",
-          "code name",
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName",
-        )
-        .populate(
-          "updatedBy",
-          "firstName lastName",
-        );
+    const populatedClientPO = await ClientPO.findById(clientPO._id)
+      .populate("customerId", "customerCode name")
+      .populate("quotationId", "quotationNumber")
+      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName");
 
     res.status(200).json({
       success: true,
@@ -1199,16 +938,9 @@ const updateClientPO = async (
 // DELETE CLIENT PO
 // =========================
 
-const deleteClientPO = async (
-  req,
-  res,
-  next,
-) => {
+const deleteClientPO = async (req, res, next) => {
   try {
-    const clientPO =
-      await ClientPO.findById(
-        req.params.id,
-      );
+    const clientPO = await ClientPO.findById(req.params.id);
 
     if (!clientPO) {
       return res.status(404).json({
@@ -1217,52 +949,13 @@ const deleteClientPO = async (
       });
     }
 
-    // ONLY DRAFT CLIENT POs CAN BE DELETED
-    if (clientPO.status !== "draft") {
-      const error = new Error(
-        "Only draft Client POs can be deleted",
-      );
-      error.statusCode = 400;
-      throw error;
-    }
+    const error = new Error(
+      "Client POs cannot be deleted. Cancel the Client PO instead.",
+    );
 
-    // CHECK SUPPLIER PO REFERENCE
-    const supplierPOExists =
-      await SupplierPO.exists({
-        relatedClientPOId:
-          clientPO._id,
-      });
+    error.statusCode = 400;
 
-    if (supplierPOExists) {
-      const error = new Error(
-        "Cannot delete Client PO because it is referenced by a Supplier PO",
-      );
-      error.statusCode = 400;
-      throw error;
-    }
-
-    // CHECK PURCHASE REFERENCE
-    const purchaseExists =
-      await Purchase.exists({
-        relatedClientPOId:
-          clientPO._id,
-      });
-
-    if (purchaseExists) {
-      const error = new Error(
-        "Cannot delete Client PO because it is referenced by a Purchase",
-      );
-      error.statusCode = 400;
-      throw error;
-    }
-
-    await clientPO.deleteOne();
-
-    res.status(200).json({
-      success: true,
-      message:
-        "Client PO deleted successfully",
-    });
+    throw error;
   } catch (error) {
     next(error);
   }

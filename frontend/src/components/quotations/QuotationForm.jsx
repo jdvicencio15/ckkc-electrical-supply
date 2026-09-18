@@ -291,72 +291,103 @@ function QuotationForm({
     });
   };
 
-  // SUBMIT
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+// SUBMIT
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    setError("");
+  setError("");
 
-    if (!formData.customerId) {
-      setError("Customer is required.");
-      return;
-    }
-
-    const hasInvalidItem = formData.items.some(
-      (item) =>
-        !item.productId ||
-        !item.description.trim() ||
-        Number(item.quantity) <= 0,
-    );
-
-    if (hasInvalidItem) {
-      setError("Please complete all quotation items.");
-      return;
-    }
-
-    const hasInvalidPrice = formData.items.some(
-      (item) =>
-        Number(item.supplierCostAtQuotation) < 0 ||
-        Number(item.quotedUnitPrice) < 0,
-    );
-
-    if (hasInvalidPrice) {
-      setError("Supplier cost and quoted price cannot be negative.");
-      return;
-    }
-
+  // =========================================
+  // STATUS-ONLY UPDATE
+  // =========================================
+  if (isEditing && formData.status !== initialData.status) {
     try {
       await onSubmit({
-        customerId: formData.customerId,
-
-        quotationDate: formData.quotationDate,
-
         status: formData.status,
-
-        items: formData.items.map((item) => ({
-          productId: item.productId,
-
-          supplierId: item.supplierId || undefined,
-
-          description: item.description.trim(),
-
-          quantity: Number(item.quantity),
-
-          supplierCostAtQuotation: Number(item.supplierCostAtQuotation),
-
-          quotedUnitPrice: Number(item.quotedUnitPrice),
-        })),
-
-        laborCost: Number(formData.laborCost),
-
-        otherDirectCosts: Number(formData.otherDirectCosts),
       });
-    } catch (error) {
-      console.error("Failed to submit quotation:", error);
 
-      setError(error.response?.data?.message || "Failed to save quotation.");
+      return;
+    } catch (error) {
+      console.error("Failed to update quotation status:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Failed to update quotation status.",
+      );
+
+      return;
     }
-  };
+  }
+
+  // =========================================
+  // NORMAL CREATE / DRAFT EDIT
+  // =========================================
+
+  if (!formData.customerId) {
+    setError("Customer is required.");
+    return;
+  }
+
+  const hasInvalidItem = formData.items.some(
+    (item) =>
+      !item.productId ||
+      !item.description.trim() ||
+      Number(item.quantity) <= 0,
+  );
+
+  if (hasInvalidItem) {
+    setError("Please complete all quotation items.");
+    return;
+  }
+
+  const hasInvalidPrice = formData.items.some(
+    (item) =>
+      Number(item.supplierCostAtQuotation) < 0 ||
+      Number(item.quotedUnitPrice) < 0,
+  );
+
+  if (hasInvalidPrice) {
+    setError("Supplier cost and quoted price cannot be negative.");
+    return;
+  }
+
+  try {
+    await onSubmit({
+      customerId: formData.customerId,
+
+      quotationDate: formData.quotationDate,
+
+      status: formData.status,
+
+      items: formData.items.map((item) => ({
+        productId: item.productId,
+
+        supplierId: item.supplierId || undefined,
+
+        description: item.description.trim(),
+
+        quantity: Number(item.quantity),
+
+        supplierCostAtQuotation: Number(
+          item.supplierCostAtQuotation,
+        ),
+
+        quotedUnitPrice: Number(item.quotedUnitPrice),
+      })),
+
+      laborCost: Number(formData.laborCost),
+
+      otherDirectCosts: Number(formData.otherDirectCosts),
+    });
+  } catch (error) {
+    console.error("Failed to submit quotation:", error);
+
+    setError(
+      error.response?.data?.message ||
+        "Failed to save quotation.",
+    );
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

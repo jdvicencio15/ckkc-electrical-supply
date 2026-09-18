@@ -371,49 +371,86 @@ const updateQuotation = async (req, res, next) => {
       otherDirectCosts,
     } = req.body;
 
-    // =========================
-    // VALIDATE STATUS TRANSITION
-    // =========================
 
-    const allowedStatusTransitions = {
-      draft: ["draft", "sent", "cancelled"],
-      sent: ["accepted", "rejected", "expired", "cancelled"],
-      accepted: [],
-      rejected: [],
-      expired: [],
-      cancelled: [],
-    };
+// =========================
+// STATUS TRANSITION RULES
+// =========================
 
-    if (status !== undefined) {
-      const allowedStatuses =
-        allowedStatusTransitions[quotation.status] || [];
+const allowedStatusTransitions = {
+  draft: ["sent", "cancelled"],
+  sent: ["accepted", "rejected", "expired", "cancelled"],
+  accepted: [],
+  rejected: [],
+  expired: [],
+  cancelled: [],
+};
 
-      if (!allowedStatuses.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid quotation status transition: ${quotation.status} → ${status}`,
-        });
-      }
-    }
+// =========================
+// CHECK EDITABLE FIELDS
+// =========================
 
-    // =========================
-    // ONLY DRAFT CAN EDIT
-    // COMMERCIAL / BASIC FIELDS
-    // =========================
+const hasEditableFields =
+  customerId !== undefined ||
+  quotationDate !== undefined ||
+  items !== undefined ||
+  laborCost !== undefined ||
+  otherDirectCosts !== undefined;
 
-    const hasEditableFields =
-      customerId !== undefined ||
-      quotationDate !== undefined ||
-      items !== undefined ||
-      laborCost !== undefined ||
-      otherDirectCosts !== undefined;
+// =========================
+// STATUS UPDATE
+// =========================
 
-    if (hasEditableFields && quotation.status !== "draft") {
-      return res.status(400).json({
-        success: false,
-        message: "Only draft quotations can be edited",
-      });
-    }
+if (status !== undefined) {
+  const allowedStatuses =
+    allowedStatusTransitions[quotation.status] || [];
+
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid quotation status transition: ${quotation.status} → ${status}`,
+    });
+  }
+
+  // Non-draft quotations can only change status.
+  if (quotation.status !== "draft" && hasEditableFields) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "Only quotation status can be changed after the quotation is sent",
+    });
+  }
+
+  // Status-only transition.
+  if (!hasEditableFields) {
+    quotation.status = status;
+    quotation.updatedBy = req.user._id;
+
+    await quotation.save();
+
+    const populatedQuotation = await Quotation.findById(quotation._id)
+      .populate("customerId", "customerCode name")
+      .populate("createdBy", "firstName lastName email")
+      .populate("updatedBy", "firstName lastName email")
+      .populate("items.productId", "sku name")
+      .populate("items.unitId", "code name");
+
+    return res.status(200).json({
+      success: true,
+      quotation: populatedQuotation,
+    });
+  }
+}
+
+// =========================
+// ONLY DRAFT CAN EDIT
+// =========================
+
+if (hasEditableFields && quotation.status !== "draft") {
+  return res.status(400).json({
+    success: false,
+    message: "Only draft quotations can be edited",
+  });
+}
 
     // =========================
     // UPDATE CUSTOMER

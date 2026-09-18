@@ -325,7 +325,7 @@ function GeneralLedger() {
               </p>
 
               <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
-                {formatCurrency(totalDebit, settings?.currency)}
+              {formatCurrency(openingBalance, settings?.currency)}
               </p>
             </div>
           </div>
@@ -453,7 +453,9 @@ function GeneralLedger() {
               </thead>
 
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {ledger.map((entry, index) => (
+  {[...ledger]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .map((entry, index) => (
                   <tr
                     key={`${entry.journalEntryId}-${entry.account?._id}-${index}`}
                     className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
@@ -506,7 +508,7 @@ function GeneralLedger() {
               <tfoot className="border-t border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
                 <tr>
                   <td
-                    colSpan={isSpecificAccount ? 4 : 4}
+                   colSpan={isSpecificAccount ? 3 : 4}
                     className="px-5 py-4 text-right text-sm font-semibold text-slate-900 dark:text-white"
                   >
                     Total

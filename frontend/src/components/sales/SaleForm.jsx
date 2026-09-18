@@ -99,6 +99,56 @@ function SaleForm({
   const handleChange = (event) => {
     const { name, value } = event.target;
 
+    if (name === "clientPOId") {
+      const selectedClientPO = clientPOs.find((po) => po._id === value);
+
+      if (!selectedClientPO) {
+        setFormData((current) => ({
+          ...current,
+          clientPOId: "",
+          customerId: "",
+          items: [{ ...initialItem }],
+        }));
+
+        return;
+      }
+
+      const customerId =
+        selectedClientPO.customerId?._id || selectedClientPO.customerId || "";
+
+      const items =
+        selectedClientPO.items?.map((item) => {
+          const productId = item.productId?._id || item.productId || "";
+
+          const selectedProduct = products.find(
+            (product) => product._id === productId,
+          );
+
+          return {
+            productId,
+
+            supplierId: "",
+
+            description: item.description || "",
+
+            quantity: Number(item.quantity || 0),
+
+            unitPrice: Number(item.agreedUnitPrice || 0),
+
+            unitCost: Number(selectedProduct?.productCost || 0),
+          };
+        }) || [];
+
+      setFormData((current) => ({
+        ...current,
+        clientPOId: value,
+        customerId,
+        items: items.length > 0 ? items : [initialItem],
+      }));
+
+      return;
+    }
+
     setFormData((current) => ({
       ...current,
       [name]: value,
@@ -160,6 +210,8 @@ function SaleForm({
         unitCost: resolvedCost,
       };
 
+      console.log("UPDATED SALE ITEM:", items[index]);
+
       return {
         ...current,
         items,
@@ -187,98 +239,71 @@ function SaleForm({
     });
   };
 
-const totals = useMemo(() => {
-  const subtotal = formData.items.reduce(
-    (total, item) =>
-      total +
-      Number(item.quantity || 0) *
-        Number(item.unitPrice || 0),
-    0,
-  );
+  const totals = useMemo(() => {
+    const subtotal = formData.items.reduce(
+      (total, item) =>
+        total + Number(item.quantity || 0) * Number(item.unitPrice || 0),
+      0,
+    );
 
-  const totalCost = formData.items.reduce(
-    (total, item) =>
-      total +
-      Number(item.quantity || 0) *
-        Number(item.unitCost || 0),
-    0,
-  );
+    const totalCost = formData.items.reduce(
+      (total, item) =>
+        total + Number(item.quantity || 0) * Number(item.unitCost || 0),
+      0,
+    );
 
-  const directExpenses = Number(
-    formData.directExpenses || 0,
-  );
+    const directExpenses = Number(formData.directExpenses || 0);
 
-  const commission = Number(
-    formData.commission || 0,
-  );
+    const commission = Number(formData.commission || 0);
 
-  // VAT configuration from Settings
-  const vatEnabled =
-    settings?.accountingTax?.vatEnabled === true;
+    // VAT configuration from Settings
+    const vatEnabled = settings?.accountingTax?.vatEnabled === true;
 
-  const vatRate = vatEnabled
-    ? Number(settings?.accountingTax?.vatRate || 0)
-    : 0;
+    const vatRate = vatEnabled
+      ? Number(settings?.accountingTax?.vatRate || 0)
+      : 0;
 
-  const pricingMode =
-    settings?.accountingTax?.pricingMode || "inclusive";
+    const pricingMode = settings?.accountingTax?.pricingMode || "inclusive";
 
-  // VAT calculation
-  let netAmount = subtotal;
-  let taxAmount = 0;
+    // VAT calculation
+    let netAmount = subtotal;
+    let taxAmount = 0;
 
-  if (vatEnabled && vatRate > 0) {
-    if (pricingMode === "inclusive") {
-      netAmount =
-        subtotal / (1 + vatRate / 100);
+    if (vatEnabled && vatRate > 0) {
+      if (pricingMode === "inclusive") {
+        netAmount = subtotal / (1 + vatRate / 100);
 
-      taxAmount =
-        subtotal - netAmount;
-    } else {
-      netAmount = subtotal;
+        taxAmount = subtotal - netAmount;
+      } else {
+        netAmount = subtotal;
 
-      taxAmount =
-        subtotal * (vatRate / 100);
+        taxAmount = subtotal * (vatRate / 100);
+      }
     }
-  }
 
-  // Total amount
-  const totalAmount =
-    pricingMode === "inclusive"
-      ? subtotal +
-        directExpenses +
-        commission
-      : subtotal +
-        taxAmount +
-        directExpenses +
-        commission;
+    // Total amount
+    const totalAmount =
+      pricingMode === "inclusive"
+        ? subtotal + directExpenses + commission
+        : subtotal + taxAmount + directExpenses + commission;
 
-  // Profit uses NET sales
-  const totalProfit =
-    netAmount -
-    totalCost -
-    directExpenses -
-    commission;
+    // Profit uses NET sales
+    const totalProfit = netAmount - totalCost - directExpenses - commission;
 
-  return {
-    subtotal,
-    totalCost,
-    directExpenses,
-    commission,
-    netAmount,
-    taxAmount,
-    vatRate,
-    pricingMode,
-    vatEnabled,
-    totalAmount,
-    totalProfit,
-  };
-}, [
-  formData.items,
-  formData.directExpenses,
-  formData.commission,
-  settings,
-]);
+    return {
+      subtotal,
+      totalCost,
+      directExpenses,
+      commission,
+      netAmount,
+      taxAmount,
+      vatRate,
+      pricingMode,
+      vatEnabled,
+      totalAmount,
+      totalProfit,
+    };
+  }, [formData.items, formData.directExpenses, formData.commission, settings]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -329,6 +354,27 @@ const totals = useMemo(() => {
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+            Client PO
+          </label>
+
+          <select
+            name="clientPOId"
+            value={formData.clientPOId}
+            onChange={handleChange}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+          >
+            <option value="">No Client PO</option>
+
+            {clientPOs.map((po) => (
+              <option key={po._id} value={po._id}>
+                {po.poNumber}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             Customer
           </label>
 
@@ -346,27 +392,6 @@ const totals = useMemo(() => {
                 {customer.customerCode
                   ? `${customer.customerCode} — ${customer.name}`
                   : customer.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
-            Client PO
-          </label>
-
-          <select
-            name="clientPOId"
-            value={formData.clientPOId}
-            onChange={handleChange}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-          >
-            <option value="">No Client PO</option>
-
-            {clientPOs.map((po) => (
-              <option key={po._id} value={po._id}>
-                {po.poNumber}
               </option>
             ))}
           </select>
@@ -414,6 +439,15 @@ const totals = useMemo(() => {
 
         <div className="space-y-4">
           {formData.items.map((item, index) => {
+            const availableSuppliers = suppliers.filter((supplier) =>
+              supplierPricings.some(
+                (pricing) =>
+                  pricing.productId?._id === item.productId &&
+                  pricing.supplierId?._id === supplier._id &&
+                  pricing.status === "active",
+              ),
+            );
+
             const itemTotal =
               Number(item.quantity || 0) * Number(item.unitPrice || 0);
 
@@ -468,10 +502,12 @@ const totals = useMemo(() => {
                           ? "Select product first"
                           : loadingPricing
                             ? "Loading suppliers..."
-                            : "No supplier"}
+                            : availableSuppliers.length === 0
+                              ? "No supplier pricing"
+                              : "Select supplier"}
                       </option>
 
-                      {suppliers.map((supplier) => (
+                      {availableSuppliers.map((supplier) => (
                         <option key={supplier._id} value={supplier._id}>
                           {supplier.supplierCode
                             ? `${supplier.supplierCode} — ${supplier.name}`
@@ -481,7 +517,11 @@ const totals = useMemo(() => {
                     </select>
 
                     <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                      Optional. Select a supplier to load its current cost.
+                      {!item.productId
+                        ? "Select a product first."
+                        : availableSuppliers.length > 0
+                          ? "Select a supplier to load its current cost."
+                          : "No active supplier pricing found for this product. Product cost will be used."}
                     </p>
                   </div>
 
@@ -638,35 +678,28 @@ const totals = useMemo(() => {
           </div>
 
           {totals.vatEnabled && totals.vatRate > 0 && (
-  <>
-    <div className="flex justify-between text-sm">
-      <span className="text-slate-500 dark:text-slate-400">
-        VAT ({totals.vatRate}%)
-      </span>
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">
+                  VAT ({totals.vatRate}%)
+                </span>
 
-      <span className="font-medium text-slate-900 dark:text-slate-100">
-        {formatCurrency(
-          totals.taxAmount,
-          settings?.currency,
-        )}
-      </span>
-    </div>
+                <span className="font-medium text-slate-900 dark:text-slate-100">
+                  {formatCurrency(totals.taxAmount, settings?.currency)}
+                </span>
+              </div>
 
-    <div className="flex justify-between text-sm">
-      <span className="text-slate-500 dark:text-slate-400">
-        Net Sales
-      </span>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">
+                  Net Sales
+                </span>
 
-      <span className="font-medium text-slate-900 dark:text-slate-100">
-        {formatCurrency(
-          totals.netAmount,
-          settings?.currency,
-        )}
-      </span>
-    </div>
-  </>
+                <span className="font-medium text-slate-900 dark:text-slate-100">
+                  {formatCurrency(totals.netAmount, settings?.currency)}
+                </span>
+              </div>
+            </>
           )}
-          
 
           <div className="flex justify-between text-sm">
             <span className="text-slate-500 dark:text-slate-400">
