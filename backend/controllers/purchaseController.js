@@ -382,17 +382,18 @@ const createPurchase = async (req, res, next) => {
     // CREATE NOTIFICATION
     // ==========================================
     try {
-      await createNotificationsForRoles({
-        roles: ["owner", "admin"],
-        type: "purchase",
-        title: "New Purchase",
-        message: `Purchase ${purchase.purchaseNumber} was created.`,
-        link: `/purchases?search=${encodeURIComponent(
-          purchase.purchaseNumber,
-        )}`,
-        entityType: "Purchase",
-        entityId: purchase._id,
-      });
+     await createNotificationsForRoles({
+  roles: ["owner", "admin", "purchasing"],
+  excludeUserId: req.user._id,
+  type: "purchase",
+  title: "New Purchase",
+  message: `Purchase ${purchase.purchaseNumber} was created.`,
+  link: `/purchases?search=${encodeURIComponent(
+    purchase.purchaseNumber,
+  )}`,
+  entityType: "Purchase",
+  entityId: purchase._id,
+});
     } catch (notificationError) {
       console.error(
         "Failed to create purchase notification:",

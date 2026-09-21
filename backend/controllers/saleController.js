@@ -435,17 +435,18 @@ const createSale = async (req, res, next) => {
 
     // CREATE NOTIFICATION
     try {
-      await createNotificationsForRoles({
-        roles: ["owner", "admin"],
-        type: "sale",
-        title: "New Sale",
-        message: `Sale ${sale.salesNumber} was created.`,
-        link: `/sales?search=${encodeURIComponent(
-          sale.salesNumber
-        )}`,
-        entityType: "Sale",
-        entityId: sale._id,
-      });
+     await createNotificationsForRoles({
+  roles: ["owner", "admin", "sales"],
+  excludeUserId: req.user._id,
+  type: "sale",
+  title: "New Sale",
+  message: `Sale ${sale.salesNumber} was created.`,
+  link: `/sales?search=${encodeURIComponent(
+    sale.salesNumber,
+  )}`,
+  entityType: "Sale",
+  entityId: sale._id,
+});
     } catch (notificationError) {
       console.error(
         "Failed to create sale notification:",

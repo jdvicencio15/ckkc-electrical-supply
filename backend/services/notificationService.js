@@ -1,5 +1,6 @@
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const mongoose = require("mongoose");
 
 const createNotification = async ({
   userId,
@@ -39,15 +40,23 @@ const createNotificationsForRoles = async ({
   link = null,
   entityType = null,
   entityId = null,
+  excludeUserId = null,
 }) => {
   if (!Array.isArray(roles) || roles.length === 0) {
     throw new Error("Notification roles are required");
   }
 
-  const users = await User.find({
+  const query = {
     role: { $in: roles },
     isActive: true,
-  }).select("_id");
+  };
+
+  // Don't notify the user who triggered the event.
+  if (excludeUserId) {
+    query._id = { $ne: excludeUserId };
+  }
+
+  const users = await User.find(query).select("_id");
 
   if (users.length === 0) {
     return [];

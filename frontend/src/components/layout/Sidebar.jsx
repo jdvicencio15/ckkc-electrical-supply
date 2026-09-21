@@ -414,7 +414,11 @@ function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 flex w-64 flex-col border-r border-green-800 bg-gradient-to-b from-green-700 to-emerald-800">
    {/* Brand */}
-<div className="flex h-20 items-center gap-4 border-b border-white/10 px-6">
+<NavLink
+  to="/dashboard"
+  className="flex h-20 items-center gap-4 border-b border-white/10 px-6 transition hover:bg-white/5"
+  title="Go to Dashboard"
+>
   {logoUrl ? (
     <img
       src={logoUrl}
@@ -430,7 +434,7 @@ function Sidebar() {
   <h1 className="truncate text-5xl font-bold tracking-tight text-white">
     {systemName}
   </h1>
-</div>
+</NavLink>
 
       {/* Navigation */}
       <nav className="space-y-0.5 overflow-y-auto p-2.5">

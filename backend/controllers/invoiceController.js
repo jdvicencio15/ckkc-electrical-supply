@@ -302,17 +302,18 @@ const createInvoice = async (req, res, next) => {
     // CREATE NOTIFICATION IF ENABLED
     if (settings?.invoiceNotifications !== false) {
       try {
-        await createNotificationsForRoles({
-          roles: ["owner", "admin"],
-          type: "invoice",
-          title: "New Invoice",
-          message: `Invoice ${invoice.invoiceNumber} was created.`,
-          link: `/invoices?search=${encodeURIComponent(
-            invoice.invoiceNumber
-          )}`,
-          entityType: "Invoice",
-          entityId: invoice._id,
-        });
+       await createNotificationsForRoles({
+  roles: ["owner", "admin", "accounting"],
+  excludeUserId: req.user._id,
+  type: "invoice",
+  title: "New Invoice",
+  message: `Invoice ${invoice.invoiceNumber} was created.`,
+  link: `/invoices?search=${encodeURIComponent(
+    invoice.invoiceNumber,
+  )}`,
+  entityType: "Invoice",
+  entityId: invoice._id,
+});
       } catch (notificationError) {
         console.error(
           "Failed to create invoice notification:",

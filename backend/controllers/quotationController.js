@@ -316,19 +316,22 @@ const createQuotation = async (req, res, next) => {
 
       createdBy: req.user._id,
     });
+
+
     // CREATE NOTIFICATION
     try {
       await createNotificationsForRoles({
-        roles: ["owner", "admin"],
-        type: "quotation",
-        title: "New Quotation",
-        message: `Quotation ${quotation.quotationNumber} was created.`,
-        link: `/quotations?search=${encodeURIComponent(
-          quotation.quotationNumber,
-        )}`,
-        entityType: "Quotation",
-        entityId: quotation._id,
-      });
+  roles: ["owner", "admin", "sales"],
+  excludeUserId: req.user._id,
+  type: "quotation",
+  title: "New Quotation",
+  message: `Quotation ${quotation.quotationNumber} was created.`,
+  link: `/quotations?search=${encodeURIComponent(
+    quotation.quotationNumber,
+  )}`,
+  entityType: "Quotation",
+  entityId: quotation._id,
+});
     } catch (notificationError) {
       console.error(
         "Failed to create quotation notification:",

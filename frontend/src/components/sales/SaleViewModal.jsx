@@ -48,7 +48,7 @@ function SaleViewModal({ sale, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-slate-900">
+    <div className="w-full max-w-5xl rounded-xl bg-white shadow-xl dark:bg-slate-900">
         {/* HEADER */}
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-800">
           <div>
@@ -85,329 +85,368 @@ function SaleViewModal({ sale, onClose }) {
           </button>
         </div>
 
-        {/* BASIC INFORMATION */}
-        <div className="grid gap-4 border-b border-slate-200 p-6 md:grid-cols-3 dark:border-slate-800">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Sales Number
-            </p>
+     {/* BASIC INFORMATION */}
+<div className="grid gap-4 border-b border-slate-200 p-6 md:grid-cols-3 dark:border-slate-800">
+  <div>
+    <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+      Sales Number
+    </p>
 
-            <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
-              {sale.salesNumber || "—"}
-            </p>
-          </div>
+    <p className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+      {sale.salesNumber || "—"}
+    </p>
+  </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Customer
-            </p>
+  <div>
+    <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+      Customer
+    </p>
 
-            <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
-              {sale.customerId?.name || "Unknown Customer"}
-            </p>
+    <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+      {sale.customerId?.name || "Unknown Customer"}
+    </p>
 
-            {sale.customerId?.customerCode && (
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                {sale.customerId.customerCode}
-              </p>
-            )}
-          </div>
+    {sale.customerId?.customerCode && (
+      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+        {sale.customerId.customerCode}
+      </p>
+    )}
+  </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Sale Date
-            </p>
+  <div>
+    <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+      Sale Date
+    </p>
 
-            <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
-              {formatDate(sale.saleDate)}
-            </p>
-          </div>
+    <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+      {formatDate(sale.saleDate)}
+    </p>
+  </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Client PO
-            </p>
+  <div>
+    <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+      Client PO
+    </p>
 
-            <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
-              {sale.clientPOId?.poNumber || "No Client PO"}
-            </p>
-          </div>
+    <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+      {sale.clientPOId?.poNumber || "No Client PO"}
+    </p>
+  </div>
 
-          {sale.releasedAt && (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                Released Date
-              </p>
+  {sale.releasedAt && (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Released Date
+      </p>
 
-              <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
-                {formatDate(sale.releasedAt)}
-              </p>
-            </div>
-          )}
+      <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+        {formatDate(sale.releasedAt)}
+      </p>
+    </div>
+  )}
 
-          {sale.createdBy && (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                Created By
-              </p>
+  {sale.createdBy && (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Created By
+      </p>
 
-              <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
-                {sale.createdBy.firstName} {sale.createdBy.lastName}
-              </p>
-            </div>
-          )}
-        </div>
+      <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+        {sale.createdBy.firstName || ""}{" "}
+        {sale.createdBy.lastName || ""}
+      </p>
+    </div>
+  )}
 
-        {/* ITEMS */}
-        <div className="p-6">
-          <div className="mb-4">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-              Sale Items
-            </h3>
+  {sale.createdAt && (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Created At
+      </p>
 
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Products and pricing recorded in this transaction.
-            </p>
-          </div>
+      <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+        {new Date(sale.createdAt).toLocaleString("en-PH")}
+      </p>
+    </div>
+  )}
+</div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-            <table className="w-full min-w-[850px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">
-                    Product
-                  </th>
+     {/* ITEMS */}
+<div className="p-6">
+  <div className="mb-4">
+    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+      Sale Items
+    </h3>
 
-                  <th className="px-4 py-3 font-semibold">
-                    Supplier
-                  </th>
+    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      Products and pricing recorded in this transaction.
+    </p>
+  </div>
 
-                  <th className="px-4 py-3 font-semibold">
-                    Description
-                  </th>
+  <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+    <table className="w-full table-fixed text-left text-sm">
+      <colgroup>
+        <col className="w-[22%]" />
+        <col className="w-[12%]" />
+        <col className="w-[16%]" />
+        <col className="w-[7%]" />
+        <col className="w-[7%]" />
+        <col className="w-[12%]" />
+        <col className="w-[12%]" />
+        <col className="w-[12%]" />
+      </colgroup>
 
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Qty
-                  </th>
+      <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
+        <tr>
+          <th className="px-4 py-3 font-semibold">
+            Product
+          </th>
 
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Unit Cost
-                  </th>
+          <th className="px-4 py-3 font-semibold">
+            Supplier
+          </th>
 
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Unit Price
-                  </th>
+          <th className="px-4 py-3 font-semibold">
+            Description
+          </th>
 
-                  <th className="px-4 py-3 text-right font-semibold">
-                    Total
-                  </th>
-                </tr>
-              </thead>
+          <th className="px-2 py-3 text-right font-semibold">
+            Qty
+          </th>
 
-              <tbody>
-                {sale.items?.length > 0 ? (
-                  sale.items.map((item, index) => {
-                    const quantity = Number(item.quantity || 0);
-                    const unitCost = Number(item.unitCost || 0);
-                    const unitPrice = Number(item.unitPrice || 0);
+          <th className="px-2 py-3 text-center font-semibold">
+            Unit
+          </th>
 
-                    const itemTotal = quantity * unitPrice;
+          <th className="px-3 py-3 text-right font-semibold">
+            Unit Cost
+          </th>
 
-                    return (
-                      <tr
-                        key={item._id || index}
-                        className="border-t border-slate-100 dark:border-slate-800"
-                      >
-                        <td className="px-4 py-4">
-                          <p className="font-medium text-slate-900 dark:text-slate-100">
-                            {item.productId?.name || "Unknown Product"}
-                          </p>
+          <th className="px-3 py-3 text-right font-semibold">
+            Unit Price
+          </th>
 
-                          {item.productId?.sku && (
-                            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                              {item.productId.sku}
-                            </p>
-                          )}
-                        </td>
+          <th className="px-3 py-3 text-right font-semibold">
+            Total
+          </th>
+        </tr>
+      </thead>
 
-                        <td className="px-4 py-4 text-slate-600 dark:text-slate-300">
-                          {item.supplierId?.name || "No Supplier"}
-                        </td>
+      <tbody>
+        {sale.items?.length > 0 ? (
+          sale.items.map((item, index) => {
+            const quantity = Number(item.quantity || 0);
+            const unitCost = Number(item.unitCost || 0);
+            const unitPrice = Number(item.unitPrice || 0);
 
-                        <td className="px-4 py-4 text-slate-600 dark:text-slate-300">
-                          {item.description || "—"}
-                        </td>
+            const itemTotal = quantity * unitPrice;
 
-                        <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-300">
-                          {quantity}
-                        </td>
+            return (
+              <tr
+                key={item._id || index}
+                className="border-t border-slate-100 dark:border-slate-800"
+              >
+                <td className="px-4 py-4">
+                  <p className="truncate font-medium text-slate-900 dark:text-slate-100">
+                    {item.productId?.name || "Unknown Product"}
+                  </p>
 
-                        <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-300">
-                          {formatCurrency(
-                            unitCost,
-                            settings?.currency,
-                          )}
-                        </td>
+                  {item.productId?.sku && (
+                    <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+                      {item.productId.sku}
+                    </p>
+                  )}
+                </td>
 
-                        <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-300">
-                          {formatCurrency(
-                            unitPrice,
-                            settings?.currency,
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
-                          {formatCurrency(
-                            itemTotal,
-                            settings?.currency,
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="7"
-                      className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
-                    >
-                      No sale items found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* FINANCIAL SUMMARY */}
-        <div className="border-t border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-800/40">
-          <div className="ml-auto max-w-md space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">
-                Subtotal
-              </span>
-
-              <span className="font-medium text-slate-900 dark:text-slate-100">
-                {formatCurrency(
-                  sale.subtotal || 0,
-                  settings?.currency,
-                )}
-              </span>
-            </div>
-
-            {sale.taxRate > 0 && (
-              <>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    VAT ({sale.taxRate}%)
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">
+                  <span className="block truncate">
+                    {item.supplierId?.name || "No Supplier"}
                   </span>
+                </td>
 
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {formatCurrency(
-                      sale.taxAmount || 0,
-                      settings?.currency,
-                    )}
+                <td className="px-4 py-4 text-slate-600 dark:text-slate-300">
+                  <span className="block truncate">
+                    {item.description || "—"}
                   </span>
-                </div>
+                </td>
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    Net Sales
-                  </span>
+                <td className="px-2 py-4 text-right text-slate-600 dark:text-slate-300">
+                  {quantity}
+                </td>
 
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {formatCurrency(
-                      sale.netAmount || 0,
-                      settings?.currency,
-                    )}
-                  </span>
-                </div>
-              </>
-            )}
+                <td className="px-2 py-4 text-center text-slate-600 dark:text-slate-300">
+                  {item.unitCode || item.unitId?.code || "—"}
+                </td>
 
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">
-                Total Cost
-              </span>
-
-              <span className="font-medium text-slate-900 dark:text-slate-100">
-                {formatCurrency(
-                  totalCost,
-                  settings?.currency,
-                )}
-              </span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">
-                Direct Expenses
-              </span>
-
-              <span className="font-medium text-slate-900 dark:text-slate-100">
-                {formatCurrency(
-                  directExpenses,
-                  settings?.currency,
-                )}
-              </span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">
-                Commission
-              </span>
-
-              <span className="font-medium text-slate-900 dark:text-slate-100">
-                {formatCurrency(
-                  commission,
-                  settings?.currency,
-                )}
-              </span>
-            </div>
-
-            <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
-              <div className="flex justify-between">
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  Total Amount
-                </span>
-
-                <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                <td className="px-3 py-4 text-right text-slate-600 dark:text-slate-300">
                   {formatCurrency(
-                    totalAmount,
+                    unitCost,
                     settings?.currency,
                   )}
-                </span>
-              </div>
-            </div>
+                </td>
 
-            <div className="flex justify-between">
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                Total Profit
-              </span>
+                <td className="px-3 py-4 text-right text-slate-600 dark:text-slate-300">
+                  {formatCurrency(
+                    unitPrice,
+                    settings?.currency,
+                  )}
+                </td>
 
-              <span
-                className={`text-lg font-bold ${
-                  totalProfit >= 0
-                    ? "text-green-600 dark:text-green-400"
-                    : "text-red-600 dark:text-red-400"
-                }`}
-              >
-                {formatCurrency(
-                  totalProfit,
-                  settings?.currency,
-                )}
-              </span>
-            </div>
-          </div>
+                <td className="px-3 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
+                  {formatCurrency(
+                    itemTotal,
+                    settings?.currency,
+                  )}
+                </td>
+              </tr>
+            );
+          })
+        ) : (
+          <tr>
+            <td
+              colSpan="8"
+              className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
+            >
+              No sale items found.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+       {/* FINANCIAL SUMMARY */}
+<div className="border-t border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-800/40">
+  <div className="ml-auto w-full max-w-md space-y-3">
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-500 dark:text-slate-400">
+        Subtotal
+      </span>
+
+      <span className="font-medium text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          sale.subtotal || 0,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+
+    {sale.taxRate > 0 && (
+      <>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-500 dark:text-slate-400">
+            VAT ({sale.taxRate}%)
+          </span>
+
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {formatCurrency(
+              sale.taxAmount || 0,
+              settings?.currency,
+            )}
+          </span>
         </div>
+
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-500 dark:text-slate-400">
+            Net Sales
+          </span>
+
+          <span className="font-medium text-slate-900 dark:text-slate-100">
+            {formatCurrency(
+              sale.netAmount || 0,
+              settings?.currency,
+            )}
+          </span>
+        </div>
+      </>
+    )}
+
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-500 dark:text-slate-400">
+        Total Cost
+      </span>
+
+      <span className="font-medium text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          totalCost,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-500 dark:text-slate-400">
+        Direct Expenses
+      </span>
+
+      <span className="font-medium text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          directExpenses,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-500 dark:text-slate-400">
+        Commission
+      </span>
+
+      <span className="font-medium text-slate-900 dark:text-slate-100">
+        {formatCurrency(
+          commission,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+
+    {/* Total Amount */}
+    <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-slate-900 dark:text-slate-100">
+          Total Amount
+        </span>
+
+        <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          {formatCurrency(
+            totalAmount,
+            settings?.currency,
+          )}
+        </span>
+      </div>
+    </div>
+
+    {/* Total Profit */}
+    <div className="flex items-center justify-between">
+      <span className="font-semibold text-slate-900 dark:text-slate-100">
+        Total Profit
+      </span>
+
+      <span
+        className={`text-lg font-bold ${
+          totalProfit >= 0
+            ? "text-green-600 dark:text-green-400"
+            : "text-red-600 dark:text-red-400"
+        }`}
+      >
+        {formatCurrency(
+          totalProfit,
+          settings?.currency,
+        )}
+      </span>
+    </div>
+  </div>
+</div>
 
         {/* FOOTER */}
         <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+           className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           >
+
             Close
           </button>
         </div>

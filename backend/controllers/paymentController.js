@@ -161,7 +161,7 @@ const paymentStatus =
     : newTotalPaid > 0
       ? "partial"
           : "unpaid";
-    
+
     // ------------------------------
     // Prevent overpayment
     // ------------------------------
@@ -212,16 +212,17 @@ const paymentStatus =
     // ------------------------------
     try {
       await createNotificationsForRoles({
-        roles: ["owner", "admin"],
-        type: "payment",
-        title: "New Payment",
-        message: `Payment received for Invoice ${invoice.invoiceNumber}.`,
-        link: `/payments?search=${encodeURIComponent(
-          invoice.invoiceNumber,
-        )}`,
-        entityType: "Payment",
-        entityId: payment._id,
-      });
+  roles: ["owner", "admin", "accounting"],
+  excludeUserId: req.user._id,
+  type: "payment",
+  title: "New Payment",
+  message: `Payment received for Invoice ${invoice.invoiceNumber}.`,
+  link: `/payments?search=${encodeURIComponent(
+    invoice.invoiceNumber,
+  )}`,
+  entityType: "Payment",
+  entityId: payment._id,
+});
     } catch (notificationError) {
       console.error(
         "Failed to create payment notification:",
