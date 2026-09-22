@@ -1,11 +1,9 @@
+require("dotenv").config();
+
 const mongoose = require("mongoose");
-const dotenv = require("dotenv");
+const dns = require("node:dns/promises");
 
 const Unit = require("../models/Unit");
-
-dotenv.config();
-
-const dns = require("node:dns/promises");
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
@@ -189,12 +187,21 @@ const units = [
 
 const seedUnits = async () => {
   try {
+    if (!process.env.MONGO_URI) {
+      throw new Error("MONGO_URI is not configured.");
+    }
+
     await mongoose.connect(process.env.MONGO_URI);
 
     console.log("MongoDB connected.");
+    console.log("Database:", mongoose.connection.name);
+    console.log("\nSeeding units...\n");
+
+    let created = 0;
+    let skipped = 0;
 
     for (const unit of units) {
-      await Unit.updateOne(
+      const result = await Unit.updateOne(
         { code: unit.code },
         {
           $setOnInsert: unit,
@@ -203,17 +210,30 @@ const seedUnits = async () => {
           upsert: true,
         }
       );
+
+      if (result.upsertedCount === 1) {
+        console.log(`✓ ${unit.code} - created`);
+        created++;
+      } else {
+        console.log(`- ${unit.code} - already exists`);
+        skipped++;
+      }
     }
 
-    console.log(`Seed completed: ${units.length} units processed.`);
-
-    await mongoose.disconnect();
-    process.exit(0);
+    console.log("\n=================================");
+    console.log("Units seeding completed.");
+    console.log("=================================");
+    console.log(`Total:   ${units.length}`);
+    console.log(`Created: ${created}`);
+    console.log(`Skipped: ${skipped}`);
+    console.log("=================================\n");
   } catch (error) {
-    console.error("Unit seed failed:", error);
+    console.error("\n❌ Unit seed failed:");
+    console.error(error.message);
 
+    process.exitCode = 1;
+  } finally {
     await mongoose.disconnect();
-    process.exit(1);
   }
 };
 

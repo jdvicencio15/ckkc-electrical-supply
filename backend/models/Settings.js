@@ -56,7 +56,7 @@ const settingsSchema = new mongoose.Schema(
       systemName: {
         type: String,
         trim: true,
-        default: "CKKC",
+        default: "",
       },
     },
 

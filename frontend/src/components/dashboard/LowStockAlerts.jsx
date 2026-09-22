@@ -18,7 +18,7 @@ function LowStockAlerts({ products = [] }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="max-h-[320px] space-y-4 overflow-y-auto pr-1">
           {products.map((product) => (
             <div
               key={product._id}

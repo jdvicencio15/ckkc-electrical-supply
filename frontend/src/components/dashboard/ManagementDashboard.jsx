@@ -222,19 +222,19 @@ function ManagementDashboard() {
         />
       </div>
 
-      {/* Sales Overview + Low Stock */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <SalesOverview
-            salesOverview={salesOverview}
-            selectedMonth={selectedMonth}
-          />
-        </div>
+    {/* Sales Overview + Low Stock */}
+<div className="grid items-start gap-6 lg:grid-cols-3">
+  <div className="lg:col-span-2">
+    <SalesOverview
+      salesOverview={salesOverview}
+      selectedMonth={selectedMonth}
+    />
+  </div>
 
-        <LowStockAlerts
-          products={lowStockProducts}
-        />
-      </div>
+  <LowStockAlerts
+  products={lowStockProducts}
+/>
+</div>
 
       {/* Sales by Category + Recent Transactions */}
       <div className="grid gap-6 lg:grid-cols-2">

@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed:units": "node scripts/seedUnits.js"
+    "db:reset": "node scripts/resetDatabase.js",
+
+    "db:seed-owner": "node scripts/seedOwner.js",
+    "db:seed-settings": "node scripts/seedSettings.js",
+    "db:seed-units": "node scripts/seedUnits.js",
+    "db:seed-categories-products": "node scripts/seedCategoriesProducts.js",
+    "db:seed-coa": "node scripts/seedChartOfAccounts.js"
   },
   "keywords": [],
   "author": "Darren Vicencio",

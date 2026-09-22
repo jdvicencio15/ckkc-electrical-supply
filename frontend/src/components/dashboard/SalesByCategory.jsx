@@ -25,7 +25,7 @@ function SalesByCategory({ salesByCategory = [] }) {
   );
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           Sales by Category
