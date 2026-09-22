@@ -59,7 +59,7 @@ router.put(
 router.delete(
   "/:id",
   protect,
-  authorize("owner", "admin", "purchasing"),
+  authorize("owner", "admin"),
   deleteProduct
 );
 

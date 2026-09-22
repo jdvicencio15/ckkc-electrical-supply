@@ -15,6 +15,12 @@ const dashboardService = {
     const data = await dashboardApi.getTodaySummary();
     return data;
   },
+
+  getDashboardSummary: async (month) => {
+  const data = await dashboardApi.getDashboardSummary(month);
+  return data;
+  },
+  
 };
 
 export default dashboardService;

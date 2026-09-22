@@ -95,8 +95,7 @@ function Register() {
               </h1>
 
               <p className="mt-6 max-w-lg text-base leading-7 text-slate-300">
-               Create your account and get access to the
-{businessName} Business Management System.
+               Create your account and get access to the {businessName} Business Management System.
               </p>
             </div>
 

@@ -72,6 +72,10 @@ const [deleting, setDeleting] = useState(false);
     user?.role === "admin" ||
     user?.role === "purchasing";
 
+  const canDeleteProducts =
+  user?.role === "owner" ||
+    user?.role === "admin";
+
   const loadProducts = async () => {
     const response = await productService.getProducts();
 
@@ -426,7 +430,7 @@ const handleCancelDelete = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-left">
+              <table className="w-full min-w-[1150px] text-left">
                 <thead>
                   <tr className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-700 dark:text-slate-400">
                     <th className="pb-3 font-medium">
@@ -443,7 +447,11 @@ const handleCancelDelete = () => {
 
                     <th className="pb-3 font-medium">
                       Unit
-                    </th>
+                        </th>
+
+                        <th className="pb-3 font-medium">
+  Product Cost
+</th>
 
                     <th className="pb-3 font-medium">
                       Min Stock
@@ -505,6 +513,13 @@ const handleCancelDelete = () => {
                           {product.unitId?.code || product.unit || "—"}
                         </td>
 
+                            <td className="py-4 text-sm font-medium text-slate-900 dark:text-slate-100">
+  ₱{Number(product.productCost || 0).toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}
+</td>
+
                         <td className="py-4 text-sm text-slate-600 dark:text-slate-400">
                           {product.minimumStock}
                         </td>
@@ -541,33 +556,33 @@ const handleCancelDelete = () => {
                           </span>
                         </td>
 
-                        {canManageProducts && (
-                          <td className="py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openEditForm(product)
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                                aria-label={`Edit ${product.name}`}
-                              >
-                                <FaEdit className="h-3.5 w-3.5" />
-                              </button>
+               {canManageProducts && (
+  <td className="py-4 text-right">
+    <div className="flex justify-end gap-2">
+      {/* EDIT */}
+      <button
+        type="button"
+        onClick={() => openEditForm(product)}
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+        aria-label={`Edit ${product.name}`}
+      >
+        <FaEdit className="h-3.5 w-3.5" />
+      </button>
 
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleDelete(product)
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                                aria-label={`Delete ${product.name}`}
-                              >
-                                <FaTrash className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        )}
+      {/* DELETE — OWNER / ADMIN ONLY */}
+      {canDeleteProducts && (
+        <button
+          type="button"
+          onClick={() => handleDelete(product)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+          aria-label={`Delete ${product.name}`}
+        >
+          <FaTrash className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  </td>
+)}
                       </tr>
                     );
                   })}

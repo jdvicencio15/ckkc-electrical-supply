@@ -1,69 +1,28 @@
 import { useSettings } from "../../context/SettingsContext";
 import { formatCurrency } from "../../utils/currency";
 
-function SalesByCategory({ sales = [], products = [] }) {
+function SalesByCategory({ salesByCategory = [] }) {
   const { settings } = useSettings();
 
-  const categories = [
-    "Electrical Supplies",
-    "Lighting",
-    "Tools",
-    "Accessories",
-  ];
-
-  // Normalize product IDs to strings so they match
-  // the productId stored inside sale items.
-  const productCategoryMap = new Map(
-    products.map((product) => [
-      String(product._id),
-      product.categoryId?.name,
-    ]),
-  );
-
-  const categorySales = categories.map((categoryName) => {
-    const categoryTotal = sales.reduce((total, sale) => {
-      const itemTotal = (sale.items || []).reduce((itemSum, item) => {
-        const productCategory = productCategoryMap.get(
-          String(
-            typeof item.productId === "object"
-              ? item.productId?._id
-              : item.productId,
-          ),
-        );
-
-        if (productCategory !== categoryName) {
-          return itemSum;
-        }
-
-        return (
-          itemSum +
-          Number(item.quantity || 0) * Number(item.unitPrice || 0)
-        );
-      }, 0);
-
-      return total + itemTotal;
-    }, 0);
-
-    return {
-      name: categoryName,
-      sales: categoryTotal,
-    };
-  });
-
-  const totalCategorySales = categorySales.reduce(
-    (total, category) => total + category.sales,
+  // Backend is the source of truth.
+  // The backend already resolves:
+  // Sale Item → Product → Category → Sales Total
+  const totalCategorySales = salesByCategory.reduce(
+    (total, category) => total + Number(category.sales || 0),
     0,
   );
 
-  const categoriesWithPercentage = categorySales.map((category, index) => ({
-    id: index + 1,
-    name: category.name,
-    sales: category.sales,
-    percentage:
-      totalCategorySales > 0
-        ? (category.sales / totalCategorySales) * 100
-        : 0,
-  }));
+  const categoriesWithPercentage = salesByCategory.map(
+    (category, index) => ({
+      id: category._id || index,
+      name: category.categoryName,
+      sales: Number(category.sales || 0),
+      percentage:
+        totalCategorySales > 0
+          ? (Number(category.sales || 0) / totalCategorySales) * 100
+          : 0,
+    }),
+  );
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -78,31 +37,37 @@ function SalesByCategory({ sales = [], products = [] }) {
       </div>
 
       <div className="space-y-5">
-        {categoriesWithPercentage.map((category) => (
-          <div key={category.id}>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {category.name}
-              </span>
+        {categoriesWithPercentage.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No sales data available for this month.
+          </p>
+        ) : (
+          categoriesWithPercentage.map((category) => (
+            <div key={category.id}>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {category.name}
+                </span>
 
-              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {formatCurrency(
-                  category.sales,
-                  settings?.currency,
-                )}
-              </span>
-            </div>
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {formatCurrency(
+                    category.sales,
+                    settings?.currency,
+                  )}
+                </span>
+              </div>
 
-            <div className="h-2 overflow-hidden rounded-full bg-green-50 dark:bg-slate-700">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500"
-                style={{
-                  width: `${category.percentage}%`,
-                }}
-              />
+              <div className="h-2 overflow-hidden rounded-full bg-green-50 dark:bg-slate-700">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500"
+                  style={{
+                    width: `${category.percentage}%`,
+                  }}
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

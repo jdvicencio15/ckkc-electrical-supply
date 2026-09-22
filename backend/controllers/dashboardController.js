@@ -6,6 +6,229 @@ const Invoice = require("../models/Invoice");
 const Payment = require("../models/Payment");
 const Product = require("../models/Product");
 
+
+// ==============================
+// GET DASHBOARD MONTHLY SUMMARY
+// ==============================
+const getDashboardSummary = async (req, res, next) => {
+  try {
+    const { month } = req.query;
+
+    // --------------------------------
+    // VALIDATE MONTH
+    // --------------------------------
+    if (!month) {
+      return res.status(400).json({
+        success: false,
+        message: "Month is required. Format: YYYY-MM",
+      });
+    }
+
+    const monthRegex = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+    if (!monthRegex.test(month)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid month format. Expected YYYY-MM",
+      });
+    }
+
+    // --------------------------------
+    // MONTH DATE RANGE
+    // --------------------------------
+    const [year, monthNumber] = month.split("-").map(Number);
+
+    const startOfMonth = new Date(
+      year,
+      monthNumber - 1,
+      1,
+      0,
+      0,
+      0,
+      0
+    );
+
+    const startOfNextMonth = new Date(
+      year,
+      monthNumber,
+      1,
+      0,
+      0,
+      0,
+      0
+    );
+
+    // --------------------------------
+    // SALES SUMMARY
+    // --------------------------------
+    const salesSummary = await Sale.aggregate([
+      {
+        $match: {
+          status: "released",
+          saleDate: {
+            $gte: startOfMonth,
+            $lt: startOfNextMonth,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          sales: {
+            $sum: "$totalAmount",
+          },
+          orders: {
+            $sum: 1,
+          },
+          profit: {
+            $sum: "$totalProfit",
+          },
+        },
+      },
+    ]);
+
+    const sales = salesSummary[0] || {
+      sales: 0,
+      orders: 0,
+      profit: 0,
+    };
+
+
+    // --------------------------------
+    // SALES BY CATEGORY
+    // --------------------------------
+    const salesByCategory = await Sale.aggregate([
+      {
+        $match: {
+          status: "released",
+          saleDate: {
+            $gte: startOfMonth,
+            $lt: startOfNextMonth,
+          },
+        },
+      },
+
+      {
+        $unwind: "$items",
+      },
+
+      {
+        $lookup: {
+          from: "products",
+          localField: "items.productId",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+
+      {
+        $unwind: "$product",
+      },
+
+      {
+        $lookup: {
+          from: "categories",
+          localField: "product.categoryId",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+
+      {
+        $unwind: "$category",
+      },
+
+      {
+        $group: {
+          _id: "$category._id",
+          categoryName: {
+            $first: "$category.name",
+          },
+          sales: {
+            $sum: {
+              $multiply: [
+                "$items.quantity",
+                "$items.unitPrice",
+              ],
+            },
+          },
+        },
+      },
+
+      {
+        $sort: {
+          sales: -1,
+        },
+      },
+    ]);
+
+// --------------------------------
+// SALES OVERVIEW
+// --------------------------------
+const salesOverview = await Sale.aggregate([
+  {
+    $match: {
+      status: "released",
+      saleDate: {
+        $gte: new Date(
+          year,
+          monthNumber - 3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ),
+        $lt: startOfNextMonth,
+      },
+    },
+  },
+  {
+    $group: {
+      _id: {
+        year: { $year: "$saleDate" },
+        month: { $month: "$saleDate" },
+      },
+      sales: {
+        $sum: "$totalAmount",
+      },
+    },
+  },
+  {
+    $sort: {
+      "_id.year": 1,
+      "_id.month": 1,
+    },
+  },
+]);
+
+// --------------------------------
+// FORMAT SALES OVERVIEW
+// --------------------------------
+const overviewData = salesOverview.map((item) => ({
+  year: item._id.year,
+  month: item._id.month,
+  sales: item.sales || 0,
+}));
+
+
+  return res.status(200).json({
+  success: true,
+  month,
+  summary: {
+    sales: sales.sales || 0,
+    orders: sales.orders || 0,
+    profit: sales.profit || 0,
+  },
+  salesByCategory,
+  salesOverview: overviewData,
+});
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 // ==============================
 // GET TODAY'S SUMMARY
 // ==============================
@@ -288,4 +511,5 @@ const getTodaySummary = async (req, res, next) => {
 
 module.exports = {
   getTodaySummary,
+   getDashboardSummary,
 };

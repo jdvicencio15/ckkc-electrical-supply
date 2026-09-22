@@ -15,6 +15,15 @@ const dashboardApi = {
     const response = await API.get("/dashboard/today");
     return response.data;
   },
+
+  getDashboardSummary: async (month) => {
+  const response = await API.get(
+    `/dashboard/summary?month=${month}`
+  );
+
+  return response.data;
+  },
+  
 };
 
 export default dashboardApi;
