@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
-import { FaBook, FaPlus, FaExclamationTriangle } from "react-icons/fa";
+import { useEffect, useState , useMemo } from "react";
+import {
+  FaBook,
+  FaPlus,
+  FaExclamationTriangle,
+  FaSearch,
+  FaTimes,
+} from "react-icons/fa";
 
 import JournalEntryForm from "../../components/accounting/JournalEntryForm";
 import JournalEntryTable from "../../components/accounting/JournalEntryTable";
@@ -25,6 +31,8 @@ function JournalEntries() {
 
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -160,6 +168,44 @@ function JournalEntries() {
     setViewingEntry(null);
   };
 
+
+  const filteredJournalEntries = useMemo(() => {
+  const query = searchTerm.trim().toLowerCase();
+
+  if (!query) {
+    return journalEntries;
+  }
+
+  return journalEntries.filter((journalEntry) => {
+    const reference =
+      journalEntry.reference?.toLowerCase() || "";
+
+    const description =
+      journalEntry.description?.toLowerCase() || "";
+
+    const accountMatches = (journalEntry.entries || []).some(
+      (line) => {
+        const accountName =
+          line.account?.accountName?.toLowerCase() || "";
+
+        const accountCode =
+          line.account?.accountCode?.toLowerCase() || "";
+
+        return (
+          accountName.includes(query) ||
+          accountCode.includes(query)
+        );
+      }
+    );
+
+    return (
+      reference.includes(query) ||
+      description.includes(query) ||
+      accountMatches
+    );
+  });
+  }, [journalEntries, searchTerm]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -234,9 +280,49 @@ function JournalEntries() {
           </div>
         )}
 
+      {/* Search */}
+<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="relative w-full sm:max-w-md">
+      <FaSearch className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+
+      <input
+        type="text"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        placeholder="Search reference, description, account..."
+        className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-green-500 focus:ring-2 focus:ring-green-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-green-500 dark:focus:ring-green-950"
+      />
+
+      {searchTerm && (
+        <button
+          type="button"
+          onClick={() => setSearchTerm("")}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700 dark:hover:text-slate-200"
+          aria-label="Clear search"
+        >
+          <FaTimes className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      Showing{" "}
+      <span className="font-semibold text-slate-700 dark:text-slate-300">
+        {filteredJournalEntries.length}
+      </span>{" "}
+      of{" "}
+      <span className="font-semibold text-slate-700 dark:text-slate-300">
+        {journalEntries.length}
+      </span>{" "}
+      journal entries
+    </p>
+  </div>
+      </div>
+
       {/* Table */}
       <JournalEntryTable
-        journalEntries={journalEntries}
+       journalEntries={filteredJournalEntries}
         loading={loading}
         onEdit={handleOpenEdit}
         onDelete={handleDelete}

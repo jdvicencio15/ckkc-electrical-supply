@@ -557,8 +557,6 @@ function ClientPOForm({
 
                     <option value="received">Received</option>
 
-                    <option value="processing">Processing</option>
-
                     <option value="fulfilled">Fulfilled</option>
 
                     <option value="cancelled">Cancelled</option>

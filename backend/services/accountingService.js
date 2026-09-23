@@ -408,11 +408,11 @@ const createSaleJournalEntry = async ({
   */
 
   const accounts = await Promise.all([
-    getAccountByCode("1100", session),
-    getAccountByCode("1200", session),
-    getAccountByCode("4000", session),
-    getAccountByCode("5000", session),
-  ]);
+  getAccountByCode("1200", session), // Accounts Receivable
+  getAccountByCode("1300", session), // Inventory
+  getAccountByCode("4100", session), // Sales Revenue
+  getAccountByCode("5010", session), // COGS
+]);
 
   const [
     accountsReceivable,
@@ -480,7 +480,7 @@ const createSaleJournalEntry = async ({
   */
 
   if (taxAmount > 0) {
-    const outputVat = await getAccountByCode("2100", session);
+      const outputVat = await getAccountByCode("2200", session);
 
     entries.push({
       account: outputVat._id,
@@ -579,20 +579,19 @@ const createPurchaseJournalEntry = async ({
     throw error;
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Resolve Accounts by Stable Account Code
-  |--------------------------------------------------------------------------
-  |
-  | 1200 = Inventory
-  | 1210 = Input VAT Recoverable
-  | 2000 = Accounts Payable
-  |
-  */
+/*
+|--------------------------------------------------------------------------
+| Resolve Accounts by Stable Account Code
+|--------------------------------------------------------------------------
+|
+| 1300 = Inventory
+| 1400 = Input VAT Recoverable
+| 2100 = Accounts Payable
+|
+*/
 
-  const inventory = await getAccountByCode("1200", session);
-  const accountsPayable = await getAccountByCode("2000", session);
-
+  const inventory = await getAccountByCode("1300", session);
+  const accountsPayable = await getAccountByCode("2100", session);
   /*
   |--------------------------------------------------------------------------
   | Purchase Amounts
@@ -652,7 +651,7 @@ const createPurchaseJournalEntry = async ({
   */
 
   if (taxAmount > 0) {
-    const inputVat = await getAccountByCode("1210", session);
+   const inputVat = await getAccountByCode("1400", session);
 
     entries.push({
       account: inputVat._id,
@@ -744,30 +743,28 @@ const createPaymentJournalEntry = async ({
     throw error;
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Resolve Payment Account
-  |--------------------------------------------------------------------------
-  |
-  | Temporary business mapping based on current CKKC Chart of Accounts:
-  |
-  | cash          -> 1000 Cash on Hand
-  | bank_transfer -> 1020 Bank Account
-  | gcash         -> 1020 Bank Account
-  | maya          -> 1020 Bank Account
-  | check         -> 1020 Bank Account
-  | other         -> 1000 Cash on Hand
-  |
-  */
+/*
+|--------------------------------------------------------------------------
+| Payment Account
+|--------------------------------------------------------------------------
+|
+| cash          -> 1110 Cash
+| bank_transfer -> 1120 Bank
+| gcash         -> 1130 GCash
+| maya          -> 1130 Maya
+| check         -> 1120 Bank
+| other         -> 1110 Cash
+|
+*/
 
-  const paymentAccountCodeMap = {
-    cash: "1000",
-    bank_transfer: "1020",
-    gcash: "1020",
-    maya: "1020",
-    check: "1020",
-    other: "1000",
-  };
+const paymentAccountCodeMap = {
+  cash: "1110",
+  bank_transfer: "1120",
+  gcash: "1130",
+  maya: "1130",
+  check: "1120",
+  other: "1110",
+};
 
   const paymentAccountCode =
     paymentAccountCodeMap[payment.paymentMethod];
@@ -787,8 +784,8 @@ const createPaymentJournalEntry = async ({
   );
 
   const accountsReceivable = await getAccountByCode(
-    "1100",
-    session,
+  "1200",
+  session,
   );
 
   /*
@@ -906,20 +903,30 @@ const createExpenseJournalEntry = async ({
     throw error;
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Payment Account
-  |--------------------------------------------------------------------------
-  */
+/*
+|--------------------------------------------------------------------------
+| Payment Account
+|--------------------------------------------------------------------------
+|
+| cash          -> 1110 Cash
+| bank_transfer -> 1120 Bank
+| gcash         -> 1130 GCash
+| maya          -> 1130 Maya
+| check         -> 1120 Bank
+| other         -> 1110 Cash
+|
+*/
 
-  const paymentAccountCodeMap = {
-    cash: "1000",
-    bank_transfer: "1020",
-    gcash: "1020",
-    maya: "1020",
-    check: "1020",
-    other: "1000",
-  };
+
+
+ const paymentAccountCodeMap = {
+  cash: "1110",
+  bank_transfer: "1120",
+  gcash: "1130",
+  maya: "1130",
+  check: "1120",
+  other: "1110",
+};
 
   const paymentAccountCode =
     paymentAccountCodeMap[expense.paymentMethod];
@@ -1010,7 +1017,7 @@ const createExpenseJournalEntry = async ({
   ];
 
   if (taxAmount > 0) {
-    const inputVat = await getAccountByCode("1210", session);
+    const inputVat = await getAccountByCode("1400", session);
 
     entries.push({
       account: inputVat._id,

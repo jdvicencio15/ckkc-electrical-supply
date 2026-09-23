@@ -14,12 +14,21 @@ const notificationSchema = new mongoose.Schema(
       required: true,
       trim: true,
       enum: [
+        // Inventory
         "low_stock",
+
+        // Sales
         "sale",
-        "purchase",
         "quotation",
+        "client_po",
         "invoice",
         "payment",
+
+        // Purchasing
+        "purchase",
+        "supplier_po",
+
+        // System
         "system",
       ],
     },

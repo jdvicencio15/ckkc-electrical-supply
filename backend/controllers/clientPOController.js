@@ -9,6 +9,9 @@ const { checkReferencesExist } = require("../utils/referenceValidator");
 
 const { generateDocumentNumber } = require("../services/documentNumberService");
 
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
 
 // =========================
 // CALCULATE CLIENT PO TOTALS
@@ -304,7 +307,7 @@ const getQuotationCommittedQuantities = async ({
 // VALIDATE QUOTATION QUANTITIES
 // =========================
 
-const validateQuotationQuantities = ({
+const validateQuotationQuantities = async ({
   quotation,
   clientPOItems,
   committedQuantities,
@@ -317,15 +320,43 @@ const validateQuotationQuantities = ({
     quotationMap.set(key, item);
   }
 
+  // =========================
+  // GET PRODUCT DETAILS
+  // =========================
+
+  const productIds = clientPOItems.map((item) => item.productId);
+
+  const products = await Product.find({
+    _id: { $in: productIds },
+  }).select("_id sku name");
+
+  const productMap = new Map(
+    products.map((product) => [
+      product._id.toString(),
+      product,
+    ]),
+  );
+
   for (const item of clientPOItems) {
     const key = `${item.productId.toString()}::${item.unitCode}`;
 
     const quotationItem = quotationMap.get(key);
 
+    const product = productMap.get(item.productId.toString());
+
+    const productName = product
+      ? `${product.name}${product.sku ? ` (${product.sku})` : ""}`
+      : item.productId.toString();
+
+    // =========================
+    // PRODUCT NOT IN QUOTATION
+    // =========================
+
     if (!quotationItem) {
       const error = new Error(
-        `Product ${item.productId} is not included in the quotation`,
+        `Product ${productName} is not included in the quotation`,
       );
+
       error.statusCode = 400;
       throw error;
     }
@@ -336,18 +367,23 @@ const validateQuotationQuantities = ({
 
     const requestedQuantity = Number(item.quantity);
 
-    const remainingQuantity = quotationQuantity - alreadyCommitted;
+    const remainingQuantity =
+      quotationQuantity - alreadyCommitted;
+
+    // =========================
+    // QUANTITY EXCEEDS REMAINING
+    // =========================
 
     if (requestedQuantity > remainingQuantity + 0.000001) {
       const error = new Error(
-        `Quantity for product ${item.productId} exceeds the remaining quotation quantity. Remaining: ${remainingQuantity}`,
+        `Quantity for product ${productName} exceeds the remaining quotation quantity. Requested: ${requestedQuantity}, Remaining: ${remainingQuantity}`,
       );
+
       error.statusCode = 400;
       throw error;
     }
   }
 };
-
 // =========================
 // GET ALL CLIENT POs
 // =========================
@@ -402,6 +438,9 @@ const getClientPOById = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
 
 // =========================
 // CREATE CLIENT PO
@@ -497,11 +536,11 @@ const createClientPO = async (req, res, next) => {
         quotationId,
       });
 
-      validateQuotationQuantities({
-        quotation,
-        clientPOItems,
-        committedQuantities,
-      });
+      await validateQuotationQuantities({
+  quotation,
+  clientPOItems,
+  committedQuantities,
+});
 
       // =========================
       // INHERIT TAX SNAPSHOT
@@ -604,6 +643,25 @@ const createClientPO = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
+   // CREATE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin", "sales"],
+    excludeUserId: req.user._id,
+    type: "client_po",
+    title: "New Client PO",
+    message: `Client PO ${clientPO.poNumber} was received.`,
+    link: `/client-pos?search=${encodeURIComponent(clientPO.poNumber)}`,
+    entityType: "ClientPO",
+    entityId: clientPO._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create Client PO notification:",
+    notificationError,
+  );
+}
+
     const populatedClientPO = await ClientPO.findById(clientPO._id)
       .populate("customerId", "customerCode name")
       .populate("quotationId", "quotationNumber")
@@ -620,10 +678,12 @@ const createClientPO = async (req, res, next) => {
   }
 };
 
+
+
+
 // =========================
 // UPDATE CLIENT PO
 // =========================
-
 const updateClientPO = async (req, res, next) => {
   try {
     const clientPO = await ClientPO.findById(req.params.id);
@@ -637,12 +697,6 @@ const updateClientPO = async (req, res, next) => {
 
     const TERMINAL_CLIENT_PO_STATUSES = ["fulfilled", "cancelled"];
 
-    if (TERMINAL_CLIENT_PO_STATUSES.includes(clientPO.status)) {
-      const error = new Error(`Cannot modify a ${clientPO.status} Client PO`);
-      error.statusCode = 400;
-      throw error;
-    }
-
     const {
       customerId,
       quotationId,
@@ -650,70 +704,122 @@ const updateClientPO = async (req, res, next) => {
       items,
       laborCost,
       otherDirectCosts,
-
-      // Intentionally ignored:
-      // status and poNumber cannot be changed through this endpoint.
-      status: _status,
+      status,
+      // poNumber intentionally ignored because document numbers are immutable.
       poNumber: _poNumber,
     } = req.body;
 
     // =========================
-    // LOCK COMMERCIAL DATA
-    // AFTER PROCESSING STARTS
+    // CHECK EDITABLE FIELDS
     // =========================
 
-    const hasCustomerChange =
-      customerId !== undefined &&
-      customerId.toString() !== clientPO.customerId.toString();
+    const hasEditableFields =
+      customerId !== undefined ||
+      quotationId !== undefined ||
+      poDate !== undefined ||
+      items !== undefined ||
+      laborCost !== undefined ||
+      otherDirectCosts !== undefined;
 
-    const hasQuotationChange =
-      quotationId !== undefined &&
-      (quotationId || null)?.toString() !==
-        (clientPO.quotationId?._id || clientPO.quotationId || null)?.toString();
+    // =========================
+    // TERMINAL STATUS
+    // =========================
 
-    const hasItemsChange =
-      items !== undefined &&
-      JSON.stringify(
-        items.map((item) => ({
-          productId: item.productId?.toString?.() || item.productId || "",
-          description: item.description?.trim() || "",
-          quantity: Number(item.quantity),
-          agreedUnitPrice: Number(item.agreedUnitPrice),
-        })),
-      ) !==
-        JSON.stringify(
-          clientPO.items.map((item) => ({
-            productId: item.productId?.toString?.() || item.productId || "",
-            description: item.description?.trim() || "",
-            quantity: Number(item.quantity),
-            agreedUnitPrice: Number(item.agreedUnitPrice),
-          })),
-        );
-
-    const hasLaborCostChange =
-      laborCost !== undefined &&
-      Number(laborCost) !== Number(clientPO.laborCost || 0);
-
-    const hasOtherDirectCostsChange =
-      otherDirectCosts !== undefined &&
-      Number(otherDirectCosts) !== Number(clientPO.otherDirectCosts || 0);
-
-    const hasCommercialChanges =
-      hasCustomerChange ||
-      hasQuotationChange ||
-      hasItemsChange ||
-      hasLaborCostChange ||
-      hasOtherDirectCostsChange;
-
-    if (clientPO.status === "processing" && hasCommercialChanges) {
+    if (TERMINAL_CLIENT_PO_STATUSES.includes(clientPO.status)) {
       const error = new Error(
-        "Cannot modify commercial details after Client PO processing has started",
+        `Cannot modify a ${clientPO.status} Client PO`,
       );
-
       error.statusCode = 400;
-
       throw error;
     }
+
+    // =========================
+    // RECEIVED PO IMMUTABILITY
+    // =========================
+
+    if (clientPO.status === "received" && hasEditableFields) {
+      const error = new Error(
+        "Received Client POs cannot be edited. Only status changes are allowed.",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+   // =========================
+// VALIDATE STATUS TRANSITION
+// =========================
+
+if (status !== undefined) {
+  const ALLOWED_STATUS_TRANSITIONS = {
+    received: ["cancelled"],
+    fulfilled: [],
+    cancelled: [],
+  };
+
+  const currentStatus = clientPO.status;
+
+  if (!ALLOWED_STATUS_TRANSITIONS[currentStatus]) {
+    const error = new Error(
+      `Invalid current Client PO status: ${currentStatus}`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!ALLOWED_STATUS_TRANSITIONS[currentStatus].includes(status)) {
+    const error = new Error(
+      `Cannot change Client PO status from ${currentStatus} to ${status}`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  clientPO.status = status;
+
+  // CREATE STATUS NOTIFICATION
+  try {
+    await createNotificationsForRoles({
+      roles: ["owner", "admin", "sales"],
+      excludeUserId: req.user._id,
+      type: "client_po",
+      title: `Client PO ${status}`,
+      message: `Client PO ${clientPO.poNumber} was ${status}.`,
+      link: `/client-pos?search=${encodeURIComponent(
+        clientPO.poNumber,
+      )}`,
+      entityType: "ClientPO",
+      entityId: clientPO._id,
+    });
+  } catch (notificationError) {
+    console.error(
+      `Failed to create Client PO ${status} notification:`,
+      notificationError,
+    );
+  }
+    }
+
+// =========================
+// STATUS-ONLY UPDATE
+// =========================
+
+if (status !== undefined && !hasEditableFields) {
+  clientPO.updatedBy = req.user._id;
+
+  await clientPO.save();
+
+  const populatedClientPO = await ClientPO.findById(clientPO._id)
+    .populate("customerId", "customerCode name")
+    .populate("quotationId", "quotationNumber")
+    .populate("items.productId", "sku name unit")
+    .populate("items.unitId", "code name")
+    .populate("createdBy", "firstName lastName")
+    .populate("updatedBy", "firstName lastName");
+
+  return res.status(200).json({
+    success: true,
+    clientPO: populatedClientPO,
+  });
+}
 
     // =========================
     // PO NUMBER IMMUTABLE
@@ -814,11 +920,11 @@ const updateClientPO = async (req, res, next) => {
         excludeClientPOId: clientPO._id,
       });
 
-      validateQuotationQuantities({
-        quotation,
-        clientPOItems: nextItems,
-        committedQuantities,
-      });
+ await validateQuotationQuantities({
+  quotation,
+  clientPOItems: nextItems,
+  committedQuantities,
+});
 
       taxRate = Number(quotation.taxRate || 0);
 
@@ -890,6 +996,7 @@ const updateClientPO = async (req, res, next) => {
     if (poDate !== undefined) {
       clientPO.poDate = poDate;
     }
+
 
     clientPO.items = nextItems;
 

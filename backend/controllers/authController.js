@@ -127,6 +127,18 @@ const loginUser = async (req, res) => {
       });
     }
 
+const updatedUser = await User.findByIdAndUpdate(
+  user._id,
+  {
+    $set: {
+      lastLogin: new Date(),
+    },
+  },
+  {
+    new: true,
+  }
+);
+
 
     // Generate JWT
     const token = jwt.sign(
@@ -144,12 +156,13 @@ logger.info("Login successful");
     res.json({
       success: true,
       token,
-    user: {
-  id: user._id,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  email: user.email,
-  role: user.role,
+user: {
+  id: updatedUser._id,
+  firstName: updatedUser.firstName,
+  lastName: updatedUser.lastName,
+  email: updatedUser.email,
+  role: updatedUser.role,
+  lastLogin: updatedUser.lastLogin,
 },
     });
 

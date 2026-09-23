@@ -68,17 +68,11 @@ const clientPOSchema = new mongoose.Schema(
       default: Date.now,
     },
 
-    status: {
-      type: String,
-      enum: [
-        "draft",
-        "received",
-        "processing",
-        "fulfilled",
-        "cancelled",
-      ],
-      default: "received",
-    },
+ status: {
+  type: String,
+  enum: ["received", "fulfilled", "cancelled"],
+  default: "received",
+},
 
     items: {
       type: [clientPOItemSchema],

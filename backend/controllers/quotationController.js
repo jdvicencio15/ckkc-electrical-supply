@@ -318,26 +318,27 @@ const createQuotation = async (req, res, next) => {
     });
 
 
-    // CREATE NOTIFICATION
-    try {
-      await createNotificationsForRoles({
-  roles: ["owner", "admin", "sales"],
-  excludeUserId: req.user._id,
-  type: "quotation",
-  title: "New Quotation",
-  message: `Quotation ${quotation.quotationNumber} was created.`,
-  link: `/quotations?search=${encodeURIComponent(
-    quotation.quotationNumber,
-  )}`,
-  entityType: "Quotation",
-  entityId: quotation._id,
-});
-    } catch (notificationError) {
-      console.error(
-        "Failed to create quotation notification:",
-        notificationError,
-      );
-    }
+
+// CREATE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin", "sales"],
+    excludeUserId: req.user._id,
+    type: "quotation",
+    title: "New Quotation",
+    message: `Quotation ${quotation.quotationNumber} was created.`,
+    link: `/quotations?search=${encodeURIComponent(
+      quotation.quotationNumber,
+    )}`,
+    entityType: "Quotation",
+    entityId: quotation._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create quotation notification:",
+    notificationError,
+  );
+}
 
     const populatedQuotation = await Quotation.findById(quotation._id)
       .populate("customerId", "customerCode name")
@@ -430,17 +431,39 @@ if (status !== undefined) {
 
     await quotation.save();
 
-    const populatedQuotation = await Quotation.findById(quotation._id)
-      .populate("customerId", "customerCode name")
-      .populate("createdBy", "firstName lastName email")
-      .populate("updatedBy", "firstName lastName email")
-      .populate("items.productId", "sku name")
-      .populate("items.unitId", "code name");
 
-    return res.status(200).json({
-      success: true,
-      quotation: populatedQuotation,
-    });
+// CREATE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin", "sales"],
+    excludeUserId: req.user._id,
+    type: "quotation",
+    title: `Quotation ${status}`,
+    message: `Quotation ${quotation.quotationNumber} was ${status}.`,
+    link: `/quotations?search=${encodeURIComponent(
+      quotation.quotationNumber,
+    )}`,
+    entityType: "Quotation",
+    entityId: quotation._id,
+  });
+} catch (notificationError) {
+  console.error(
+    `Failed to create quotation ${status} notification:`,
+    notificationError,
+  );
+}
+
+  const populatedQuotation = await Quotation.findById(quotation._id)
+    .populate("customerId", "customerCode name")
+    .populate("createdBy", "firstName lastName email")
+    .populate("updatedBy", "firstName lastName email")
+    .populate("items.productId", "sku name")
+    .populate("items.unitId", "code name");
+
+  return res.status(200).json({
+    success: true,
+    quotation: populatedQuotation,
+  });
   }
 }
 

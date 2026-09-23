@@ -139,8 +139,10 @@ function PurchaseForm({
   // AVAILABLE SUPPLIER POS
   // --------------------------------------------------
 
- const availableSupplierPOs = useMemo(() => {
-  return supplierPOs;
+const availableSupplierPOs = useMemo(() => {
+  return supplierPOs.filter(
+    (supplierPO) => supplierPO.status === "sent",
+  );
 }, [supplierPOs]);
 
   // --------------------------------------------------

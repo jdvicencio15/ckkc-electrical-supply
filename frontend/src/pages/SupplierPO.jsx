@@ -48,6 +48,9 @@ function SupplierPO() {
   const [loading, setLoading] = useState(true);
   const [formLoading, setFormLoading] = useState(false);
 
+  const [releasingSupplierPO, setReleasingSupplierPO] = useState(null);
+  const [releasing, setReleasing] = useState(false);
+
   // ================================
   // FILTERS
   // ================================
@@ -233,34 +236,51 @@ function SupplierPO() {
   // RELEASE SUPPLIER PO
   // ================================
 
-const handleReleaseSupplierPO = async (supplierPO) => {
-  if (!supplierPO?._id) {
-    return;
-  }
+  const handleReleaseSupplierPO = (supplierPO) => {
+    if (!supplierPO?._id) {
+      return;
+    }
 
-  try {
-    setFormLoading(true);
+    setReleasingSupplierPO(supplierPO);
+  };
 
-    await supplierPOService.releaseSupplierPO(supplierPO._id);
+  const handleConfirmRelease = async () => {
+    if (!releasingSupplierPO) {
+      return;
+    }
 
-    await loadSupplierPOs();
+    try {
+      setReleasing(true);
 
-    setToast({
-      type: "success",
-      message: "Supplier PO released successfully.",
-    });
-  } catch (error) {
-    console.error("Failed to release Supplier PO:", error);
+      await supplierPOService.releaseSupplierPO(releasingSupplierPO._id);
 
-    setToast({
-      type: "error",
-      message:
-        error.response?.data?.message ||
-        "Failed to release Supplier PO.",
-    });
-  } finally {
-    setFormLoading(false);
-  }
+      await loadSupplierPOs();
+
+      setReleasingSupplierPO(null);
+
+      setToast({
+        type: "success",
+        message: "Supplier PO released successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to release Supplier PO:", error);
+
+      setToast({
+        type: "error",
+        message:
+          error.response?.data?.message || "Failed to release Supplier PO.",
+      });
+    } finally {
+      setReleasing(false);
+    }
+  };
+
+  const handleCancelRelease = () => {
+    if (releasing) {
+      return;
+    }
+
+    setReleasingSupplierPO(null);
   };
 
   const closeSupplierPOView = () => {
@@ -423,17 +443,17 @@ const handleReleaseSupplierPO = async (supplierPO) => {
       {/* DELETE CONFIRMATION */}
 
       <ConfirmModal
-        isOpen={!!deletingSupplierPO}
-        onClose={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
-        title="Delete Supplier PO"
-        message={`Are you sure you want to delete Supplier PO "${
-          deletingSupplierPO?.poNumber || "this Supplier PO"
-        }"? This action cannot be undone.`}
-        confirmText="Delete"
+        isOpen={!!releasingSupplierPO}
+        onClose={handleCancelRelease}
+        onConfirm={handleConfirmRelease}
+        title="Release Supplier PO"
+        message={`Are you sure you want to release "${
+          releasingSupplierPO?.poNumber || "this Supplier PO"
+        }"? This will mark the Supplier PO as Sent.`}
+        confirmText="Release"
         cancelText="Cancel"
-        loading={deleting}
-        loadingText="Deleting..."
+        loading={releasing}
+        loadingText="Releasing..."
       />
 
       <div className="space-y-6">
@@ -665,25 +685,27 @@ const handleReleaseSupplierPO = async (supplierPO) => {
                               </button>
                             )}
 
-                         {/* RELEASE */}
+                            {/* RELEASE */}
 
-{canReleaseSupplierPO &&
-  supplierPO.status === "draft" && (
-    <button
-      type="button"
-      onClick={() => handleReleaseSupplierPO(supplierPO)}
-      className="flex h-8 w-8 items-center justify-center rounded-lg text-green-600 transition hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
-      aria-label={`Release ${supplierPO.poNumber}`}
-      title="Release Supplier PO"
-    >
-      <FaRocket className="h-3.5 w-3.5" />
-    </button>
-  )}
+                            {canReleaseSupplierPO &&
+                              supplierPO.status === "draft" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleReleaseSupplierPO(supplierPO)
+                                  }
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-green-600 transition hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
+                                  aria-label={`Release ${supplierPO.poNumber}`}
+                                  title="Release Supplier PO"
+                                >
+                                  <FaRocket className="h-3.5 w-3.5" />
+                                </button>
+                              )}
 
                             {/* EDIT */}
 
-                            {canEditSupplierPO &&
-                              !isTerminalSupplierPO(supplierPO.status) && (
+                           {canEditSupplierPO &&
+  supplierPO.status === "draft" && (
                                 <button
                                   type="button"
                                   onClick={() => openEditForm(supplierPO)}

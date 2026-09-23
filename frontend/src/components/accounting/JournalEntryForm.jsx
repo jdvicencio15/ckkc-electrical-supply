@@ -79,17 +79,33 @@ function JournalEntryForm({
     setErrors({});
   }, [journalEntry]);
 
-  const accountOptions = useMemo(() => {
-    return accounts
-      .filter((account) => account.isActive)
-      .sort((a, b) =>
-        a.accountCode.localeCompare(b.accountCode)
-      )
-      .map((account) => ({
-        value: account._id,
-        label: `${account.accountCode} - ${account.accountName}`,
-      }));
-  }, [accounts]);
+const accountOptions = useMemo(() => {
+  const selectedAccountIds = new Set(
+    formData.entries
+      .map((line) => line.account)
+      .filter(Boolean),
+  );
+
+  return accounts
+    .filter((account) => {
+      if (account.isActive) {
+        return true;
+      }
+
+      // Keep an inactive account visible only if
+      // it is already used by the current journal entry.
+      return isEditing && selectedAccountIds.has(account._id);
+    })
+    .sort((a, b) =>
+      a.accountCode.localeCompare(b.accountCode),
+    )
+    .map((account) => ({
+      value: account._id,
+      label: `${account.accountCode} - ${account.accountName}${
+        account.isActive ? "" : " (Inactive)"
+      }`,
+    }));
+}, [accounts, formData.entries, isEditing]);
 
   const totalDebit = useMemo(() => {
     return formData.entries.reduce(
