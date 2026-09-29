@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FaEdit, FaTrash, FaEye, FaRocket } from "react-icons/fa";
-
+import { FaEdit, FaTrash, FaEye, FaRocket, FaBan } from "react-icons/fa";
 import supplierPOService from "../services/supplierPOService";
 
 import Toast from "../components/common/Toast";
@@ -50,6 +49,9 @@ function SupplierPO() {
 
   const [releasingSupplierPO, setReleasingSupplierPO] = useState(null);
   const [releasing, setReleasing] = useState(false);
+
+  const [cancellingSupplierPO, setCancellingSupplierPO] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   // ================================
   // FILTERS
@@ -283,6 +285,66 @@ function SupplierPO() {
     setReleasingSupplierPO(null);
   };
 
+  // ================================
+// CANCEL SUPPLIER PO
+// ================================
+
+const handleCancelSupplierPO = (supplierPO) => {
+  if (!supplierPO?._id) {
+    return;
+  }
+
+  setCancellingSupplierPO(supplierPO);
+};
+
+const handleConfirmCancel = async () => {
+  if (!cancellingSupplierPO) {
+    return;
+  }
+
+  try {
+    setCancelling(true);
+
+    await supplierPOService.updateSupplierPO(
+      cancellingSupplierPO._id,
+      {
+        status: "cancelled",
+      },
+    );
+
+    await loadSupplierPOs();
+
+    setCancellingSupplierPO(null);
+
+    setToast({
+      type: "success",
+      message: "Supplier PO cancelled successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to cancel Supplier PO:",
+      error,
+    );
+
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to cancel Supplier PO.",
+    });
+  } finally {
+    setCancelling(false);
+  }
+};
+
+const handleCancelCancel = () => {
+  if (cancelling) {
+    return;
+  }
+
+  setCancellingSupplierPO(null);
+};
+
   const closeSupplierPOView = () => {
     setViewingSupplierPO(null);
   };
@@ -423,14 +485,6 @@ function SupplierPO() {
   };
 
   // ================================
-  // TERMINAL STATE
-  // ================================
-
-  const isTerminalSupplierPO = (status) => {
-    return ["received", "cancelled"].includes(status);
-  };
-
-  // ================================
   // RENDER
   // ================================
 
@@ -440,7 +494,7 @@ function SupplierPO() {
 
       <Toast type={toast.type} message={toast.message} onClose={closeToast} />
 
-      {/* DELETE CONFIRMATION */}
+      {/* RELEASE CONFIRMATION */}
 
       <ConfirmModal
         isOpen={!!releasingSupplierPO}
@@ -454,6 +508,38 @@ function SupplierPO() {
         cancelText="Cancel"
         loading={releasing}
         loadingText="Releasing..."
+      />
+
+      {/* DELETE CONFIRMATION */}
+
+      <ConfirmModal
+        isOpen={!!deletingSupplierPO}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete Supplier PO"
+        message={`Are you sure you want to delete "${
+          deletingSupplierPO?.poNumber || "this Supplier PO"
+        }"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        loading={deleting}
+        loadingText="Deleting..."
+      />
+
+      {/*cancel */}
+
+      <ConfirmModal
+        isOpen={!!cancellingSupplierPO}
+        onClose={handleCancelCancel}
+        onConfirm={handleConfirmCancel}
+        title="Cancel Supplier PO"
+        message={`Are you sure you want to cancel "${
+          cancellingSupplierPO?.poNumber || "this Supplier PO"
+        }"? This Supplier PO will be permanently locked.`}
+        confirmText="Cancel Supplier PO"
+        cancelText="Keep Draft"
+        loading={cancelling}
+        loadingText="Cancelling..."
       />
 
       <div className="space-y-6">
@@ -531,11 +617,8 @@ function SupplierPO() {
             className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
           >
             <option value="all">All Status</option>
-
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="received">Received</option>
             <option value="cancelled">Cancelled</option>
           </select>
 
@@ -702,10 +785,27 @@ function SupplierPO() {
                                 </button>
                               )}
 
+                            {/* CANCEL */}
+
+                            {canEditSupplierPO &&
+                              supplierPO.status === "draft" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCancelSupplierPO(supplierPO)
+                                  }
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 transition hover:bg-orange-50 hover:text-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
+                                  aria-label={`Cancel ${supplierPO.poNumber}`}
+                                  title="Cancel Supplier PO"
+                                >
+                                  <FaBan className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+
                             {/* EDIT */}
 
-                           {canEditSupplierPO &&
-  supplierPO.status === "draft" && (
+                            {canEditSupplierPO &&
+                              supplierPO.status === "draft" && (
                                 <button
                                   type="button"
                                   onClick={() => openEditForm(supplierPO)}

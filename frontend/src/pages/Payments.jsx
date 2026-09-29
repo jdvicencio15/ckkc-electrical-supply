@@ -317,6 +317,7 @@ const getInvoicePaymentStatus = (invoice) => {
   };
 
   const handleCreate = async (formData) => {
+
     try {
       setFormLoading(true);
 
@@ -899,7 +900,7 @@ const getInvoicePaymentStatus = (invoice) => {
     {getInvoicePaymentStatus(viewingPayment.invoiceId)}
   </span>
 </div>
-                  
+
                 </div>
 
                 {/* Notes */}

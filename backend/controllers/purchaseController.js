@@ -11,6 +11,10 @@ const InventoryMovement = require("../models/InventoryMovement");
 const { resolveProductUnit } = require("../services/unitService");
 
 const {
+  validatePurchaseAgainstSupplierPO,
+} = require("../utils/purchaseValidator");
+
+const {
   createPurchaseJournalEntry,
 } = require("../services/accountingService");
 
@@ -156,6 +160,7 @@ const getPurchaseById = async (req, res, next) => {
   }
 };
 
+
 // CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
@@ -214,6 +219,7 @@ const createPurchase = async (req, res, next) => {
         throw error;
       }
 
+      // Supplier PO must belong to selected supplier
       if (
         supplierPO.supplierId.toString() !==
         supplierId.toString()
@@ -225,10 +231,17 @@ const createPurchase = async (req, res, next) => {
         throw error;
       }
 
-      if (
-        supplierPO.status === "cancelled" ||
-        supplierPO.status === "received"
-      ) {
+      // ==========================================
+      // SUPPLIER PO STATUS PROTECTION
+      // ==========================================
+      // Only SENT Supplier POs can be converted
+      // into a Purchase.
+      //
+      // draft     → still being prepared
+      // sent      → valid source for Purchase
+      // received  → already completed
+      // cancelled → permanently cancelled
+      if (supplierPO.status !== "sent") {
         const error = new Error(
           `Cannot create Purchase from a ${supplierPO.status} Supplier PO`,
         );
@@ -236,7 +249,9 @@ const createPurchase = async (req, res, next) => {
         throw error;
       }
 
-      // PREVENT DUPLICATE PURCHASE FROM THE SAME SUPPLIER PO
+      // ==========================================
+      // PREVENT DUPLICATE PURCHASE
+      // ==========================================
       const existingPurchase = await Purchase.findOne({
         supplierPOId: supplierPO._id,
       });
@@ -249,6 +264,88 @@ const createPurchase = async (req, res, next) => {
         throw error;
       }
     }
+
+   // ==========================================
+// VALIDATE PURCHASE ITEMS AGAINST SUPPLIER PO
+// ==========================================
+//
+// Current business rule:
+// A Purchase created from a Supplier PO must
+// exactly match the Supplier PO items.
+//
+// This prevents:
+// - Increasing quantity
+// - Reducing quantity
+// - Removing PO items
+// - Adding products not included in PO
+// - Duplicate product lines
+//
+
+if (items.length !== supplierPO.items.length) {
+  const error = new Error(
+    "Purchase items must exactly match Supplier PO items",
+  );
+
+  error.statusCode = 400;
+  throw error;
+}
+
+const supplierPOProductIds = new Set(
+  supplierPO.items.map((item) =>
+    item.productId.toString()
+  )
+);
+
+const purchaseProductIds = new Set();
+
+for (const purchaseItem of items) {
+  const productId =
+    purchaseItem.productId.toString();
+
+  // Prevent duplicate product lines
+  if (purchaseProductIds.has(productId)) {
+    const error = new Error(
+      "Duplicate product lines are not allowed in Purchase",
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  purchaseProductIds.add(productId);
+
+  // Product must exist in Supplier PO
+  if (!supplierPOProductIds.has(productId)) {
+    const error = new Error(
+      "Purchase contains a product that is not included in the Supplier PO",
+    );
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const supplierPOItem = supplierPO.items.find(
+    (poItem) =>
+      poItem.productId.toString() === productId
+  );
+
+  const purchaseQuantity = Number(
+    purchaseItem.quantity
+  );
+
+  const supplierPOQuantity = Number(
+    supplierPOItem.quantity
+  );
+
+  if (purchaseQuantity !== supplierPOQuantity) {
+ const error = new Error(
+  `Purchase quantity for ${supplierPOItem.description} must match Supplier PO quantity (${supplierPOQuantity})`,
+);
+
+    error.statusCode = 400;
+    throw error;
+  }
+}
 
     // ==========================================
     // CLIENT PO
@@ -382,18 +479,18 @@ const createPurchase = async (req, res, next) => {
     // CREATE NOTIFICATION
     // ==========================================
     try {
-     await createNotificationsForRoles({
-  roles: ["owner", "admin", "purchasing"],
-  excludeUserId: req.user._id,
-  type: "purchase",
-  title: "New Purchase",
-  message: `Purchase ${purchase.purchaseNumber} was created.`,
-  link: `/purchases?search=${encodeURIComponent(
-    purchase.purchaseNumber,
-  )}`,
-  entityType: "Purchase",
-  entityId: purchase._id,
-});
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "purchasing"],
+        excludeUserId: req.user._id,
+        type: "purchase",
+        title: "New Purchase",
+        message: `Purchase ${purchase.purchaseNumber} was created.`,
+        link: `/purchases?search=${encodeURIComponent(
+          purchase.purchaseNumber,
+        )}`,
+        entityType: "Purchase",
+        entityId: purchase._id,
+      });
     } catch (notificationError) {
       console.error(
         "Failed to create purchase notification:",
@@ -440,6 +537,8 @@ const createPurchase = async (req, res, next) => {
   }
 };
 
+
+
 // UPDATE PURCHASE
 const updatePurchase = async (req, res, next) => {
   try {
@@ -452,7 +551,9 @@ const updatePurchase = async (req, res, next) => {
       });
     }
 
+    // ==========================================
     // ONLY DRAFT PURCHASES CAN BE UPDATED
+    // ==========================================
     if (purchase.status !== "draft") {
       return res.status(400).json({
         success: false,
@@ -541,6 +642,7 @@ const updatePurchase = async (req, res, next) => {
         throw error;
       }
 
+      // Supplier PO must belong to selected supplier
       if (
         supplierPO.supplierId.toString() !==
         nextSupplierId.toString()
@@ -552,10 +654,17 @@ const updatePurchase = async (req, res, next) => {
         throw error;
       }
 
-      if (
-        supplierPO.status === "cancelled" ||
-        supplierPO.status === "received"
-      ) {
+      // ==========================================
+      // SUPPLIER PO STATUS PROTECTION
+      // ==========================================
+      // Only SENT Supplier POs can be linked
+      // to a Purchase.
+      //
+      // draft     → still being prepared
+      // sent      → valid for Purchase
+      // received  → already completed
+      // cancelled → permanently cancelled
+      if (supplierPO.status !== "sent") {
         const error = new Error(
           `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`,
         );
@@ -747,6 +856,12 @@ const updatePurchase = async (req, res, next) => {
 };
 
 
+
+
+
+
+
+
 // DELETE PURCHASE
 const deletePurchase = async (req, res, next) => {
   try {
@@ -785,7 +900,9 @@ const receivePurchase = async (req, res, next) => {
   try {
     session.startTransaction();
 
-    const purchase = await Purchase.findById(req.params.id).session(session);
+    const purchase = await Purchase.findById(
+      req.params.id
+    ).session(session);
 
     if (!purchase) {
       await session.abortTransaction();
@@ -796,27 +913,32 @@ const receivePurchase = async (req, res, next) => {
       });
     }
 
-    if (purchase.status === "received") {
+    // ==========================================
+    // PURCHASE STATE VALIDATION
+    // ==========================================
+
+    // Only DRAFT purchases can be received.
+    // This prevents duplicate inventory movements,
+    // duplicate accounting entries, and invalid
+    // state transitions.
+    if (purchase.status !== "draft") {
       await session.abortTransaction();
 
       return res.status(400).json({
         success: false,
-        message: "Purchase is already received",
+        message:
+          `Cannot receive Purchase from ${purchase.status} status`,
       });
     }
 
-    if (purchase.status === "cancelled") {
-      await session.abortTransaction();
-
-      return res.status(400).json({
-        success: false,
-        message: "Cancelled purchase cannot be received",
-      });
-    }
-
+    // ==========================================
     // UPDATE STOCK + CREATE INVENTORY MOVEMENTS
+    // ==========================================
+
     for (const item of purchase.items) {
-      const product = await Product.findById(item.productId).session(session);
+      const product = await Product.findById(
+        item.productId
+      ).session(session);
 
       if (!product) {
         await session.abortTransaction();
@@ -847,14 +969,17 @@ const receivePurchase = async (req, res, next) => {
             createdBy: req.user._id,
           },
         ],
-        { session },
+        { session }
       );
     }
 
+    // ==========================================
     // UPDATE LINKED SUPPLIER PO
+    // ==========================================
+
     if (purchase.supplierPOId) {
       const supplierPO = await SupplierPO.findById(
-        purchase.supplierPOId,
+        purchase.supplierPOId
       ).session(session);
 
       if (!supplierPO) {
@@ -866,44 +991,112 @@ const receivePurchase = async (req, res, next) => {
         });
       }
 
-      if (supplierPO.status === "cancelled") {
+      // Supplier PO must be SENT before it can be received.
+      if (supplierPO.status !== "sent") {
         await session.abortTransaction();
 
         return res.status(400).json({
           success: false,
-          message: "Cannot receive Purchase linked to a cancelled Supplier PO",
+          message:
+            `Cannot receive Supplier PO from ${supplierPO.status} status`,
         });
       }
 
+      // Mark Supplier PO as received.
       supplierPO.status = "received";
       supplierPO.updatedBy = req.user._id;
 
       await supplierPO.save({ session });
     }
 
+    // ==========================================
     // MARK PURCHASE AS RECEIVED
+    // ==========================================
+
     purchase.status = "received";
     purchase.updatedBy = req.user._id;
 
     await purchase.save({ session });
 
+    // ==========================================
     // CREATE SYSTEM ACCOUNTING ENTRY
-await createPurchaseJournalEntry({
-  session,
-  purchase,
-  createdBy: req.user._id,
-});
+    // ==========================================
+
+    await createPurchaseJournalEntry({
+      session,
+      purchase,
+      createdBy: req.user._id,
+    });
+
+    // ==========================================
+    // COMMIT TRANSACTION
+    // ==========================================
 
     await session.commitTransaction();
 
-    const populatedPurchase = await Purchase.findById(purchase._id)
-      .populate("supplierId", "supplierCode name")
-      .populate("supplierPOId", "poNumber")
-      .populate("relatedClientPOId", "poNumber")
-      .populate("items.unitId", "code name")
-      .populate("items.productId", "sku name")
-      .populate("createdBy", "firstName lastName")
-      .populate("updatedBy", "firstName lastName");
+    // ==========================================
+    // NOTIFICATION
+    // ==========================================
+
+    try {
+      await createNotificationsForRoles({
+        roles: [
+          "owner",
+          "admin",
+          "purchasing",
+          "accounting",
+        ],
+        excludeUserId: req.user._id,
+        type: "purchase",
+        title: "Purchase Received",
+        message: `Purchase ${purchase.purchaseNumber} was received.`,
+        link: `/purchases?search=${encodeURIComponent(
+          purchase.purchaseNumber
+        )}`,
+        entityType: "Purchase",
+        entityId: purchase._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create purchase received notification:",
+        notificationError
+      );
+    }
+
+    // ==========================================
+    // RETURN POPULATED PURCHASE
+    // ==========================================
+
+    const populatedPurchase =
+      await Purchase.findById(purchase._id)
+        .populate(
+          "supplierId",
+          "supplierCode name"
+        )
+        .populate(
+          "supplierPOId",
+          "poNumber"
+        )
+        .populate(
+          "relatedClientPOId",
+          "poNumber"
+        )
+        .populate(
+          "items.unitId",
+          "code name"
+        )
+        .populate(
+          "items.productId",
+          "sku name"
+        )
+        .populate(
+          "createdBy",
+          "firstName lastName"
+        )
+        .populate(
+          "updatedBy",
+          "firstName lastName"
+        );
 
     res.status(200).json({
       success: true,
@@ -944,6 +1137,30 @@ const cancelPurchase = async (req, res, next) => {
     purchase.updatedBy = req.user._id;
 
     await purchase.save();
+
+    // ==========================================
+// NOTIFICATION
+// ==========================================
+
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin", "purchasing"],
+    excludeUserId: req.user._id,
+    type: "purchase",
+    title: "Purchase Cancelled",
+    message: `Purchase ${purchase.purchaseNumber} was cancelled.`,
+    link: `/purchases?search=${encodeURIComponent(
+      purchase.purchaseNumber,
+    )}`,
+    entityType: "Purchase",
+    entityId: purchase._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create purchase cancellation notification:",
+    notificationError,
+  );
+}
 
     const populatedPurchase = await Purchase.findById(purchase._id)
       .populate("supplierId", "supplierCode name")

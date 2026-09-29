@@ -150,6 +150,7 @@ function PaymentForm({
       notes: formData.notes || undefined,
     };
 
+
     if (!isEditMode) {
       submitData.invoiceId = formData.invoiceId;
     }

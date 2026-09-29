@@ -899,9 +899,7 @@ function SupplierPOForm({
                           <td className="w-36 px-4 py-3">
                             <input
                               type="number"
-                              value={
-                                item.expectedUnitCost
-                              }
+                               value={Number(item.expectedUnitCost || 0).toFixed(2)}
                               readOnly
                               disabled={
                                 submitting

@@ -439,6 +439,40 @@ const updateInvoice = async (req, res, next) => {
 
     await invoice.save();
 
+    // =========================
+// CREATE STATUS NOTIFICATION
+// =========================
+
+if (status !== undefined && status !== "draft") {
+  try {
+    const statusMessage =
+      status === "issued"
+        ? `Invoice ${invoice.invoiceNumber} was issued.`
+        : `Invoice ${invoice.invoiceNumber} was cancelled.`;
+
+    await createNotificationsForRoles({
+      roles: ["owner", "admin", "accounting"],
+      excludeUserId: req.user._id,
+      type: "invoice",
+      title:
+        status === "issued"
+          ? "Invoice Issued"
+          : "Invoice Cancelled",
+      message: statusMessage,
+      link: `/invoices?search=${encodeURIComponent(
+        invoice.invoiceNumber,
+      )}`,
+      entityType: "Invoice",
+      entityId: invoice._id,
+    });
+  } catch (notificationError) {
+    console.error(
+      `Failed to create invoice ${status} notification:`,
+      notificationError,
+    );
+  }
+    }
+    
     const populatedInvoice =
       await Invoice.findById(invoice._id)
         .populate(

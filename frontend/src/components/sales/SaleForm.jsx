@@ -241,8 +241,6 @@ function SaleForm({
         unitCost: resolvedCost,
       };
 
-      console.log("UPDATED SALE ITEM:", items[index]);
-
       return {
         ...current,
         items,

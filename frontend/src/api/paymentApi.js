@@ -12,9 +12,10 @@ const paymentApi = {
     return response.data;
   },
 
-  createPayment: async (paymentData) => {
-    const response = await API.post("/payments", paymentData);
-    return response.data;
+createPayment: async (paymentData) => {
+  const response = await API.post("/payments", paymentData);
+
+  return response.data;
   },
 
   updatePayment: async (id, paymentData) => {

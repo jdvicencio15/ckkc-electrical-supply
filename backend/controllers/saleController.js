@@ -852,6 +852,27 @@ const releaseSale = async (req, res, next) => {
     // COMMIT TRANSACTION
     await session.commitTransaction();
 
+       // CREATE SALE RELEASE NOTIFICATION
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "sales"],
+        excludeUserId: req.user._id,
+        type: "sale",
+        title: "Sale Released",
+        message: `Sale ${sale.salesNumber} was released successfully.`,
+        link: `/sales?search=${encodeURIComponent(
+          sale.salesNumber,
+        )}`,
+        entityType: "Sale",
+        entityId: sale._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create sale release notification:",
+        notificationError,
+      );
+    }
+    
     // POST-COMMIT: LOW STOCK NOTIFICATIONS
     for (const check of lowStockChecks) {
       try {

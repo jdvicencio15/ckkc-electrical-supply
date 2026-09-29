@@ -4,6 +4,10 @@ const ClientPO = require("../models/ClientPO");
 
 const mongoose = require("mongoose");
 
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
+
 const { createExpenseJournalEntry } = require("../services/accountingService");
 
 const roundMoney = (value) => {
@@ -508,6 +512,49 @@ const postExpense = async (req, res, next) => {
         createdBy: req.user._id,
       });
     });
+
+    // ==============================
+    // GET POSTED EXPENSE
+    // ==============================
+
+    const postedExpense = await Expense.findById(postedExpenseId);
+
+    if (!postedExpense) {
+      const error = new Error(
+        "Expense was posted but could not be retrieved.",
+      );
+
+      error.statusCode = 500;
+      throw error;
+    }
+
+    // ==============================
+    // NOTIFICATION AFTER SUCCESSFUL POST
+    // ==============================
+
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "accounting"],
+        excludeUserId: req.user._id,
+        type: "expense",
+        title: "Expense Posted",
+        message: `Expense "${postedExpense.description || postedExpense.category}" was posted successfully.`,
+        link: `/expenses?search=${encodeURIComponent(
+          postedExpense._id,
+        )}`,
+        entityType: "Expense",
+        entityId: postedExpense._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create expense notification:",
+        notificationError,
+      );
+    }
+
+    // ==============================
+    // POPULATE RESPONSE
+    // ==============================
 
     const populatedExpense = await Expense.findById(postedExpenseId)
       .populate("createdBy", "firstName lastName")

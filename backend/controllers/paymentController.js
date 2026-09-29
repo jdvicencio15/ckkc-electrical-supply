@@ -172,6 +172,7 @@ const paymentStatus =
       });
     }
 
+
     // ------------------------------
     // Create posted payment
     // ------------------------------
@@ -207,29 +208,36 @@ const paymentStatus =
 
     session.endSession();
 
-    // ------------------------------
-    // Notification AFTER successful commit
-    // ------------------------------
-    try {
-      await createNotificationsForRoles({
-  roles: ["owner", "admin", "accounting"],
-  excludeUserId: req.user._id,
-  type: "payment",
-  title: "New Payment",
-  message: `Payment received for Invoice ${invoice.invoiceNumber}.`,
-  link: `/payments?search=${encodeURIComponent(
-    invoice.invoiceNumber,
-  )}`,
-  entityType: "Payment",
-  entityId: payment._id,
-});
-    } catch (notificationError) {
-      console.error(
-        "Failed to create payment notification:",
-        notificationError,
-      );
-    }
+   // ------------------------------
+// Notification AFTER successful commit
+// ------------------------------
+try {
+  const isFullyPaid = paymentStatus === "paid";
 
+  await createNotificationsForRoles({
+    roles: ["owner", "admin", "accounting"],
+    excludeUserId: req.user._id,
+    type: "payment",
+    title: isFullyPaid
+      ? "Invoice Fully Paid"
+      : "Payment Received",
+    message: isFullyPaid
+      ? `Invoice ${invoice.invoiceNumber} has been fully paid.`
+      : `Payment received for Invoice ${invoice.invoiceNumber}. Remaining balance: ${roundMoney(
+          invoice.totalAmount - newTotalPaid,
+        )}.`,
+    link: `/payments?search=${encodeURIComponent(
+      invoice.invoiceNumber,
+    )}`,
+    entityType: "Payment",
+    entityId: payment._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create payment notification:",
+    notificationError,
+  );
+}
     const populatedPayment = await Payment.findById(payment._id)
       .populate({
         path: "invoiceId",

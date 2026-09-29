@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const ChartOfAccount = require("../models/chartOfAccount");
 const JournalEntry = require("../models/journalEntry");
-
+const Invoice = require("../models/Invoice");
 const {
   validateAccountingSource,
 } = require("../utils/accountingSourceValidator");
@@ -805,6 +805,18 @@ const paymentAccountCodeMap = {
     throw error;
   }
 
+
+    const invoice = await Invoice.findById(
+  payment.invoiceId
+).session(session);
+
+if (!invoice) {
+  const error = new Error("Invoice not found for payment");
+  error.statusCode = 400;
+  throw error;
+}
+
+
   /*
   |--------------------------------------------------------------------------
   | Build Payment Journal Entry
@@ -820,6 +832,7 @@ const paymentAccountCodeMap = {
   | Those were already recognized when the Sale was released.
   |
   */
+
 
   const entries = [
     {
@@ -837,8 +850,12 @@ const paymentAccountCodeMap = {
   return createSystemJournalEntry({
     session,
     date: payment.paymentDate,
-    reference: payment._id.toString(),
-    description: `Payment received for Invoice ${payment.invoiceId}`,
+   reference: invoice.invoiceNumber,
+description: `Payment received for Invoice ${invoice.invoiceNumber}${
+  payment.referenceNumber
+    ? ` - Ref: ${payment.referenceNumber}`
+    : ""
+}`,
     sourceType: "payment",
     sourceId: payment._id,
     entries,

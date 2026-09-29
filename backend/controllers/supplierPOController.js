@@ -27,6 +27,11 @@ const {
   generateDocumentNumber,
 } = require("../services/documentNumberService");
 
+
+const {
+  createNotificationsForRoles,
+} = require("../services/notificationService");
+
 const exportSupplierPOPDF = async (req, res, next) => {
   try {
     const supplierPO = await SupplierPO.findById(req.params.id)
@@ -176,12 +181,23 @@ const createSupplierPO = async (req, res, next) => {
       }
     }
 
-    // CHECK PRODUCTS
-    const productIds = [
-      ...new Set(
-        items.map((item) => item.productId.toString())
-      ),
-    ];
+    if (!Array.isArray(items) || items.length === 0) {
+  const error = new Error(
+    "Supplier PO must contain at least one item"
+  );
+  error.statusCode = 400;
+  throw error;
+}
+
+
+// CHECK PRODUCTS
+const productIds = [
+  ...new Set(
+    items.map((item) => item.productId.toString())
+  ),
+];
+
+
 
     const products = await Product.find({
       _id: { $in: productIds },
@@ -205,26 +221,26 @@ const createSupplierPO = async (req, res, next) => {
       throw error;
     }
 
-  // RESOLVE PRODUCT UOM AND COST SERVER-SIDE
-const calculatedItems = [];
+    // RESOLVE PRODUCT UOM AND COST SERVER-SIDE
+    const calculatedItems = [];
 
-for (const item of items) {
-  const { unitId, unitCode } =
-    await resolveProductUnit(item.productId);
+    for (const item of items) {
+      const { unitId, unitCode } =
+        await resolveProductUnit(item.productId);
 
-  const { unitCost } =
-    await resolveProductCost({
-      productId: item.productId,
-      supplierId,
-    });
+      const { unitCost } =
+        await resolveProductCost({
+          productId: item.productId,
+          supplierId,
+        });
 
-  calculatedItems.push({
-    ...item,
-    unitId,
-    unitCode,
-    expectedUnitCost: unitCost,
-  });
-}
+      calculatedItems.push({
+        ...item,
+        unitId,
+        unitCode,
+        expectedUnitCost: unitCost,
+      });
+    }
     // CALCULATE TOTAL SERVER-SIDE
     const totalAmount =
       calculateSupplierPOTotal(calculatedItems);
@@ -244,7 +260,27 @@ for (const item of items) {
       createdBy: req.user._id,
     });
 
-    res.status(201).json({
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "purchasing"],
+        excludeUserId: req.user._id,
+        type: "supplier_po",
+        title: "New Supplier PO",
+        message: `Supplier PO ${supplierPO.poNumber} was created.`,
+        link: `/supplier-pos?search=${encodeURIComponent(
+          supplierPO.poNumber,
+        )}`,
+        entityType: "SupplierPO",
+        entityId: supplierPO._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create Supplier PO notification:",
+        notificationError,
+      );
+    }
+
+   res.status(201).json({
       success: true,
       supplierPO,
     });
@@ -252,7 +288,6 @@ for (const item of items) {
     next(error);
   }
 };
-
 
 
 
@@ -269,21 +304,18 @@ const updateSupplierPO = async (req, res, next) => {
     }
 
     // ==========================================
-    // SUPPLIER PO STATE TRANSITIONS
+    // CAPTURE PREVIOUS STATUS
     // ==========================================
 
-const SUPPLIER_PO_STATE_TRANSITIONS = {
-  draft: ["sent", "cancelled"],
-  sent: [],
-  cancelled: [],
-};
+    const previousStatus = supplierPO.status;
+
     // ==========================================
     // TERMINAL SUPPLIER PO STATUSES
     // ==========================================
 
-const TERMINAL_SUPPLIER_PO_STATUSES = [
-  "sent",
-  "cancelled",
+    const TERMINAL_SUPPLIER_PO_STATUSES = [
+      "received",
+      "cancelled",
     ];
 
     const {
@@ -309,6 +341,19 @@ const TERMINAL_SUPPLIER_PO_STATUSES = [
     }
 
     // ==========================================
+    // STATUS IS SYSTEM-CONTROLLED
+    // ==========================================
+
+    if (status !== undefined) {
+      const error = new Error(
+        "Supplier PO status can only be changed through the appropriate workflow action"
+      );
+
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
     // TERMINAL STATE PROTECTION
     // ==========================================
 
@@ -326,26 +371,21 @@ const TERMINAL_SUPPLIER_PO_STATUSES = [
     }
 
     // ==========================================
-    // VALIDATE STATE TRANSITION
+    // SUPPLIER CHANGE REQUIRES ITEM RECALCULATION
     // ==========================================
 
     if (
-      status !== undefined &&
-      status !== supplierPO.status
+      supplierId !== undefined &&
+      supplierId.toString() !==
+        supplierPO.supplierId.toString() &&
+      items === undefined
     ) {
-      const allowedTransitions =
-        SUPPLIER_PO_STATE_TRANSITIONS[
-          supplierPO.status
-        ] || [];
+      const error = new Error(
+        "Changing the supplier requires the Supplier PO items to be recalculated"
+      );
 
-      if (!allowedTransitions.includes(status)) {
-        const error = new Error(
-          `Invalid Supplier PO state transition: ${supplierPO.status} → ${status}`
-        );
-
-        error.statusCode = 400;
-        throw error;
-      }
+      error.statusCode = 400;
+      throw error;
     }
 
     // ==========================================
@@ -415,6 +455,18 @@ const TERMINAL_SUPPLIER_PO_STATUSES = [
     let calculatedItems;
 
     if (items !== undefined) {
+      if (
+        !Array.isArray(items) ||
+        items.length === 0
+      ) {
+        const error = new Error(
+          "Supplier PO must contain at least one item"
+        );
+
+        error.statusCode = 400;
+        throw error;
+      }
+
       const productIds = [
         ...new Set(
           items.map((item) =>
@@ -427,7 +479,9 @@ const TERMINAL_SUPPLIER_PO_STATUSES = [
         _id: { $in: productIds },
       });
 
-      if (products.length !== productIds.length) {
+      if (
+        products.length !== productIds.length
+      ) {
         const error = new Error(
           "One or more products not found"
         );
@@ -495,10 +549,6 @@ const TERMINAL_SUPPLIER_PO_STATUSES = [
         supplierPODate;
     }
 
-    if (status !== undefined) {
-      supplierPO.status = status;
-    }
-
     if (relatedClientPOId !== undefined) {
       supplierPO.relatedClientPOId =
         relatedClientPOId;
@@ -522,6 +572,15 @@ const TERMINAL_SUPPLIER_PO_STATUSES = [
     await supplierPO.save();
 
     // ==========================================
+    // NOTIFICATION
+    // ==========================================
+
+    // NOTE:
+    // Cancellation should have its own dedicated
+    // workflow endpoint rather than being performed
+    // through generic update.
+
+    // ==========================================
     // RESPONSE
     // ==========================================
 
@@ -533,6 +592,7 @@ const TERMINAL_SUPPLIER_PO_STATUSES = [
     next(error);
   }
 };
+
 
 
 // RELEASE SUPPLIER PO
@@ -547,6 +607,7 @@ const releaseSupplierPO = async (req, res, next) => {
       });
     }
 
+    // ONLY DRAFT SUPPLIER PO CAN BE RELEASED
     if (supplierPO.status !== "draft") {
       const error = new Error(
         `Cannot release a ${supplierPO.status} Supplier PO`
@@ -556,10 +617,42 @@ const releaseSupplierPO = async (req, res, next) => {
       throw error;
     }
 
+    // ==========================================
+    // RELEASE SUPPLIER PO
+    // ==========================================
+
     supplierPO.status = "sent";
     supplierPO.updatedBy = req.user._id;
 
     await supplierPO.save();
+
+    // ==========================================
+    // NOTIFICATION
+    // ==========================================
+
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "purchasing"],
+        excludeUserId: req.user._id,
+        type: "supplier_po",
+        title: "Supplier PO Sent",
+        message: `Supplier PO ${supplierPO.poNumber} was sent.`,
+        link: `/supplier-pos?search=${encodeURIComponent(
+          supplierPO.poNumber
+        )}`,
+        entityType: "SupplierPO",
+        entityId: supplierPO._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create Supplier PO release notification:",
+        notificationError
+      );
+    }
+
+    // ==========================================
+    // RESPONSE
+    // ==========================================
 
     res.status(200).json({
       success: true,

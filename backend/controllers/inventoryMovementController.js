@@ -612,18 +612,58 @@ if (
   });
 }
 
-    const productId = movement.productId;
+  const productId = movement.productId;
 
-    await movement.deleteOne({ session });
+// Capture stock BEFORE deletion
+const product = await Product.findById(productId).session(session);
 
-    await recalculateProductStock(productId, session);
+if (!product) {
+  await session.abortTransaction();
 
-    await session.commitTransaction();
+  return res.status(404).json({
+    success: false,
+    message: "Product not found",
+  });
+}
 
-    res.status(200).json({
-      success: true,
-      message: "Inventory movement deleted successfully",
-    });
+const previousStock = product.currentStock;
+
+await movement.deleteOne({ session });
+
+await recalculateProductStock(productId, session);
+
+const updatedProduct = await Product.findById(productId).session(session);
+
+if (!updatedProduct) {
+  await session.abortTransaction();
+
+  return res.status(404).json({
+    success: false,
+    message: "Product not found after stock recalculation",
+  });
+}
+
+const newStock = updatedProduct.currentStock;
+
+await session.commitTransaction();
+
+try {
+  await checkAndCreateLowStockNotification({
+    productId,
+    previousStock,
+    newStock,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create low-stock notification:",
+    notificationError,
+  );
+}
+
+res.status(200).json({
+  success: true,
+  message: "Inventory movement deleted successfully",
+});
   } catch (error) {
     await session.abortTransaction();
     next(error);
