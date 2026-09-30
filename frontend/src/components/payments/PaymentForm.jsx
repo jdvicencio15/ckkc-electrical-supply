@@ -2,6 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSettings } from "../../context/SettingsContext";
 import { formatCurrency } from "../../utils/currency";
+import {
+  roundMoney,
+  toCents,
+  fromCents,
+} from "../../utils/money";
+
 function PaymentForm({
   payment = null,
   issuedInvoices = [],
@@ -110,32 +116,39 @@ function PaymentForm({
     payment,
   ]);
 
-  const totalPaid = useMemo(() => {
-    return invoicePayments.reduce(
-      (total, item) =>
-        total + Number(item.amount || 0),
-      0
-    );
-  }, [invoicePayments]);
-
-  const remainingBalance = useMemo(() => {
-    if (!selectedInvoice) {
-      return 0;
-    }
-
-    return Math.max(
-      0,
-      Number(selectedInvoice.totalAmount || 0) -
-        totalPaid
-    );
-  }, [selectedInvoice, totalPaid]);
-
-  const enteredAmount = Number(
-    formData.amount || 0
+const totalPaid = useMemo(() => {
+  const total = invoicePayments.reduce(
+    (sum, item) =>
+      sum + Number(item.amount || 0),
+    0
   );
 
-  const exceedsBalance =
-    enteredAmount > remainingBalance;
+  return roundMoney(total);
+}, [invoicePayments]);
+
+const remainingBalance = useMemo(() => {
+  if (!selectedInvoice) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    roundMoney(
+      Number(selectedInvoice.totalAmount || 0) -
+        totalPaid
+    )
+  );
+}, [selectedInvoice, totalPaid]);
+
+const enteredAmount = roundMoney(
+  Number(formData.amount || 0)
+);
+
+const exceedsBalance =
+  enteredAmount > remainingBalance;
+
+
+
 
   const handleSubmit = (e) => {
     e.preventDefault();

@@ -1,4 +1,3 @@
-
 import API from "./axios";
 
 const invoiceApi = {
@@ -31,7 +30,14 @@ const invoiceApi = {
 
     return response.data;
   },
+
+  getInvoicePDF: async (id) => {
+    const response = await API.get(`/invoices/${id}/pdf`, {
+      responseType: "blob",
+    });
+
+    return response.data;
+  },
 };
 
 export default invoiceApi;
-

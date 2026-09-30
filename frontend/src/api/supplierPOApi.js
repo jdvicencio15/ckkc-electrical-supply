@@ -8,7 +8,9 @@ const supplierPOApi = {
   },
 
   getSupplierPOById: async (id) => {
-    const response = await API.get(`/supplier-pos/${id}`);
+    const response = await API.get(
+      `/supplier-pos/${id}`,
+    );
 
     return response.data;
   },
@@ -39,6 +41,7 @@ const supplierPOApi = {
     return response.data;
   },
 
+  // EXPORT SUPPLIER PO PDF
   exportSupplierPOPDF: async (id) => {
     const response = await API.get(
       `/supplier-pos/${id}/pdf`,
@@ -50,13 +53,13 @@ const supplierPOApi = {
     return response.data;
   },
 
- releaseSupplierPO: async (id) => {
-  const response = await API.post(
-    `/supplier-pos/${id}/release`,
-  );
+  releaseSupplierPO: async (id) => {
+    const response = await API.post(
+      `/supplier-pos/${id}/release`,
+    );
 
-  return response.data;
-},
+    return response.data;
+  },
 };
 
 export default supplierPOApi;

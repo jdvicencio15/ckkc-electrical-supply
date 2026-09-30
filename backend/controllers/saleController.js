@@ -852,27 +852,48 @@ const releaseSale = async (req, res, next) => {
     // COMMIT TRANSACTION
     await session.commitTransaction();
 
-       // CREATE SALE RELEASE NOTIFICATION
-    try {
-      await createNotificationsForRoles({
-        roles: ["owner", "admin", "sales"],
-        excludeUserId: req.user._id,
-        type: "sale",
-        title: "Sale Released",
-        message: `Sale ${sale.salesNumber} was released successfully.`,
-        link: `/sales?search=${encodeURIComponent(
-          sale.salesNumber,
-        )}`,
-        entityType: "Sale",
-        entityId: sale._id,
-      });
-    } catch (notificationError) {
-      console.error(
-        "Failed to create sale release notification:",
-        notificationError,
-      );
-    }
-    
+  // CREATE SALE RELEASE NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin", "sales"],
+    excludeUserId: req.user._id,
+    type: "sale",
+    title: "Sale Released",
+    message: `Sale ${sale.salesNumber} was released successfully.`,
+    link: `/sales?search=${encodeURIComponent(
+      sale.salesNumber,
+    )}`,
+    entityType: "Sale",
+    entityId: sale._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create sale release notification:",
+    notificationError,
+  );
+}
+
+// CREATE ACCOUNTING NOTIFICATION
+try {
+  await createNotificationsForRoles({
+    roles: ["owner", "admin", "accounting"],
+    excludeUserId: req.user._id,
+    type: "accounting",
+    title: "Sales Journal Entry Created",
+    message: `Accounting entry was created for Sale ${sale.salesNumber}.`,
+    link: `/accounting/journal-entries?search=${encodeURIComponent(
+      sale.salesNumber,
+    )}`,
+    entityType: "Sale",
+    entityId: sale._id,
+  });
+} catch (notificationError) {
+  console.error(
+    "Failed to create accounting notification:",
+    notificationError,
+  );
+}
+
     // POST-COMMIT: LOW STOCK NOTIFICATIONS
     for (const check of lowStockChecks) {
       try {

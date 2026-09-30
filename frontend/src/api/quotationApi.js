@@ -36,6 +36,18 @@ const quotationApi = {
 
     return response.data;
   },
+
+  exportQuotationPDF: async (id) => {
+    const response = await API.get(
+      `/quotations/${id}/pdf`,
+      {
+        responseType: "blob",
+      }
+    );
+
+    return response.data;
+  },
+
 };
 
 export default quotationApi;

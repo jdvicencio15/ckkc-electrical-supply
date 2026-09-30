@@ -46,12 +46,21 @@ const exportInvoicePDF = async (req, res, next) => {
 
     const settings = await Settings.findOne();
 
+    console.log("PDF DEBUG:", {
+      invoiceId: invoice._id,
+      invoiceNumber: invoice.invoiceNumber,
+      items: invoice.items?.length,
+      customer: invoice.customerId?.name,
+      settingsFound: !!settings,
+    });
+
     generateInvoicePDF({
       invoice,
       settings,
       res,
     });
   } catch (error) {
+    console.error("EXPORT INVOICE PDF ERROR:", error);
     next(error);
   }
 };
@@ -472,7 +481,7 @@ if (status !== undefined && status !== "draft") {
     );
   }
     }
-    
+
     const populatedInvoice =
       await Invoice.findById(invoice._id)
         .populate(

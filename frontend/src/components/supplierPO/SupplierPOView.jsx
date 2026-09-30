@@ -1,12 +1,57 @@
-import { FaTimes } from "react-icons/fa";
+import { FaTimes, FaFilePdf } from "react-icons/fa";
+
+
+import supplierPOService from "../../services/supplierPOService";
 
 function SupplierPOView({
   supplierPO,
   onClose,
+  onToast,
 }) {
   if (!supplierPO) {
     return null;
   }
+
+ const handleExportPDF = async () => {
+  try {
+    const blob =
+      await supplierPOService.exportSupplierPOPDF(
+        supplierPO._id
+      );
+
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${supplierPO.poNumber}.pdf`;
+
+    document.body.appendChild(link);
+    link.click();
+
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+
+    onToast?.({
+      type: "success",
+      message: "Supplier PO PDF exported successfully.",
+    });
+  } catch (error) {
+    console.error(
+      "Failed to export Supplier PO PDF:",
+      error
+    );
+
+    onToast?.({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to export Supplier PO PDF.",
+    });
+  }
+};
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -194,17 +239,30 @@ function SupplierPOView({
           </div>
         </div>
 
-        {/* FOOTER */}
+      {/* FOOTER */}
 
-        <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-          >
-            Close
-          </button>
-        </div>
+<div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-800">
+
+  {/* EXPORT PDF */}
+  <button
+    type="button"
+    onClick={handleExportPDF}
+    className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700"
+  >
+    <FaFilePdf className="h-4 w-4" />
+    Export PDF
+  </button>
+
+  {/* CLOSE */}
+  <button
+    type="button"
+    onClick={onClose}
+    className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+  >
+    Close
+  </button>
+
+</div>
       </div>
     </div>
   );

@@ -53,10 +53,9 @@ router.get(
 router.get(
   "/:id/pdf",
   protect,
-  authorize("owner", "admin", "sales", "purchasing", "accounting"),
-  exportSupplierPOPDF
+  authorize("owner", "admin", "purchasing"),
+  exportSupplierPOPDF,
 );
-
 
 // RELEASE
 router.post(

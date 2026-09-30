@@ -3,7 +3,11 @@ const Payment = require("../models/Payment");
 const Invoice = require("../models/Invoice");
 const mongoose = require("mongoose");
 
-const { roundMoney } = require("../utils/money");
+const {
+  roundMoney,
+  toCents,
+  fromCents,
+} = require("../utils/money");
 
 const {
   createNotificationsForRoles,
@@ -144,33 +148,42 @@ const createPayment = async (req, res, next) => {
       },
     ]).session(session);
 
-    const totalPaid = paymentSummary[0]?.totalPaid || 0;
+const totalPaid = paymentSummary[0]?.totalPaid || 0;
 
-    const remainingBalance =
-      roundMoney(invoice.totalAmount - totalPaid);
+const invoiceTotalCents = toCents(invoice.totalAmount);
+const totalPaidCents = toCents(totalPaid);
+const paymentAmountCents = toCents(amount);
 
-    const paymentAmount = roundMoney(amount);
+const remainingBalanceCents =
+  invoiceTotalCents - totalPaidCents;
 
-    const newTotalPaid = roundMoney(
-  totalPaid + paymentAmount,
-);
+if (paymentAmountCents > remainingBalanceCents) {
+  return res.status(400).json({
+    success: false,
+    message: `Payment exceeds remaining balance of ${fromCents(
+      remainingBalanceCents,
+    ).toFixed(2)}`,
+  });
+}
+
+const newTotalPaidCents =
+  totalPaidCents + paymentAmountCents;
 
 const paymentStatus =
-  newTotalPaid >= roundMoney(invoice.totalAmount)
+  newTotalPaidCents >= invoiceTotalCents
     ? "paid"
-    : newTotalPaid > 0
+    : newTotalPaidCents > 0
       ? "partial"
-          : "unpaid";
+      : "unpaid";
 
-    // ------------------------------
-    // Prevent overpayment
-    // ------------------------------
-    if (paymentAmount > remainingBalance) {
-      return res.status(400).json({
-        success: false,
-        message: `Payment exceeds remaining balance of ${remainingBalance}`,
-      });
-    }
+const paymentAmount =
+  fromCents(paymentAmountCents);
+
+const remainingBalance =
+  fromCents(
+    invoiceTotalCents - newTotalPaidCents,
+  );
+
 
 
     // ------------------------------
@@ -221,11 +234,11 @@ try {
     title: isFullyPaid
       ? "Invoice Fully Paid"
       : "Payment Received",
-    message: isFullyPaid
-      ? `Invoice ${invoice.invoiceNumber} has been fully paid.`
-      : `Payment received for Invoice ${invoice.invoiceNumber}. Remaining balance: ${roundMoney(
-          invoice.totalAmount - newTotalPaid,
-        )}.`,
+ message: isFullyPaid
+  ? `Invoice ${invoice.invoiceNumber} has been fully paid.`
+  : `Payment received for Invoice ${invoice.invoiceNumber}. Remaining balance: ${fromCents(
+      invoiceTotalCents - newTotalPaidCents
+    ).toFixed(2)}.`,
     link: `/payments?search=${encodeURIComponent(
       invoice.invoiceNumber,
     )}`,

@@ -1,4 +1,3 @@
-
 import invoiceApi from "../api/invoiceApi";
 
 const invoiceService = {
@@ -21,7 +20,10 @@ const invoiceService = {
   deleteInvoice: async (id) => {
     return await invoiceApi.deleteInvoice(id);
   },
+
+  getInvoicePDF: async (id) => {
+    return await invoiceApi.getInvoicePDF(id);
+  },
 };
 
 export default invoiceService;
-

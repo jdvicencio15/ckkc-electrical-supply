@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import {
+  FaEdit,
+  FaTrash,
+  FaFilePdf,
+} from "react-icons/fa";
 import quotationService from "../services/quotationService";
 import Toast from "../components/common/Toast";
 import QuotationForm from "../components/quotations/QuotationForm";
@@ -128,6 +132,50 @@ const [deleting, setDeleting] = useState(false);
     }
   };
 
+
+  // =========================
+// EXPORT QUOTATION PDF
+// =========================
+const handleExportPDF = async (quotation) => {
+  try {
+    const blob =
+      await quotationService.exportQuotationPDF(
+        quotation._id
+      );
+
+    const url =
+      window.URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
+
+    link.href = url;
+
+    link.download =
+      `${quotation.quotationNumber}.pdf`;
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error(
+      "Failed to export quotation PDF:",
+      error
+    );
+
+    setToast({
+      type: "error",
+      message:
+        error.response?.data?.message ||
+        "Failed to export quotation PDF.",
+    });
+  }
+  };
+
   // OPEN CREATE FORM
   const openCreateForm = () => {
     setEditingQuotation(null);
@@ -206,6 +254,8 @@ const handleCancelDelete = () => {
       message: "",
     });
   };
+
+
 
   // FILTER QUOTATIONS
   const filteredQuotations = useMemo(() => {
@@ -530,32 +580,53 @@ const handleCancelDelete = () => {
                     : "—"}
                 </td>
 
-                {/* ACTIONS */}
-                <td className="px-6 py-4">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openEditForm(quotation)
-                      }
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                      aria-label={`Edit ${quotation.quotationNumber}`}
-                    >
-                      <FaEdit className="h-3.5 w-3.5" />
-                    </button>
+            {/* ACTIONS */}
+<td className="px-6 py-4">
+  <div className="flex justify-end gap-2">
+    {/* EDIT */}
+    <button
+      type="button"
+      onClick={() =>
+        openEditForm(quotation)
+      }
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+      aria-label={`Edit ${quotation.quotationNumber}`}
+      title="Edit quotation"
+    >
+      <FaEdit className="h-3.5 w-3.5" />
+    </button>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDelete(quotation)
-                      }
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                      aria-label={`Delete ${quotation.quotationNumber}`}
-                    >
-                      <FaTrash className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </td>
+    {/* EXPORT PDF */}
+    <button
+      type="button"
+      onClick={() =>
+        handleExportPDF(quotation)
+      }
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-green-600 transition hover:bg-green-50 hover:text-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
+      aria-label={`Export PDF ${quotation.quotationNumber}`}
+      title="Export PDF"
+    >
+      <FaFilePdf className="h-3.5 w-3.5" />
+    </button>
+
+    {/* DELETE */}
+    <button
+      type="button"
+      onClick={() =>
+        handleDelete(quotation)
+      }
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+      aria-label={`Delete ${quotation.quotationNumber}`}
+      title="Delete quotation"
+    >
+      <FaTrash className="h-3.5 w-3.5" />
+    </button>
+  </div>
+</td>
+
+
+
+
               </tr>
             ))
         )}

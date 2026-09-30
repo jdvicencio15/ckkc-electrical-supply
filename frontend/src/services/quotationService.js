@@ -39,6 +39,14 @@ const quotationService = {
 
     return data;
   },
+
+    exportQuotationPDF: async (id) => {
+    const data =
+      await quotationApi.exportQuotationPDF(id);
+
+    return data;
+  },
+    
 };
 
 export default quotationService;
