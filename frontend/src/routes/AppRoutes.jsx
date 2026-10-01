@@ -24,7 +24,7 @@ import Inventory from "../pages/Inventory";
 import Customers from "../pages/Customers";
 import Suppliers from "../pages/Suppliers";
 import Quotations from "../pages/Quotations";
-import ClientPOs from "../pages/ClientPOs";
+import ClientPOs from "../pages/ClientPO";
 
 import Invoices from "../pages/Invoices";
 import Payments from "../pages/Payments";
@@ -51,6 +51,7 @@ import Settings from "../pages/Settings";
 import Units from "../pages/Units";
 import UnitCreate from "../pages/UnitCreate";
 import UnitEdit from "../pages/UnitEdit";
+import AuditTrails from "../pages/AuditTrails";
 
 import Expenses from "../pages/accounting/Expenses";
 import SupplierPO from "../pages/SupplierPO";
@@ -153,7 +154,7 @@ function AppRoutes() {
 >
   <Route path="/supplier-pos" element={<SupplierPO />} />
             </Route>
-            
+
             {/* Sales Documents */}
             <Route
               element={<PermissionRoute module="quotations" action="view" />}
@@ -241,6 +242,16 @@ function AppRoutes() {
             >
               <Route path="/roles-permissions" element={<RolesPermissions />} />
             </Route>
+
+
+{/* Audit Trails */}
+<Route
+  element={
+    <PermissionRoute module="auditTrails" action="view" />
+  }
+>
+  <Route path="/audit-trails" element={<AuditTrails />} />
+</Route>
 
             <Route
               element={<PermissionRoute module="settings" action="view" />}

@@ -8,7 +8,6 @@ import quotationService from "../../services/quotationService";
 import { useSettings } from "../../context/SettingsContext";
 import { formatCurrency } from "../../utils/currency";
 
-
 function ClientPOForm({
   initialData = null,
   onSubmit,
@@ -27,6 +26,25 @@ function ClientPOForm({
   const [error, setError] = useState("");
 
   const isEditing = Boolean(initialData);
+
+  const isDraft = !initialData || initialData.status === "draft";
+
+  const isReadOnly = isEditing && !isDraft;
+
+  const canChangeStatus =
+    !isEditing ||
+    initialData.status === "draft" ||
+    initialData.status === "received";
+
+  const canSubmit = !isEditing || isDraft || initialData.status === "received";
+
+  const statusOptions = {
+    draft: ["draft", "received", "cancelled"],
+    received: ["received", "processing", "cancelled"],
+    processing: ["processing"],
+    fulfilled: ["fulfilled"],
+    cancelled: ["cancelled"],
+  };
 
   // =========================
   // BUILD FORM DATA
@@ -169,24 +187,24 @@ function ClientPOForm({
       quotationId,
     }));
 
-   if (!quotationId) {
-  setFormData((previous) => ({
-    ...previous,
-    quotationId: "",
-    items: [
-      {
-        productId: "",
-        description: "",
-        quantity: 1,
-        agreedUnitPrice: 0,
-      },
-    ],
-    laborCost: 0,
-    otherDirectCosts: 0,
-  }));
+    if (!quotationId) {
+      setFormData((previous) => ({
+        ...previous,
+        quotationId: "",
+        items: [
+          {
+            productId: "",
+            description: "",
+            quantity: 1,
+            agreedUnitPrice: 0,
+          },
+        ],
+        laborCost: 0,
+        otherDirectCosts: 0,
+      }));
 
-  return;
-}
+      return;
+    }
 
     try {
       setLoadingQuotation(true);
@@ -315,9 +333,14 @@ function ClientPOForm({
       return [];
     }
 
-    return quotations.filter(
-      (quotation) => quotation.customerId?._id === formData.customerId,
-    );
+    return quotations.filter((quotation) => {
+      const quotationCustomerId =
+        typeof quotation.customerId === "object"
+          ? quotation.customerId?._id
+          : quotation.customerId;
+
+      return String(quotationCustomerId) === String(formData.customerId);
+    });
   }, [quotations, formData.customerId]);
 
   // =========================
@@ -412,30 +435,35 @@ function ClientPOForm({
 
     setError("");
 
-    const payload = {
-      customerId: formData.customerId,
+    const payload =
+  isEditing && initialData.status === "received"
+    ? {
+        status: formData.status,
+      }
+    : {
+        customerId: formData.customerId,
 
-      ...(formData.quotationId
-        ? {
-            quotationId: formData.quotationId,
-          }
-        : {}),
+        ...(formData.quotationId
+          ? {
+              quotationId: formData.quotationId,
+            }
+          : {}),
 
-      poDate: formData.poDate,
+        poDate: formData.poDate,
 
-      status: formData.status,
+        status: formData.status,
 
-      items: formData.items.map((item) => ({
-        productId: item.productId,
-        description: item.description.trim(),
-        quantity: Number(item.quantity),
-        agreedUnitPrice: Number(item.agreedUnitPrice),
-      })),
+        items: formData.items.map((item) => ({
+          productId: item.productId,
+          description: item.description.trim(),
+          quantity: Number(item.quantity),
+          agreedUnitPrice: Number(item.agreedUnitPrice),
+        })),
 
-      laborCost: Number(formData.laborCost || 0),
+        laborCost: Number(formData.laborCost || 0),
 
-      otherDirectCosts: Number(formData.otherDirectCosts || 0),
-    };
+        otherDirectCosts: Number(formData.otherDirectCosts || 0),
+      };
 
     await onSubmit(payload);
   };
@@ -509,7 +537,7 @@ function ClientPOForm({
                     name="customerId"
                     value={formData.customerId}
                     onChange={handleChange}
-                    disabled={submitting || loadingReferences}
+                    disabled={submitting || loadingReferences || isReadOnly}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
                   >
                     <option value="">Select customer</option>
@@ -535,7 +563,7 @@ function ClientPOForm({
                     name="poDate"
                     value={formData.poDate}
                     onChange={handleChange}
-                    disabled={submitting}
+                    disabled={submitting || isReadOnly}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
                   />
                 </div>
@@ -550,21 +578,19 @@ function ClientPOForm({
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
-                    disabled={submitting || !isEditing}
+                    disabled={submitting || !canChangeStatus}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
                   >
-                    <option value="draft">Draft</option>
-
-                    <option value="received">Received</option>
-
-                    <option value="fulfilled">Fulfilled</option>
-
-                    <option value="cancelled">Cancelled</option>
+                    {(statusOptions[formData.status] || []).map((status) => (
+                      <option key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))}
                   </select>
 
                   {!isEditing && (
                     <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      New Client POs start as Draft.
+                      Status is controlled by the Client PO workflow.
                     </p>
                   )}
                 </div>
@@ -584,7 +610,10 @@ function ClientPOForm({
                     handleQuotationChange(event.target.value)
                   }
                   disabled={
-                    submitting || !formData.customerId || loadingQuotation
+                    submitting ||
+                    !formData.customerId ||
+                    loadingQuotation ||
+                    isReadOnly
                   }
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-500/10 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800"
                 >
@@ -624,7 +653,7 @@ function ClientPOForm({
                 <button
                   type="button"
                   onClick={addItem}
-                  disabled={submitting || loadingReferences}
+                  disabled={submitting || loadingReferences || isReadOnly}
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FaPlus className="h-3 w-3" />
@@ -679,7 +708,9 @@ function ClientPOForm({
                               onChange={(event) =>
                                 handleProductChange(index, event.target.value)
                               }
-                              disabled={submitting || loadingReferences}
+                              disabled={
+                                submitting || loadingReferences || isReadOnly
+                              }
                               className="w-full min-w-[260px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                             >
                               <option value="">Select product</option>
@@ -713,30 +744,30 @@ function ClientPOForm({
                                   event.target.value,
                                 )
                               }
-                              disabled={submitting}
+                              disabled={submitting || isReadOnly}
                               placeholder="Item description"
                               className="w-full min-w-[220px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                             />
                           </td>
 
-                       {/* QUANTITY */}
-<td className="px-5 py-4 align-top">
-  <input
-    type="number"
-    min="0.01"
-    step="0.01"
-    value={item.quantity}
-    onChange={(event) =>
-      handleItemChange(
-        index,
-        "quantity",
-        event.target.value,
-      )
-    }
-    disabled={submitting}
-    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-right text-sm text-slate-900 outline-none transition focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-  />
-</td>
+                          {/* QUANTITY */}
+                          <td className="px-5 py-4 align-top">
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(event) =>
+                                handleItemChange(
+                                  index,
+                                  "quantity",
+                                  event.target.value,
+                                )
+                              }
+                              disabled={submitting || isReadOnly}
+                              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-right text-sm text-slate-900 outline-none transition focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                            />
+                          </td>
 
                           {/* UNIT PRICE */}
                           <td className="px-5 py-4 align-top">
@@ -752,7 +783,7 @@ function ClientPOForm({
                                   event.target.value,
                                 )
                               }
-                              disabled={submitting}
+                              disabled={submitting || isReadOnly}
                               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-right text-sm text-slate-900 outline-none transition focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                             />
                           </td>
@@ -771,7 +802,9 @@ function ClientPOForm({
                               type="button"
                               onClick={() => removeItem(index)}
                               disabled={
-                                submitting || formData.items.length === 1
+                                submitting ||
+                                isReadOnly ||
+                                formData.items.length === 1
                               }
                               className="flex h-8 w-8 items-center justify-center rounded-lg text-red-500 transition hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-red-400 dark:hover:bg-red-950/30"
                               aria-label={`Remove item ${index + 1}`}
@@ -813,7 +846,7 @@ function ClientPOForm({
                       name="laborCost"
                       value={formData.laborCost}
                       onChange={handleChange}
-                      disabled={submitting}
+                      disabled={submitting || isReadOnly}
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </div>
@@ -830,7 +863,7 @@ function ClientPOForm({
                       name="otherDirectCosts"
                       value={formData.otherDirectCosts}
                       onChange={handleChange}
-                      disabled={submitting}
+                      disabled={submitting || isReadOnly}
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-green-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </div>
@@ -914,14 +947,17 @@ function ClientPOForm({
 
             <button
               type="submit"
-              disabled={submitting || loadingReferences}
-              className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={submitting || loadingReferences || !canSubmit}
+               className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+
             >
               {submitting
                 ? "Saving..."
-                : isEditing
-                  ? "Update Client PO"
-                  : "Create Client PO"}
+                : !isEditing
+                  ? "Create Client PO"
+                  : isReadOnly
+                    ? "Update Status"
+                    : "Update Client PO"}
             </button>
           </div>
         </form>

@@ -4,6 +4,14 @@ const ClientPO = require("../models/ClientPO");
 const Invoice = require("../models/Invoice");
 const Sale = require("../models/Sale");
 
+
+
+const {
+  createAuditLog,
+} = require("../services/auditService");
+
+
+
 // GET ALL CUSTOMERS
 const getCustomers = async (req, res, next) => {
   try {
@@ -94,15 +102,25 @@ const createCustomer = async (req, res, next) => {
       status,
     } = req.body;
 
-    const customer = await Customer.create({
-      customerCode,
-      name,
-      contactPerson,
-      email,
-      phone,
-      address,
-      status,
-    });
+ const customer = await Customer.create({
+  customerCode,
+  name,
+  contactPerson,
+  email,
+  phone,
+  address,
+  status,
+});
+
+await createAuditLog({
+  req,
+  action: "CREATE",
+  entity: "Customer",
+  entityId: customer._id,
+  documentNumber: customer.customerCode,
+  description: `Created customer ${customer.name}`,
+  after: customer.toObject(),
+});
 
     res.status(201).json({
       success: true,
@@ -118,12 +136,16 @@ const updateCustomer = async (req, res, next) => {
   try {
     const customer = await Customer.findById(req.params.id);
 
+
     if (!customer) {
       return res.status(404).json({
         success: false,
         message: "Customer not found",
       });
     }
+
+    const before = customer.toObject();
+
 
     const {
       customerCode,
@@ -165,6 +187,17 @@ const updateCustomer = async (req, res, next) => {
 
     await customer.save();
 
+    await createAuditLog({
+  req,
+  action: "UPDATE",
+  entity: "Customer",
+  entityId: customer._id,
+  documentNumber: customer.customerCode,
+  description: `Updated customer ${customer.name}`,
+  before,
+  after: customer.toObject(),
+});
+
     res.status(200).json({
       success: true,
       customer,
@@ -205,8 +238,19 @@ const deleteCustomer = async (req, res, next) => {
         message: "Customer cannot be deleted because it has existing transactions",
       });
     }
+    const before = customer.toObject();
 
     await customer.deleteOne();
+
+    await createAuditLog({
+  req,
+  action: "DELETE",
+  entity: "Customer",
+  entityId: customer._id,
+  documentNumber: customer.customerCode,
+  description: `Deleted customer ${customer.name}`,
+  before,
+});
 
     res.status(200).json({
       success: true,

@@ -1,5 +1,7 @@
 const Category = require("../models/Category");
 
+const { createAuditLog } = require("../services/auditService");
+
 // GET ALL CATEGORIES
 const getCategories = async (req, res, next) => {
   try {
@@ -41,6 +43,16 @@ const createCategory = async (req, res, next) => {
   try {
     const category = await Category.create(req.body);
 
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Category",
+      entityId: category._id,
+      documentNumber: category.name,
+      description: `Created category ${category.name}`,
+      after: category.toObject(),
+    });
+
     res.status(201).json({
       success: true,
       category,
@@ -53,14 +65,7 @@ const createCategory = async (req, res, next) => {
 // UPDATE CATEGORY
 const updateCategory = async (req, res, next) => {
   try {
-    const category = await Category.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const category = await Category.findById(req.params.id);
 
     if (!category) {
       return res.status(404).json({
@@ -68,6 +73,23 @@ const updateCategory = async (req, res, next) => {
         message: "Category not found",
       });
     }
+
+    const before = category.toObject();
+
+    Object.assign(category, req.body);
+
+    await category.save();
+
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "Category",
+      entityId: category._id,
+      documentNumber: category.name,
+      description: `Updated category ${category.name}`,
+      before,
+      after: category.toObject(),
+    });
 
     res.status(200).json({
       success: true,
@@ -81,9 +103,7 @@ const updateCategory = async (req, res, next) => {
 // DELETE CATEGORY
 const deleteCategory = async (req, res, next) => {
   try {
-    const category = await Category.findByIdAndDelete(
-      req.params.id
-    );
+    const category = await Category.findById(req.params.id);
 
     if (!category) {
       return res.status(404).json({
@@ -91,6 +111,20 @@ const deleteCategory = async (req, res, next) => {
         message: "Category not found",
       });
     }
+
+    const before = category.toObject();
+
+    await category.deleteOne();
+
+    await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "Category",
+      entityId: category._id,
+      documentNumber: category.name,
+      description: `Deleted category ${category.name}`,
+      before,
+    });
 
     res.status(200).json({
       success: true,

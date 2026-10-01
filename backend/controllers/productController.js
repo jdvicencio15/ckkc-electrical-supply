@@ -1,9 +1,9 @@
-
 const Product = require("../models/Product");
 const Unit = require("../models/Unit");
 const Supplier = require("../models/Supplier");
 const SupplierPricing = require("../models/SupplierPricing");
 
+const { createAuditLog } = require("../services/auditService");
 
 // VALIDATE UNIT REFERENCE
 const validateUnit = async (unitId) => {
@@ -74,7 +74,10 @@ const createProduct = async (req, res, next) => {
     const { initialSupplierPricing, ...productData } = req.body;
 
     const unit = await validateUnit(productData.unitId);
-    productData.unit = unit.code;
+
+    if (unit) {
+      productData.unit = unit.code;
+    }
 
     // VALIDATE INITIAL SUPPLIER PRICING
     let supplier = null;
@@ -116,6 +119,17 @@ const createProduct = async (req, res, next) => {
       { path: "unitId", select: "code name" },
     ]);
 
+    // AUDIT CREATE
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Product",
+      entityId: product._id,
+      documentNumber: product.productCode,
+      description: `Created product ${product.name}`,
+      after: product.toObject(),
+    });
+
     res.status(201).json({
       success: true,
       product,
@@ -125,28 +139,13 @@ const createProduct = async (req, res, next) => {
   }
 };
 
-
 // UPDATE PRODUCT
 const updateProduct = async (req, res, next) => {
   try {
     // currentStock must not be manually changed through Product CRUD.
     const { currentStock, ...updateData } = req.body;
 
-    if (updateData.unitId !== undefined) {
-      const unit = await validateUnit(updateData.unitId);
-      updateData.unit = unit.code;
-    }
-
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      }
-    )
-      .populate("categoryId", "name")
-      .populate("unitId", "code name");
+    const product = await Product.findById(req.params.id);
 
     if (!product) {
       return res.status(404).json({
@@ -154,6 +153,45 @@ const updateProduct = async (req, res, next) => {
         message: "Product not found",
       });
     }
+
+    // Capture state BEFORE modification.
+    const before = product.toObject();
+
+    if (updateData.unitId !== undefined) {
+      const unit = await validateUnit(updateData.unitId);
+
+      if (unit) {
+        updateData.unit = unit.code;
+      }
+    }
+
+    // Apply only supplied fields.
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    Object.assign(product, updateData);
+
+    await product.save();
+
+    await product.populate([
+      { path: "categoryId", select: "name" },
+      { path: "unitId", select: "code name" },
+    ]);
+
+    // AUDIT UPDATE
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "Product",
+      entityId: product._id,
+      documentNumber: product.productCode,
+      description: `Updated product ${product.name}`,
+      before,
+      after: product.toObject(),
+    });
 
     res.status(200).json({
       success: true,
@@ -167,7 +205,7 @@ const updateProduct = async (req, res, next) => {
 // DELETE PRODUCT
 const deleteProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findById(req.params.id);
 
     if (!product) {
       return res.status(404).json({
@@ -175,6 +213,35 @@ const deleteProduct = async (req, res, next) => {
         message: "Product not found",
       });
     }
+
+    // Prevent deletion when supplier pricing still references the product.
+    const supplierPricingExists = await SupplierPricing.exists({
+      productId: product._id,
+    });
+
+    if (supplierPricingExists) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Product cannot be deleted because it has existing supplier pricing.",
+      });
+    }
+
+    // Capture state BEFORE deletion.
+    const before = product.toObject();
+
+    await product.deleteOne();
+
+    // AUDIT DELETE
+    await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "Product",
+      entityId: product._id,
+      documentNumber: product.productCode,
+      description: `Deleted product ${product.name}`,
+      before,
+    });
 
     res.status(200).json({
       success: true,
@@ -192,4 +259,3 @@ module.exports = {
   updateProduct,
   deleteProduct,
 };
-

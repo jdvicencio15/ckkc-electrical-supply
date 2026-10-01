@@ -4,15 +4,15 @@ const Product = require("../models/Product");
 const Supplier = require("../models/Supplier");
 const Settings = require("../models/Settings");
 
-const {
-  generateQuotationPDF,
-} = require("../services/pdfService");
+const { generateQuotationPDF } = require("../services/pdfService");
 
 const { resolveProductCost } = require("../services/pricingService");
 
 const { resolveProductUnit } = require("../services/unitService");
 
 const { checkReferencesExist } = require("../utils/referenceValidator");
+
+const { createAuditLog } = require("../services/auditService");
 
 const {
   createNotificationsForRoles,
@@ -317,28 +317,36 @@ const createQuotation = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Quotation",
+      entityId: quotation._id,
+      documentNumber: quotation.quotationNumber,
+      description: `Created quotation ${quotation.quotationNumber}`,
+      after: quotation.toObject(),
+    });
 
-
-// CREATE NOTIFICATION
-try {
-  await createNotificationsForRoles({
-    roles: ["owner", "admin", "sales"],
-    excludeUserId: req.user._id,
-    type: "quotation",
-    title: "New Quotation",
-    message: `Quotation ${quotation.quotationNumber} was created.`,
-    link: `/quotations?search=${encodeURIComponent(
-      quotation.quotationNumber,
-    )}`,
-    entityType: "Quotation",
-    entityId: quotation._id,
-  });
-} catch (notificationError) {
-  console.error(
-    "Failed to create quotation notification:",
-    notificationError,
-  );
-}
+    // CREATE NOTIFICATION
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "sales"],
+        excludeUserId: req.user._id,
+        type: "quotation",
+        title: "New Quotation",
+        message: `Quotation ${quotation.quotationNumber} was created.`,
+        link: `/quotations?search=${encodeURIComponent(
+          quotation.quotationNumber,
+        )}`,
+        entityType: "Quotation",
+        entityId: quotation._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create quotation notification:",
+        notificationError,
+      );
+    }
 
     const populatedQuotation = await Quotation.findById(quotation._id)
       .populate("customerId", "customerCode name")
@@ -366,6 +374,8 @@ const updateQuotation = async (req, res, next) => {
       });
     }
 
+    const before = quotation.toObject();
+
     const {
       customerId,
       quotationDate,
@@ -375,108 +385,116 @@ const updateQuotation = async (req, res, next) => {
       otherDirectCosts,
     } = req.body;
 
+    // =========================
+    // STATUS TRANSITION RULES
+    // =========================
 
-// =========================
-// STATUS TRANSITION RULES
-// =========================
+    const allowedStatusTransitions = {
+      draft: ["sent", "cancelled"],
+      sent: ["accepted", "rejected", "expired", "cancelled"],
+      accepted: [],
+      rejected: [],
+      expired: [],
+      cancelled: [],
+    };
 
-const allowedStatusTransitions = {
-  draft: ["sent", "cancelled"],
-  sent: ["accepted", "rejected", "expired", "cancelled"],
-  accepted: [],
-  rejected: [],
-  expired: [],
-  cancelled: [],
-};
+    // =========================
+    // CHECK EDITABLE FIELDS
+    // =========================
 
-// =========================
-// CHECK EDITABLE FIELDS
-// =========================
+    const hasEditableFields =
+      customerId !== undefined ||
+      quotationDate !== undefined ||
+      items !== undefined ||
+      laborCost !== undefined ||
+      otherDirectCosts !== undefined;
 
-const hasEditableFields =
-  customerId !== undefined ||
-  quotationDate !== undefined ||
-  items !== undefined ||
-  laborCost !== undefined ||
-  otherDirectCosts !== undefined;
+    // =========================
+    // STATUS UPDATE
+    // =========================
 
-// =========================
-// STATUS UPDATE
-// =========================
+    if (status !== undefined) {
+      const allowedStatuses = allowedStatusTransitions[quotation.status] || [];
 
-if (status !== undefined) {
-  const allowedStatuses =
-    allowedStatusTransitions[quotation.status] || [];
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid quotation status transition: ${quotation.status} → ${status}`,
+        });
+      }
 
-  if (!allowedStatuses.includes(status)) {
-    return res.status(400).json({
-      success: false,
-      message: `Invalid quotation status transition: ${quotation.status} → ${status}`,
-    });
-  }
+      // Non-draft quotations can only change status.
+      if (quotation.status !== "draft" && hasEditableFields) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Only quotation status can be changed after the quotation is sent",
+        });
+      }
 
-  // Non-draft quotations can only change status.
-  if (quotation.status !== "draft" && hasEditableFields) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Only quotation status can be changed after the quotation is sent",
-    });
-  }
+      // Status-only transition.
+      if (!hasEditableFields) {
+        quotation.status = status;
+        quotation.updatedBy = req.user._id;
 
-  // Status-only transition.
-  if (!hasEditableFields) {
-    quotation.status = status;
-    quotation.updatedBy = req.user._id;
+        await quotation.save();
 
-    await quotation.save();
+        await createAuditLog({
+          req,
+          action: "UPDATE",
+          entity: "Quotation",
+          entityId: quotation._id,
+          documentNumber: quotation.quotationNumber,
+          description: `Updated quotation ${quotation.quotationNumber} status from ${before.status} to ${quotation.status}`,
+          before,
+          after: quotation.toObject(),
+        });
 
+        // CREATE NOTIFICATION
+        try {
+          await createNotificationsForRoles({
+            roles: ["owner", "admin", "sales"],
+            excludeUserId: req.user._id,
+            type: "quotation",
+            title: `Quotation ${status}`,
+            message: `Quotation ${quotation.quotationNumber} was ${status}.`,
+            link: `/quotations?search=${encodeURIComponent(
+              quotation.quotationNumber,
+            )}`,
+            entityType: "Quotation",
+            entityId: quotation._id,
+          });
+        } catch (notificationError) {
+          console.error(
+            `Failed to create quotation ${status} notification:`,
+            notificationError,
+          );
+        }
 
-// CREATE NOTIFICATION
-try {
-  await createNotificationsForRoles({
-    roles: ["owner", "admin", "sales"],
-    excludeUserId: req.user._id,
-    type: "quotation",
-    title: `Quotation ${status}`,
-    message: `Quotation ${quotation.quotationNumber} was ${status}.`,
-    link: `/quotations?search=${encodeURIComponent(
-      quotation.quotationNumber,
-    )}`,
-    entityType: "Quotation",
-    entityId: quotation._id,
-  });
-} catch (notificationError) {
-  console.error(
-    `Failed to create quotation ${status} notification:`,
-    notificationError,
-  );
-}
+        const populatedQuotation = await Quotation.findById(quotation._id)
+          .populate("customerId", "customerCode name")
+          .populate("createdBy", "firstName lastName email")
+          .populate("updatedBy", "firstName lastName email")
+          .populate("items.productId", "sku name")
+          .populate("items.unitId", "code name");
 
-  const populatedQuotation = await Quotation.findById(quotation._id)
-    .populate("customerId", "customerCode name")
-    .populate("createdBy", "firstName lastName email")
-    .populate("updatedBy", "firstName lastName email")
-    .populate("items.productId", "sku name")
-    .populate("items.unitId", "code name");
+        return res.status(200).json({
+          success: true,
+          quotation: populatedQuotation,
+        });
+      }
+    }
 
-  return res.status(200).json({
-    success: true,
-    quotation: populatedQuotation,
-  });
-  }
-}
+    // =========================
+    // ONLY DRAFT CAN EDIT
+    // =========================
 
-// =========================
-// ONLY DRAFT CAN EDIT
-// =========================
-
-if (hasEditableFields && quotation.status !== "draft") {
-  return res.status(400).json({
-    success: false,
-    message: "Only draft quotations can be edited",
-  });
-}
+    if (hasEditableFields && quotation.status !== "draft") {
+      return res.status(400).json({
+        success: false,
+        message: "Only draft quotations can be edited",
+      });
+    }
 
     // =========================
     // UPDATE CUSTOMER
@@ -536,10 +554,7 @@ if (hasEditableFields && quotation.status !== "draft") {
           _id: { $in: supplierIds },
         }).select("_id status");
 
-        if (
-          suppliers.length !==
-          new Set(supplierIds.map(String)).size
-        ) {
+        if (suppliers.length !== new Set(supplierIds.map(String)).size) {
           const error = new Error("One or more suppliers not found");
           error.statusCode = 400;
           throw error;
@@ -627,6 +642,17 @@ if (hasEditableFields && quotation.status !== "draft") {
 
     await quotation.save();
 
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "Quotation",
+      entityId: quotation._id,
+      documentNumber: quotation.quotationNumber,
+      description: `Updated quotation ${quotation.quotationNumber}`,
+      before,
+      after: quotation.toObject(),
+    });
+
     // =========================
     // POPULATE RESPONSE
     // =========================
@@ -666,7 +692,19 @@ const deleteQuotation = async (req, res, next) => {
       });
     }
 
+    const before = quotation.toObject();
+
     await quotation.deleteOne();
+
+    await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "Quotation",
+      entityId: quotation._id,
+      documentNumber: quotation.quotationNumber,
+      description: `Deleted quotation ${quotation.quotationNumber}`,
+      before,
+    });
 
     res.status(200).json({
       success: true,
@@ -676,8 +714,6 @@ const deleteQuotation = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 // EXPORT QUOTATION PDF
 const exportQuotationPDF = async (req, res, next) => {
@@ -713,7 +749,6 @@ const exportQuotationPDF = async (req, res, next) => {
     next(error);
   }
 };
-
 
 module.exports = {
   getQuotations,

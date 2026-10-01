@@ -1,6 +1,8 @@
 const Unit = require("../models/Unit");
 const Product = require("../models/Product");
 
+const { createAuditLog } = require("../services/auditService");
+
 // GET ALL UNITS
 const getUnits = async (req, res, next) => {
   try {
@@ -60,6 +62,16 @@ const createUnit = async (req, res, next) => {
   try {
     const unit = await Unit.create(req.body);
 
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Unit",
+      entityId: unit._id,
+      documentNumber: unit.code,
+      description: `Created unit ${unit.code}`,
+      after: unit.toObject(),
+    });
+
     res.status(201).json({
       success: true,
       unit,
@@ -81,9 +93,22 @@ const updateUnit = async (req, res, next) => {
       });
     }
 
+    const before = unit.toObject();
+
     Object.assign(unit, req.body);
 
     await unit.save();
+
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "Unit",
+      entityId: unit._id,
+      documentNumber: unit.code,
+      description: `Updated unit ${unit.code}`,
+      before,
+      after: unit.toObject(),
+    });
 
     res.status(200).json({
       success: true,
@@ -120,7 +145,19 @@ const deleteUnit = async (req, res, next) => {
       });
     }
 
+    const before = unit.toObject();
+
     await unit.deleteOne();
+
+    await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "Unit",
+      entityId: unit._id,
+      documentNumber: unit.code,
+      description: `Deleted unit ${unit.code}`,
+      before,
+    });
 
     res.status(200).json({
       success: true,

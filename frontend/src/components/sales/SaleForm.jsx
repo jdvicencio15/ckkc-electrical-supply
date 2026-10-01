@@ -106,6 +106,10 @@ function SaleForm({
     setFormData(initialForm);
   }, [sale]);
 
+  const availableClientPOs = useMemo(() => {
+  return clientPOs.filter((po) => po.status !== "draft");
+}, [clientPOs]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -388,20 +392,22 @@ function SaleForm({
             Client PO
           </label>
 
-          <select
-            name="clientPOId"
-            value={formData.clientPOId}
-            onChange={handleChange}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-          >
-            <option value="">No Client PO</option>
+         <select
+  name="clientPOId"
+  value={formData.clientPOId}
+  onChange={handleChange}
+  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+>
+  <option value="">No Client PO — Direct Sale</option>
 
-            {clientPOs.map((po) => (
-              <option key={po._id} value={po._id}>
-                {po.poNumber}
-              </option>
-            ))}
-          </select>
+{clientPOs
+  .filter((po) => ["received", "processing"].includes(po.status))
+  .map((po) => (
+    <option key={po._id} value={po._id}>
+      {po.poNumber}
+    </option>
+  ))}
+</select>
 
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
   Optional — select a Client PO to automatically populate the customer and

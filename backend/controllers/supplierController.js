@@ -3,6 +3,8 @@ const SupplierPricing = require("../models/SupplierPricing");
 const SupplierPO = require("../models/SupplierPO");
 const Purchase = require("../models/Purchase");
 
+const { createAuditLog } = require("../services/auditService");
+
 // GET ALL SUPPLIERS
 const getSuppliers = async (req, res, next) => {
   try {
@@ -64,6 +66,16 @@ const createSupplier = async (req, res, next) => {
       status,
     });
 
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Supplier",
+      entityId: supplier._id,
+      documentNumber: supplier.supplierCode,
+      description: `Created supplier ${supplier.name}`,
+      after: supplier.toObject(),
+    });
+
     res.status(201).json({
       success: true,
       supplier,
@@ -76,6 +88,17 @@ const createSupplier = async (req, res, next) => {
 // UPDATE SUPPLIER
 const updateSupplier = async (req, res, next) => {
   try {
+    const supplier = await Supplier.findById(req.params.id);
+
+    if (!supplier) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier not found",
+      });
+    }
+
+    const before = supplier.toObject();
+
     const updateData = {
       supplierCode: req.body.supplierCode,
       name: req.body.name,
@@ -87,21 +110,26 @@ const updateSupplier = async (req, res, next) => {
       status: req.body.status,
     };
 
-    const supplier = await Supplier.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
       }
-    );
+    });
 
-    if (!supplier) {
-      return res.status(404).json({
-        success: false,
-        message: "Supplier not found",
-      });
-    }
+    Object.assign(supplier, updateData);
+
+    await supplier.save();
+
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "Supplier",
+      entityId: supplier._id,
+      documentNumber: supplier.supplierCode,
+      description: `Updated supplier ${supplier.name}`,
+      before,
+      after: supplier.toObject(),
+    });
 
     res.status(200).json({
       success: true,
@@ -143,7 +171,19 @@ const deleteSupplier = async (req, res, next) => {
       });
     }
 
+    const before = supplier.toObject();
+
     await supplier.deleteOne();
+
+    await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "Supplier",
+      entityId: supplier._id,
+      documentNumber: supplier.supplierCode,
+      description: `Deleted supplier ${supplier.name}`,
+      before,
+    });
 
     res.status(200).json({
       success: true,

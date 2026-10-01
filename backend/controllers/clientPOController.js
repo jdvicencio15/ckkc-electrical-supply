@@ -5,6 +5,8 @@ const Quotation = require("../models/Quotation");
 const Product = require("../models/Product");
 const Settings = require("../models/Settings");
 
+const { createAuditLog } = require("../services/auditService");
+
 const { checkReferencesExist } = require("../utils/referenceValidator");
 
 const { generateDocumentNumber } = require("../services/documentNumberService");
@@ -197,10 +199,7 @@ const prepareClientPOItems = async (items) => {
 // VALIDATE QUOTATION ITEMS
 // =========================
 
-const validateQuotationItems = ({
-  quotation,
-  clientPOItems,
-}) => {
+const validateQuotationItems = ({ quotation, clientPOItems }) => {
   const quotationItems = quotation.items || [];
 
   const quotationMap = new Map();
@@ -330,10 +329,7 @@ const validateQuotationQuantities = async ({
   }).select("_id sku name");
 
   const productMap = new Map(
-    products.map((product) => [
-      product._id.toString(),
-      product,
-    ]),
+    products.map((product) => [product._id.toString(), product]),
   );
 
   for (const item of clientPOItems) {
@@ -366,8 +362,7 @@ const validateQuotationQuantities = async ({
 
     const requestedQuantity = Number(item.quantity);
 
-    const remainingQuantity =
-      quotationQuantity - alreadyCommitted;
+    const remainingQuantity = quotationQuantity - alreadyCommitted;
 
     // =========================
     // QUANTITY EXCEEDS REMAINING
@@ -438,9 +433,6 @@ const getClientPOById = async (req, res, next) => {
   }
 };
 
-
-
-
 // =========================
 // CREATE CLIENT PO
 // =========================
@@ -493,7 +485,7 @@ const createClientPO = async (req, res, next) => {
     // QUOTATION-LINKED PO
     // =========================
 
-   if (quotationId) {
+    if (quotationId) {
       const quotation = await Quotation.findById(quotationId);
 
       if (!quotation) {
@@ -522,10 +514,10 @@ const createClientPO = async (req, res, next) => {
       // QUOTATION ITEM INTEGRITY
       // =========================
 
-validateQuotationItems({
-  quotation,
-  clientPOItems,
-});
+      validateQuotationItems({
+        quotation,
+        clientPOItems,
+      });
 
       // =========================
       // PARTIAL PO QUANTITY
@@ -536,10 +528,10 @@ validateQuotationItems({
       });
 
       await validateQuotationQuantities({
-  quotation,
-  clientPOItems,
-  committedQuantities,
-});
+        quotation,
+        clientPOItems,
+        committedQuantities,
+      });
 
       // =========================
       // INHERIT TAX SNAPSHOT
@@ -571,31 +563,25 @@ validateQuotationItems({
       finalOtherDirectCosts = Number(
         (Number(quotation.otherDirectCosts || 0) * allocationRatio).toFixed(2),
       );
-   } else {
-  // =========================
-  // MANUAL PO
-  // SNAPSHOT CURRENT SETTINGS
-  // =========================
+    } else {
+      // =========================
+      // MANUAL PO
+      // SNAPSHOT CURRENT SETTINGS
+      // =========================
 
-  const settings = await Settings.findOne().select("accountingTax");
+      const settings = await Settings.findOne().select("accountingTax");
 
-  const vatEnabled = settings?.accountingTax?.vatEnabled === true;
+      const vatEnabled = settings?.accountingTax?.vatEnabled === true;
 
-  taxRate = vatEnabled
-    ? Number(settings?.accountingTax?.vatRate || 0)
-    : 0;
+      taxRate = vatEnabled ? Number(settings?.accountingTax?.vatRate || 0) : 0;
 
-  pricingMode =
-    settings?.accountingTax?.pricingMode || "inclusive";
+      pricingMode = settings?.accountingTax?.pricingMode || "inclusive";
 
-  finalLaborCost =
-    laborCost !== undefined ? Number(laborCost) : 0;
+      finalLaborCost = laborCost !== undefined ? Number(laborCost) : 0;
 
-  finalOtherDirectCosts =
-    otherDirectCosts !== undefined
-      ? Number(otherDirectCosts)
-      : 0;
-}
+      finalOtherDirectCosts =
+        otherDirectCosts !== undefined ? Number(otherDirectCosts) : 0;
+    }
 
     // =========================
     // CALCULATE TOTALS
@@ -608,6 +594,14 @@ validateQuotationItems({
       taxRate,
       pricingMode,
     });
+
+    // =========================
+    // DETERMINE INITIAL STATUS
+    // =========================
+
+    // Accepted quotation = commercially approved → Received.
+    // Manual/no-quotation CPO = requires Owner/Admin approval → Draft.
+    const initialStatus = quotationId ? "received" : "draft";
 
     // =========================
     // GENERATE DOCUMENT NUMBER
@@ -636,30 +630,42 @@ validateQuotationItems({
       netAmount: totals.netAmount,
       totalAmount: totals.totalAmount,
 
-      // A created customer PO is considered received.
-      status: "received",
+      status: initialStatus,
 
       createdBy: req.user._id,
     });
 
-   // CREATE NOTIFICATION
-try {
-  await createNotificationsForRoles({
-    roles: ["owner", "admin", "sales"],
-    excludeUserId: req.user._id,
-    type: "client_po",
-    title: "New Client PO",
-    message: `Client PO ${clientPO.poNumber} was received.`,
-    link: `/client-pos?search=${encodeURIComponent(clientPO.poNumber)}`,
-    entityType: "ClientPO",
-    entityId: clientPO._id,
-  });
-} catch (notificationError) {
-  console.error(
-    "Failed to create Client PO notification:",
-    notificationError,
-  );
-}
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "ClientPO",
+      entityId: clientPO._id,
+      documentNumber: clientPO.poNumber,
+      description: `Created Client PO ${clientPO.poNumber}`,
+      after: clientPO.toObject(),
+    });
+
+    // CREATE NOTIFICATION
+    try {
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "sales"],
+        excludeUserId: req.user._id,
+        type: "client_po",
+        title: "New Client PO",
+        message:
+          clientPO.status === "received"
+            ? `Client PO ${clientPO.poNumber} was received.`
+            : `Client PO ${clientPO.poNumber} was created and requires approval.`,
+        link: `/client-pos?search=${encodeURIComponent(clientPO.poNumber)}`,
+        entityType: "ClientPO",
+        entityId: clientPO._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create Client PO notification:",
+        notificationError,
+      );
+    }
 
     const populatedClientPO = await ClientPO.findById(clientPO._id)
       .populate("customerId", "customerCode name")
@@ -677,9 +683,6 @@ try {
   }
 };
 
-
-
-
 // =========================
 // UPDATE CLIENT PO
 // =========================
@@ -694,16 +697,16 @@ const updateClientPO = async (req, res, next) => {
       });
     }
 
+    const before = clientPO.toObject();
+
     // =========================
     // STATUS CONFIGURATION
     // =========================
 
-    const TERMINAL_CLIENT_PO_STATUSES = [
-      "fulfilled",
-      "cancelled",
-    ];
+    const TERMINAL_CLIENT_PO_STATUSES = ["fulfilled", "cancelled"];
 
     const ALLOWED_STATUS_TRANSITIONS = {
+      draft: ["received", "cancelled"],
       received: ["processing", "cancelled"],
       processing: ["fulfilled", "cancelled"],
       fulfilled: [],
@@ -739,6 +742,13 @@ const updateClientPO = async (req, res, next) => {
       laborCost !== undefined ||
       otherDirectCosts !== undefined;
 
+    if (!hasEditableFields && status === undefined) {
+      const error = new Error("No Client PO changes were provided");
+
+      error.statusCode = 400;
+      throw error;
+    }
+
     // =========================
     // QUOTATION REFERENCE IMMUTABILITY
     // =========================
@@ -769,24 +779,22 @@ const updateClientPO = async (req, res, next) => {
     // =========================
 
     if (TERMINAL_CLIENT_PO_STATUSES.includes(clientPO.status)) {
-      const error = new Error(
-        `Cannot modify a ${clientPO.status} Client PO`,
-      );
+      const error = new Error(`Cannot modify a ${clientPO.status} Client PO`);
 
       error.statusCode = 400;
       throw error;
     }
 
     // =========================
-    // RECEIVED PO IMMUTABILITY
+    // RECEIVED / PROCESSING PO IMMUTABILITY
     // =========================
 
     if (
-      clientPO.status === "received" &&
+      ["received", "processing"].includes(clientPO.status) &&
       hasEditableFields
     ) {
       const error = new Error(
-        "Received Client POs cannot be edited. Only status changes are allowed.",
+        `${clientPO.status} Client POs cannot be edited. Only status changes are allowed.`,
       );
 
       error.statusCode = 400;
@@ -796,6 +804,8 @@ const updateClientPO = async (req, res, next) => {
     // =========================
     // STATUS TRANSITION
     // =========================
+
+    const isStatusChange = status !== undefined && status !== clientPO.status;
 
     if (status !== undefined) {
       const currentStatus = clientPO.status;
@@ -809,11 +819,41 @@ const updateClientPO = async (req, res, next) => {
         throw error;
       }
 
-      if (
-        !ALLOWED_STATUS_TRANSITIONS[currentStatus].includes(
-          status,
-        )
-      ) {
+      // =========================
+      // NO-OP STATUS CHANGE
+      // =========================
+
+      if (status === currentStatus) {
+        const error = new Error(
+          `Client PO is already in ${currentStatus} status.`,
+        );
+
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // =========================
+      // OWNER APPROVAL
+      // =========================
+
+      if (currentStatus === "draft" && status === "received") {
+        const userRole = req.user.role;
+
+        if (!["owner", "admin"].includes(userRole)) {
+          const error = new Error(
+            "Only the Owner or Admin can approve a Client PO.",
+          );
+
+          error.statusCode = 403;
+          throw error;
+        }
+      }
+
+      // =========================
+      // VALIDATE TRANSITION
+      // =========================
+
+      if (!ALLOWED_STATUS_TRANSITIONS[currentStatus].includes(status)) {
         const error = new Error(
           `Cannot change Client PO status from ${currentStatus} to ${status}`,
         );
@@ -834,6 +874,17 @@ const updateClientPO = async (req, res, next) => {
 
       await clientPO.save();
 
+      await createAuditLog({
+        req,
+        action: "STATUS_CHANGE",
+        entity: "ClientPO",
+        entityId: clientPO._id,
+        documentNumber: clientPO.poNumber,
+        description: `Changed Client PO ${clientPO.poNumber} status from ${before.status} to ${clientPO.status}`,
+        before,
+        after: clientPO.toObject(),
+      });
+
       // =========================
       // STATUS NOTIFICATION
       // =========================
@@ -845,9 +896,7 @@ const updateClientPO = async (req, res, next) => {
           type: "client_po",
           title: `Client PO ${status}`,
           message: `Client PO ${clientPO.poNumber} was ${status}.`,
-          link: `/client-pos?search=${encodeURIComponent(
-            clientPO.poNumber,
-          )}`,
+          link: `/client-pos?search=${encodeURIComponent(clientPO.poNumber)}`,
           entityType: "ClientPO",
           entityId: clientPO._id,
         });
@@ -862,33 +911,13 @@ const updateClientPO = async (req, res, next) => {
       // POPULATED RESPONSE
       // =========================
 
-      const populatedClientPO = await ClientPO.findById(
-        clientPO._id,
-      )
-        .populate(
-          "customerId",
-          "customerCode name",
-        )
-        .populate(
-          "quotationId",
-          "quotationNumber",
-        )
-        .populate(
-          "items.productId",
-          "sku name unit",
-        )
-        .populate(
-          "items.unitId",
-          "code name",
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName",
-        )
-        .populate(
-          "updatedBy",
-          "firstName lastName",
-        );
+      const populatedClientPO = await ClientPO.findById(clientPO._id)
+        .populate("customerId", "customerCode name")
+        .populate("quotationId", "quotationNumber")
+        .populate("items.productId", "sku name unit")
+        .populate("items.unitId", "code name")
+        .populate("createdBy", "firstName lastName")
+        .populate("updatedBy", "firstName lastName");
 
       return res.status(200).json({
         success: true,
@@ -901,9 +930,7 @@ const updateClientPO = async (req, res, next) => {
     // =========================
 
     const nextCustomerId =
-      customerId !== undefined
-        ? customerId
-        : clientPO.customerId;
+      customerId !== undefined ? customerId : clientPO.customerId;
 
     // quotationId is immutable, therefore always use
     // the existing Client PO quotation reference.
@@ -914,14 +941,10 @@ const updateClientPO = async (req, res, next) => {
     // =========================
 
     if (customerId !== undefined) {
-      const customer = await Customer.findById(
-        customerId,
-      );
+      const customer = await Customer.findById(customerId);
 
       if (!customer) {
-        const error = new Error(
-          "Customer not found",
-        );
+        const error = new Error("Customer not found");
 
         error.statusCode = 400;
         throw error;
@@ -948,9 +971,7 @@ const updateClientPO = async (req, res, next) => {
             productId: item.productId,
             description: item.description,
             quantity: Number(item.quantity),
-            agreedUnitPrice: Number(
-              item.agreedUnitPrice,
-            ),
+            agreedUnitPrice: Number(item.agreedUnitPrice),
             unitId: item.unitId,
             unitCode: item.unitCode,
           }));
@@ -969,14 +990,10 @@ const updateClientPO = async (req, res, next) => {
     // =========================
 
     if (nextQuotationId) {
-      const quotation = await Quotation.findById(
-        nextQuotationId,
-      );
+      const quotation = await Quotation.findById(nextQuotationId);
 
       if (!quotation) {
-        const error = new Error(
-          "Referenced quotation no longer exists.",
-        );
+        const error = new Error("Referenced quotation no longer exists.");
 
         error.statusCode = 400;
         throw error;
@@ -993,10 +1010,7 @@ const updateClientPO = async (req, res, next) => {
       }
 
       // Customer must still match quotation.
-      if (
-        quotation.customerId.toString() !==
-        nextCustomerId.toString()
-      ) {
+      if (quotation.customerId.toString() !== nextCustomerId.toString()) {
         const error = new Error(
           "Quotation does not belong to the selected customer.",
         );
@@ -1018,11 +1032,10 @@ const updateClientPO = async (req, res, next) => {
       // QUOTATION QUANTITY COMMITMENT
       // =========================
 
-      const committedQuantities =
-        await getQuotationCommittedQuantities({
-          quotationId: quotation._id,
-          excludeClientPOId: clientPO._id,
-        });
+      const committedQuantities = await getQuotationCommittedQuantities({
+        quotationId: quotation._id,
+        excludeClientPOId: clientPO._id,
+      });
 
       await validateQuotationQuantities({
         quotation,
@@ -1034,64 +1047,42 @@ const updateClientPO = async (req, res, next) => {
       // INHERIT TAX SNAPSHOT
       // =========================
 
-      taxRate = Number(
-        quotation.taxRate || 0,
-      );
+      taxRate = Number(quotation.taxRate || 0);
 
-      pricingMode =
-        quotation.pricingMode || "inclusive";
+      pricingMode = quotation.pricingMode || "inclusive";
 
       // =========================
       // PROPORTIONAL COMMERCIAL COST
       // =========================
 
-      const quotationSubtotal = Number(
-        quotation.subtotal || 0,
+      const quotationSubtotal = Number(quotation.subtotal || 0);
+
+      const clientPOSubtotal = nextItems.reduce(
+        (total, item) =>
+          total + Number(item.quantity) * Number(item.agreedUnitPrice),
+        0,
       );
 
-      const clientPOSubtotal =
-        nextItems.reduce(
-          (total, item) =>
-            total +
-            Number(item.quantity) *
-              Number(item.agreedUnitPrice),
-          0,
-        );
-
       const allocationRatio =
-        quotationSubtotal > 0
-          ? clientPOSubtotal /
-            quotationSubtotal
-          : 0;
+        quotationSubtotal > 0 ? clientPOSubtotal / quotationSubtotal : 0;
 
       finalLaborCost = Number(
-        (
-          Number(quotation.laborCost || 0) *
-          allocationRatio
-        ).toFixed(2),
+        (Number(quotation.laborCost || 0) * allocationRatio).toFixed(2),
       );
 
       finalOtherDirectCosts = Number(
-        (
-          Number(
-            quotation.otherDirectCosts || 0,
-          ) * allocationRatio
-        ).toFixed(2),
+        (Number(quotation.otherDirectCosts || 0) * allocationRatio).toFixed(2),
       );
     }
 
     // =========================
     // MANUAL PO
     // =========================
-
     else {
       // Preserve the original tax snapshot.
-      taxRate = Number(
-        clientPO.taxRate || 0,
-      );
+      taxRate = Number(clientPO.taxRate || 0);
 
-      pricingMode =
-        clientPO.pricingMode || "inclusive";
+      pricingMode = clientPO.pricingMode || "inclusive";
 
       finalLaborCost =
         laborCost !== undefined
@@ -1101,9 +1092,7 @@ const updateClientPO = async (req, res, next) => {
       finalOtherDirectCosts =
         otherDirectCosts !== undefined
           ? Number(otherDirectCosts)
-          : Number(
-              clientPO.otherDirectCosts || 0,
-            );
+          : Number(clientPO.otherDirectCosts || 0);
     }
 
     // =========================
@@ -1113,8 +1102,7 @@ const updateClientPO = async (req, res, next) => {
     const totals = calculateClientPOTotals({
       items: nextItems,
       laborCost: finalLaborCost,
-      otherDirectCosts:
-        finalOtherDirectCosts,
+      otherDirectCosts: finalOtherDirectCosts,
       taxRate,
       pricingMode,
     });
@@ -1144,29 +1132,21 @@ const updateClientPO = async (req, res, next) => {
     // UPDATE FINANCIAL SNAPSHOT
     // =========================
 
-    clientPO.laborCost =
-      totals.laborCost;
+    clientPO.laborCost = totals.laborCost;
 
-    clientPO.otherDirectCosts =
-      totals.otherDirectCosts;
+    clientPO.otherDirectCosts = totals.otherDirectCosts;
 
-    clientPO.subtotal =
-      totals.subtotal;
+    clientPO.subtotal = totals.subtotal;
 
-    clientPO.taxRate =
-      totals.taxRate;
+    clientPO.taxRate = totals.taxRate;
 
-    clientPO.taxAmount =
-      totals.taxAmount;
+    clientPO.taxAmount = totals.taxAmount;
 
-    clientPO.pricingMode =
-      totals.pricingMode;
+    clientPO.pricingMode = totals.pricingMode;
 
-    clientPO.netAmount =
-      totals.netAmount;
+    clientPO.netAmount = totals.netAmount;
 
-    clientPO.totalAmount =
-      totals.totalAmount;
+    clientPO.totalAmount = totals.totalAmount;
 
     // =========================
     // AUDIT
@@ -1180,38 +1160,28 @@ const updateClientPO = async (req, res, next) => {
 
     await clientPO.save();
 
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "ClientPO",
+      entityId: clientPO._id,
+      documentNumber: clientPO.poNumber,
+      description: `Updated Client PO ${clientPO.poNumber}`,
+      before,
+      after: clientPO.toObject(),
+    });
+
     // =========================
     // POPULATED RESPONSE
     // =========================
 
-    const populatedClientPO =
-      await ClientPO.findById(
-        clientPO._id,
-      )
-        .populate(
-          "customerId",
-          "customerCode name",
-        )
-        .populate(
-          "quotationId",
-          "quotationNumber",
-        )
-        .populate(
-          "items.productId",
-          "sku name unit",
-        )
-        .populate(
-          "items.unitId",
-          "code name",
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName",
-        )
-        .populate(
-          "updatedBy",
-          "firstName lastName",
-        );
+    const populatedClientPO = await ClientPO.findById(clientPO._id)
+      .populate("customerId", "customerCode name")
+      .populate("quotationId", "quotationNumber")
+      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName");
 
     res.status(200).json({
       success: true,

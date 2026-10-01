@@ -3,9 +3,8 @@ const SupplierPricing = require("../models/SupplierPricing");
 const Supplier = require("../models/Supplier");
 const Product = require("../models/Product");
 
-const {
-  checkReferenceExists,
-} = require("../utils/referenceValidator");
+const { checkReferenceExists } = require("../utils/referenceValidator");
+const { createAuditLog } = require("../services/auditService");
 
 // GET ALL SUPPLIER PRICING
 const getSupplierPricings = async (req, res, next) => {
@@ -52,13 +51,12 @@ const getSupplierPricingById = async (req, res, next) => {
 const createSupplierPricing = async (req, res, next) => {
   try {
     const {
-  supplierId,
-  productId,
-  unitCost,
-  effectiveFrom,
-  status,
-} = req.body;
-
+      supplierId,
+      productId,
+      unitCost,
+      effectiveFrom,
+      status,
+    } = req.body;
 
     await checkReferenceExists(
       Supplier,
@@ -73,25 +71,28 @@ const createSupplierPricing = async (req, res, next) => {
     );
 
     const supplierPricing = await SupplierPricing.create({
-  supplierId,
-  productId,
-  unitCost,
-  effectiveFrom,
-  status,
-});
+      supplierId,
+      productId,
+      unitCost,
+      effectiveFrom,
+      status,
+    });
 
-    const populatedPricing =
-      await SupplierPricing.findById(
-        supplierPricing._id
-      )
-        .populate(
-          "supplierId",
-          "supplierCode name"
-        )
-        .populate(
-          "productId",
-          "sku name"
-        );
+    const populatedPricing = await SupplierPricing.findById(
+      supplierPricing._id
+    )
+      .populate("supplierId", "supplierCode name")
+      .populate("productId", "sku name");
+
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "SupplierPricing",
+      entityId: supplierPricing._id,
+      documentNumber: `${populatedPricing.supplierId.supplierCode} - ${populatedPricing.productId.sku}`,
+      description: `Created supplier pricing for ${populatedPricing.productId.name}`,
+      after: populatedPricing.toObject(),
+    });
 
     res.status(201).json({
       success: true,
@@ -101,8 +102,6 @@ const createSupplierPricing = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 // UPDATE SUPPLIER PRICING
 const updateSupplierPricing = async (req, res, next) => {
@@ -114,6 +113,19 @@ const updateSupplierPricing = async (req, res, next) => {
       effectiveFrom,
       status,
     } = req.body;
+
+    const supplierPricing = await SupplierPricing.findById(
+      req.params.id
+    );
+
+    if (!supplierPricing) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier pricing not found",
+      });
+    }
+
+    const before = supplierPricing.toObject();
 
     // Validate references if they are being updated
     if (supplierId !== undefined) {
@@ -140,27 +152,36 @@ const updateSupplierPricing = async (req, res, next) => {
       status,
     };
 
-    const supplierPricing = await SupplierPricing.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
       }
+    });
+
+    Object.assign(supplierPricing, updateData);
+
+    await supplierPricing.save();
+
+    const populatedPricing = await SupplierPricing.findById(
+      supplierPricing._id
     )
       .populate("supplierId", "supplierCode name")
       .populate("productId", "sku name");
 
-    if (!supplierPricing) {
-      return res.status(404).json({
-        success: false,
-        message: "Supplier pricing not found",
-      });
-    }
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "SupplierPricing",
+      entityId: supplierPricing._id,
+      documentNumber: `${populatedPricing.supplierId.supplierCode} - ${populatedPricing.productId.sku}`,
+      description: `Updated supplier pricing for ${populatedPricing.productId.name}`,
+      before,
+      after: populatedPricing.toObject(),
+    });
 
     res.status(200).json({
       success: true,
-      supplierPricing,
+      supplierPricing: populatedPricing,
     });
   } catch (error) {
     next(error);
@@ -170,7 +191,7 @@ const updateSupplierPricing = async (req, res, next) => {
 // DELETE SUPPLIER PRICING
 const deleteSupplierPricing = async (req, res, next) => {
   try {
-    const supplierPricing = await SupplierPricing.findByIdAndDelete(
+    const supplierPricing = await SupplierPricing.findById(
       req.params.id
     );
 
@@ -180,6 +201,30 @@ const deleteSupplierPricing = async (req, res, next) => {
         message: "Supplier pricing not found",
       });
     }
+
+    const before = supplierPricing.toObject();
+
+    const populatedPricing = await SupplierPricing.findById(
+      supplierPricing._id
+    )
+      .populate("supplierId", "supplierCode name")
+      .populate("productId", "sku name");
+
+    await supplierPricing.deleteOne();
+
+    await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "SupplierPricing",
+      entityId: supplierPricing._id,
+      documentNumber: `${populatedPricing.supplierId.supplierCode} - ${populatedPricing.productId.sku}`,
+      description: `Deleted supplier pricing for ${populatedPricing.productId.name}`,
+      before: {
+        ...before,
+        supplierId: populatedPricing.supplierId,
+        productId: populatedPricing.productId,
+      },
+    });
 
     res.status(200).json({
       success: true,

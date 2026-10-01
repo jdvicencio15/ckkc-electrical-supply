@@ -2526,11 +2526,8 @@ const generateSupplierPOPDF = ({
     y = 55;
   }
 
-  const summaryX = 325;
-  const summaryWidth = 220;
-  const labelWidth = 105;
-  const valueX = 435;
-  const valueWidth = 100;
+const summaryX = 325;
+const summaryWidth = 220;
 
   // Summary top border
   doc
@@ -2542,37 +2539,7 @@ const generateSupplierPOPDF = ({
 
   y += 13;
 
-  // Total Amount
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(10)
-    .fillColor(darkColor)
-    .text(
-      "TOTAL AMOUNT",
-      summaryX,
-      y,
-      {
-        width: labelWidth,
-        align: "right",
-      },
-    );
-
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(10)
-    .fillColor(darkColor)
-    .text(
-      formatMoney(supplierPO.totalAmount),
-      valueX,
-      y,
-      {
-        width: valueWidth,
-        align: "right",
-        lineBreak: false,
-      },
-    );
-
-  y += 22;
+  
 
   // Total box
   doc

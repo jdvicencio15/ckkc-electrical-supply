@@ -23,6 +23,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const accountingRoutes = require("./routes/accountingRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const auditTrailRoutes = require("./routes/auditTrailRoutes");
 
 const searchRoutes = require("./routes/searchRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
@@ -75,6 +76,7 @@ app.use("/api/inventory-movements", inventoryMovementRoutes);
 app.use("/api/accounting", accountingRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/audit-trails", auditTrailRoutes);
 app.use("/api/units", unitRoutes);
 
 app.use("/api/search", searchRoutes);
