@@ -159,7 +159,13 @@ const prepareClientPOItems = async (items) => {
     products.map((product) => [product._id.toString(), product]),
   );
 
-  return items.map((item) => {
+  // =========================
+  // PREVENT DUPLICATE PRODUCT / UOM
+  // =========================
+
+  const seenProductUOM = new Set();
+
+  const preparedItems = items.map((item) => {
     const product = productMap.get(item.productId.toString());
 
     if (!product) {
@@ -184,6 +190,20 @@ const prepareClientPOItems = async (items) => {
       throw error;
     }
 
+    const productUOMKey =
+      `${product._id.toString()}::${product.unitId.code}`;
+
+    if (seenProductUOM.has(productUOMKey)) {
+      const error = new Error(
+        `Product ${product._id} (${product.unitId.code}) can only be added once to a Client PO`,
+      );
+
+      error.statusCode = 400;
+      throw error;
+    }
+
+    seenProductUOM.add(productUOMKey);
+
     return {
       productId: item.productId,
       description: item.description,
@@ -193,6 +213,8 @@ const prepareClientPOItems = async (items) => {
       unitCode: product.unitId.code,
     };
   });
+
+  return preparedItems;
 };
 
 // =========================

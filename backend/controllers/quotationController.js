@@ -32,6 +32,20 @@ const calculateQuotationTotals = ({
     const supplierCost = Number(item.supplierCostAtQuotation);
     const quotedUnitPrice = Number(item.quotedUnitPrice);
 
+    if (quantity <= 0) {
+      const error = new Error("Quotation quantity must be greater than zero");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (supplierCost < 0 || quotedUnitPrice < 0) {
+      const error = new Error(
+        "Quotation supplier cost and quoted price cannot be negative",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
     if (
       !Number.isFinite(quantity) ||
       !Number.isFinite(supplierCost) ||
@@ -57,6 +71,15 @@ const calculateQuotationTotals = ({
 
   const safeLaborCost = Number(laborCost);
   const safeOtherDirectCosts = Number(otherDirectCosts);
+
+  if (safeLaborCost < 0 || safeOtherDirectCosts < 0) {
+    const error = new Error(
+      "Labor cost and other direct costs cannot be negative",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
   const safeTaxRate = Number(taxRate);
 
   if (
@@ -141,6 +164,30 @@ const applySupplierPricing = async (items) => {
   return calculatedItems;
 };
 
+// =========================
+// VALIDATE DUPLICATE PRODUCT + UOM
+// =========================
+
+const validateQuotationItemUniqueness = (items) => {
+  const seen = new Set();
+
+  for (const item of items) {
+    const key = `${item.productId.toString()}::${item.unitCode}`;
+
+    if (seen.has(key)) {
+      const error = new Error(
+        `Quotation contains duplicate product/UOM line: ${item.productId} (${item.unitCode})`,
+      );
+
+      error.statusCode = 400;
+      throw error;
+    }
+
+    seen.add(key);
+  }
+};
+
+
 // GET ALL QUOTATIONS
 const getQuotations = async (req, res, next) => {
   try {
@@ -191,14 +238,15 @@ const getQuotationById = async (req, res, next) => {
 // CREATE QUOTATION
 const createQuotation = async (req, res, next) => {
   try {
-    const {
-      quotationNumber: _quotationNumber,
-      items,
-      customerId,
-      laborCost,
-      otherDirectCosts,
-      ...quotationData
-    } = req.body;
+   const {
+  quotationNumber: _quotationNumber,
+  status: _status,
+  items,
+  customerId,
+  laborCost,
+  otherDirectCosts,
+  ...quotationData
+} = req.body;
 
     // CUSTOMER
     const customer = await Customer.findById(customerId);
@@ -213,6 +261,12 @@ const createQuotation = async (req, res, next) => {
       const error = new Error(
         "Cannot create Quotation for an inactive customer",
       );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      const error = new Error("Quotation must contain at least one item");
       error.statusCode = 400;
       throw error;
     }
@@ -241,31 +295,33 @@ const createQuotation = async (req, res, next) => {
     }
 
     // SUPPLIERS
-    const supplierIds = items.map((item) => item.supplierId).filter(Boolean);
+ const supplierIds = items.map((item) => item.supplierId).filter(Boolean);
 
-    if (supplierIds.length > 0) {
-      const suppliers = await Supplier.find({
-        _id: { $in: supplierIds },
-      }).select("_id status");
+if (supplierIds.length > 0) {
+  const uniqueSupplierIds = [...new Set(supplierIds.map(String))];
 
-      if (suppliers.length !== supplierIds.length) {
-        const error = new Error("One or more suppliers not found");
-        error.statusCode = 400;
-        throw error;
-      }
+  const suppliers = await Supplier.find({
+    _id: { $in: uniqueSupplierIds },
+  }).select("_id status");
 
-      const inactiveSupplier = suppliers.find(
-        (supplier) => supplier.status !== "active",
-      );
+  if (suppliers.length !== uniqueSupplierIds.length) {
+    const error = new Error("One or more suppliers not found");
+    error.statusCode = 400;
+    throw error;
+  }
 
-      if (inactiveSupplier) {
-        const error = new Error(
-          "Cannot assign an inactive supplier to Quotation",
-        );
-        error.statusCode = 400;
-        throw error;
-      }
-    }
+  const inactiveSupplier = suppliers.find(
+    (supplier) => supplier.status !== "active",
+  );
+
+  if (inactiveSupplier) {
+    const error = new Error(
+      "Cannot assign an inactive supplier to Quotation",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+}
 
     // TAX CONFIGURATION SNAPSHOT
     const settings = await Settings.findOne().select("accountingTax");
@@ -279,6 +335,8 @@ const createQuotation = async (req, res, next) => {
     const pricingMode = settings?.accountingTax?.pricingMode || "inclusive";
 
     const itemsWithSupplierPricing = await applySupplierPricing(items);
+
+    validateQuotationItemUniqueness(itemsWithSupplierPricing);
 
     const {
       calculatedItems,
@@ -299,23 +357,25 @@ const createQuotation = async (req, res, next) => {
     // GENERATE DOCUMENT NUMBER
     const quotationNumber = await generateDocumentNumber("quotation");
 
-    const quotation = await Quotation.create({
-      ...quotationData,
-      quotationNumber,
-      customerId,
-      items: calculatedItems,
-      laborCost,
-      otherDirectCosts,
+   const quotation = await Quotation.create({
+  ...quotationData,
+  quotationNumber,
+  customerId,
+  items: calculatedItems,
+  laborCost,
+  otherDirectCosts,
 
-      subtotal,
-      taxRate: calculatedTaxRate,
-      taxAmount,
-      pricingMode: calculatedPricingMode,
-      netAmount,
-      total,
+  status: "draft",
 
-      createdBy: req.user._id,
-    });
+  subtotal,
+  taxRate: calculatedTaxRate,
+  taxAmount,
+  pricingMode: calculatedPricingMode,
+  netAmount,
+  total,
+
+  createdBy: req.user._id,
+});
 
     await createAuditLog({
       req,
@@ -413,7 +473,7 @@ const updateQuotation = async (req, res, next) => {
     // STATUS UPDATE
     // =========================
 
-    if (status !== undefined) {
+    if (status !== undefined && status !== quotation.status) {
       const allowedStatuses = allowedStatusTransitions[quotation.status] || [];
 
       if (!allowedStatuses.includes(status)) {
@@ -525,6 +585,12 @@ const updateQuotation = async (req, res, next) => {
     // =========================
 
     if (items !== undefined) {
+      if (!Array.isArray(items) || items.length === 0) {
+        const error = new Error("Quotation must contain at least one item");
+        error.statusCode = 400;
+        throw error;
+      }
+
       await checkReferencesExist(
         Product,
         items.map((item) => item.productId),
@@ -550,11 +616,13 @@ const updateQuotation = async (req, res, next) => {
       const supplierIds = items.map((item) => item.supplierId).filter(Boolean);
 
       if (supplierIds.length > 0) {
+        const uniqueSupplierIds = [...new Set(supplierIds.map(String))];
+
         const suppliers = await Supplier.find({
-          _id: { $in: supplierIds },
+          _id: { $in: uniqueSupplierIds },
         }).select("_id status");
 
-        if (suppliers.length !== new Set(supplierIds.map(String)).size) {
+        if (suppliers.length !== uniqueSupplierIds.length) {
           const error = new Error("One or more suppliers not found");
           error.statusCode = 400;
           throw error;
@@ -575,6 +643,8 @@ const updateQuotation = async (req, res, next) => {
 
       const itemsWithSupplierPricing = await applySupplierPricing(items);
 
+      validateQuotationItemUniqueness(itemsWithSupplierPricing);
+      
       quotation.items = itemsWithSupplierPricing;
     }
 
@@ -586,13 +656,6 @@ const updateQuotation = async (req, res, next) => {
       quotation.quotationDate = quotationDate;
     }
 
-    // =========================
-    // UPDATE STATUS
-    // =========================
-
-    if (status !== undefined) {
-      quotation.status = status;
-    }
 
     // =========================
     // UPDATE LABOR COST

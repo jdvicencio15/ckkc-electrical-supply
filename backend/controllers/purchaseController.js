@@ -10,6 +10,8 @@ const Product = require("../models/Product");
 const InventoryMovement = require("../models/InventoryMovement");
 const { resolveProductUnit } = require("../services/unitService");
 
+const { createAuditLog } = require("../services/auditService");
+
 const {
   validatePurchaseAgainstSupplierPO,
 } = require("../utils/purchaseValidator");
@@ -161,6 +163,7 @@ const getPurchaseById = async (req, res, next) => {
 };
 
 
+
 // CREATE PURCHASE
 const createPurchase = async (req, res, next) => {
   try {
@@ -172,7 +175,22 @@ const createPurchase = async (req, res, next) => {
       purchaseDate,
     } = req.body;
 
-    const settings = await Settings.findOne().select("accountingTax");
+    // ==========================================
+    // SUPPLIER PO IS REQUIRED
+    // ==========================================
+    if (!supplierPOId) {
+      const error = new Error(
+        "Supplier PO is required to create a Purchase",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // GET TAX SETTINGS
+    // ==========================================
+    const settings =
+      await Settings.findOne().select("accountingTax");
 
     const vatEnabled =
       settings?.accountingTax?.vatEnabled === true;
@@ -208,144 +226,160 @@ const createPurchase = async (req, res, next) => {
     // ==========================================
     // SUPPLIER PO
     // ==========================================
-    let supplierPO = null;
+    const supplierPO =
+      await SupplierPO.findById(supplierPOId);
 
-    if (supplierPOId !== undefined) {
-      supplierPO = await SupplierPO.findById(supplierPOId);
+    if (!supplierPO) {
+      const error = new Error("Supplier PO not found");
+      error.statusCode = 400;
+      throw error;
+    }
 
-      if (!supplierPO) {
-        const error = new Error("Supplier PO not found");
+    // Supplier PO must belong to selected supplier
+    if (
+      supplierPO.supplierId.toString() !==
+      supplierId.toString()
+    ) {
+      const error = new Error(
+        "Supplier PO does not belong to the selected supplier",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // SUPPLIER PO STATUS PROTECTION
+    // ==========================================
+    //
+    // Only SENT Supplier POs can be converted
+    // into a Purchase.
+    //
+    // draft     → still being prepared
+    // sent      → valid source for Purchase
+    // received  → already completed
+    // cancelled → permanently cancelled
+    //
+    if (supplierPO.status !== "sent") {
+      const error = new Error(
+        `Cannot create Purchase from a ${supplierPO.status} Supplier PO`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // PREVENT DUPLICATE PURCHASE
+    // ==========================================
+    const existingPurchase = await Purchase.findOne({
+      supplierPOId: supplierPO._id,
+    });
+
+    if (existingPurchase) {
+      const error = new Error(
+        "A Purchase already exists for this Supplier PO",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // VALIDATE PURCHASE ITEMS
+    // AGAINST SUPPLIER PO
+    // ==========================================
+    //
+    // Purchase items must exactly match the
+    // Supplier PO items.
+    //
+    // This prevents:
+    // - Increasing quantity
+    // - Reducing quantity
+    // - Removing PO items
+    // - Adding products not included in PO
+    // - Duplicate product lines
+    //
+
+    if (!Array.isArray(items) || items.length === 0) {
+      const error = new Error(
+        "Purchase must contain at least one item",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (items.length !== supplierPO.items.length) {
+      const error = new Error(
+        "Purchase items must exactly match Supplier PO items",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const supplierPOProductIds = new Set(
+      supplierPO.items.map((item) =>
+        item.productId.toString(),
+      ),
+    );
+
+    const purchaseProductIds = new Set();
+
+    for (const purchaseItem of items) {
+      const productId =
+        purchaseItem.productId.toString();
+
+      // Prevent duplicate product lines
+      if (purchaseProductIds.has(productId)) {
+        const error = new Error(
+          "Duplicate product lines are not allowed in Purchase",
+        );
         error.statusCode = 400;
         throw error;
       }
 
-      // Supplier PO must belong to selected supplier
+      purchaseProductIds.add(productId);
+
+      // Product must exist in Supplier PO
+      if (!supplierPOProductIds.has(productId)) {
+        const error = new Error(
+          "Purchase contains a product that is not included in the Supplier PO",
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const supplierPOItem = supplierPO.items.find(
+        (poItem) =>
+          poItem.productId.toString() === productId,
+      );
+
+      const purchaseQuantity = Number(
+        purchaseItem.quantity,
+      );
+
+      // Quantity must be valid
       if (
-        supplierPO.supplierId.toString() !==
-        supplierId.toString()
+        !Number.isFinite(purchaseQuantity) ||
+        purchaseQuantity <= 0
       ) {
         const error = new Error(
-          "Supplier PO does not belong to the selected supplier",
+          "Purchase quantity must be greater than zero",
         );
         error.statusCode = 400;
         throw error;
       }
 
-      // ==========================================
-      // SUPPLIER PO STATUS PROTECTION
-      // ==========================================
-      // Only SENT Supplier POs can be converted
-      // into a Purchase.
-      //
-      // draft     → still being prepared
-      // sent      → valid source for Purchase
-      // received  → already completed
-      // cancelled → permanently cancelled
-      if (supplierPO.status !== "sent") {
-        const error = new Error(
-          `Cannot create Purchase from a ${supplierPO.status} Supplier PO`,
-        );
-        error.statusCode = 400;
-        throw error;
-      }
+      const supplierPOQuantity = Number(
+        supplierPOItem.quantity,
+      );
 
-      // ==========================================
-      // PREVENT DUPLICATE PURCHASE
-      // ==========================================
-      const existingPurchase = await Purchase.findOne({
-        supplierPOId: supplierPO._id,
-      });
-
-      if (existingPurchase) {
+      // Purchase quantity must exactly match PO
+      if (purchaseQuantity !== supplierPOQuantity) {
         const error = new Error(
-          "A Purchase already exists for this Supplier PO",
+          `Purchase quantity for ${supplierPOItem.description} must match Supplier PO quantity (${supplierPOQuantity})`,
         );
         error.statusCode = 400;
         throw error;
       }
     }
-
-   // ==========================================
-// VALIDATE PURCHASE ITEMS AGAINST SUPPLIER PO
-// ==========================================
-//
-// Current business rule:
-// A Purchase created from a Supplier PO must
-// exactly match the Supplier PO items.
-//
-// This prevents:
-// - Increasing quantity
-// - Reducing quantity
-// - Removing PO items
-// - Adding products not included in PO
-// - Duplicate product lines
-//
-
-if (items.length !== supplierPO.items.length) {
-  const error = new Error(
-    "Purchase items must exactly match Supplier PO items",
-  );
-
-  error.statusCode = 400;
-  throw error;
-}
-
-const supplierPOProductIds = new Set(
-  supplierPO.items.map((item) =>
-    item.productId.toString()
-  )
-);
-
-const purchaseProductIds = new Set();
-
-for (const purchaseItem of items) {
-  const productId =
-    purchaseItem.productId.toString();
-
-  // Prevent duplicate product lines
-  if (purchaseProductIds.has(productId)) {
-    const error = new Error(
-      "Duplicate product lines are not allowed in Purchase",
-    );
-
-    error.statusCode = 400;
-    throw error;
-  }
-
-  purchaseProductIds.add(productId);
-
-  // Product must exist in Supplier PO
-  if (!supplierPOProductIds.has(productId)) {
-    const error = new Error(
-      "Purchase contains a product that is not included in the Supplier PO",
-    );
-
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const supplierPOItem = supplierPO.items.find(
-    (poItem) =>
-      poItem.productId.toString() === productId
-  );
-
-  const purchaseQuantity = Number(
-    purchaseItem.quantity
-  );
-
-  const supplierPOQuantity = Number(
-    supplierPOItem.quantity
-  );
-
-  if (purchaseQuantity !== supplierPOQuantity) {
- const error = new Error(
-  `Purchase quantity for ${supplierPOItem.description} must match Supplier PO quantity (${supplierPOQuantity})`,
-);
-
-    error.statusCode = 400;
-    throw error;
-  }
-}
 
     // ==========================================
     // CLIENT PO
@@ -361,8 +395,9 @@ for (const purchaseItem of items) {
         throw error;
       }
 
+      // If Supplier PO is linked to a Client PO,
+      // Purchase must reference the same Client PO.
       if (
-        supplierPO &&
         supplierPO.relatedClientPOId &&
         supplierPO.relatedClientPOId.toString() !==
           relatedClientPOId.toString()
@@ -414,10 +449,11 @@ for (const purchaseItem of items) {
 
       // Resolve Purchase Cost
       // Supplier Pricing → Product Cost fallback
-      const { unitCost } = await resolveProductCost({
-        productId: item.productId,
-        supplierId,
-      });
+      const { unitCost } =
+        await resolveProductCost({
+          productId: item.productId,
+          supplierId,
+        });
 
       calculatedItemsWithUOM.push({
         productId: item.productId,
@@ -476,6 +512,20 @@ for (const purchaseItem of items) {
     });
 
     // ==========================================
+    // AUDIT TRAIL
+    // ==========================================
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Purchase",
+      entityId: purchase._id,
+      documentNumber: purchase.purchaseNumber,
+      description:
+        `Created Purchase ${purchase.purchaseNumber}`,
+      after: purchase.toObject(),
+    });
+
+    // ==========================================
     // CREATE NOTIFICATION
     // ==========================================
     try {
@@ -484,7 +534,8 @@ for (const purchaseItem of items) {
         excludeUserId: req.user._id,
         type: "purchase",
         title: "New Purchase",
-        message: `Purchase ${purchase.purchaseNumber} was created.`,
+        message:
+          `Purchase ${purchase.purchaseNumber} was created.`,
         link: `/purchases?search=${encodeURIComponent(
           purchase.purchaseNumber,
         )}`,
@@ -539,6 +590,8 @@ for (const purchaseItem of items) {
 
 
 
+
+
 // UPDATE PURCHASE
 const updatePurchase = async (req, res, next) => {
   try {
@@ -560,6 +613,11 @@ const updatePurchase = async (req, res, next) => {
         message: "Only draft purchases can be updated",
       });
     }
+
+    // ==========================================
+    // CAPTURE ORIGINAL STATE FOR AUDIT
+    // ==========================================
+    const before = purchase.toObject();
 
     const {
       supplierId,
@@ -600,12 +658,19 @@ const updatePurchase = async (req, res, next) => {
         ? supplierPOId
         : purchase.supplierPOId;
 
+    // Supplier PO is REQUIRED for every Purchase
+    if (!nextSupplierPOId) {
+      const error = new Error(
+        "Supplier PO is required for every Purchase",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
     const nextRelatedClientPOId =
       relatedClientPOId !== undefined
         ? relatedClientPOId
         : purchase.relatedClientPOId;
-
-    let supplierPO = null;
 
     // ==========================================
     // SUPPLIER
@@ -631,42 +696,160 @@ const updatePurchase = async (req, res, next) => {
     // ==========================================
     // SUPPLIER PO
     // ==========================================
-    if (nextSupplierPOId !== undefined) {
-      supplierPO = await SupplierPO.findById(
-        nextSupplierPOId,
+    const supplierPO = await SupplierPO.findById(
+      nextSupplierPOId,
+    );
+
+    if (!supplierPO) {
+      const error = new Error("Supplier PO not found");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Supplier PO must belong to selected supplier
+    if (
+      supplierPO.supplierId.toString() !==
+      nextSupplierId.toString()
+    ) {
+      const error = new Error(
+        "Supplier PO does not belong to the selected supplier",
       );
+      error.statusCode = 400;
+      throw error;
+    }
 
-      if (!supplierPO) {
-        const error = new Error("Supplier PO not found");
-        error.statusCode = 400;
-        throw error;
-      }
+    // ==========================================
+    // SUPPLIER PO STATUS PROTECTION
+    // ==========================================
+    // Only SENT Supplier POs can be linked
+    // to a draft Purchase.
+    if (supplierPO.status !== "sent") {
+      const error = new Error(
+        `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
 
-      // Supplier PO must belong to selected supplier
-      if (
-        supplierPO.supplierId.toString() !==
-        nextSupplierId.toString()
-      ) {
+    // ==========================================
+    // PREVENT DUPLICATE PURCHASE FOR SUPPLIER PO
+    // ==========================================
+    // If changing to another Supplier PO, ensure
+    // that PO is not already linked to another Purchase.
+    const existingPurchase = await Purchase.findOne({
+      supplierPOId: supplierPO._id,
+      _id: { $ne: purchase._id },
+    });
+
+    if (existingPurchase) {
+      const error = new Error(
+        "A Purchase already exists for this Supplier PO",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // DETERMINE FINAL ITEMS
+    // ==========================================
+    const finalItems =
+      items !== undefined
+        ? items
+        : purchase.items;
+
+    // ==========================================
+    // VALIDATE PURCHASE ITEMS AGAINST SUPPLIER PO
+    // ==========================================
+    // Business rule:
+    // Purchase items must EXACTLY match
+    // Supplier PO items.
+    //
+    // Prevents:
+    // - Missing PO items
+    // - Additional products
+    // - Duplicate product lines
+    // - Increased quantity
+    // - Reduced quantity
+    // ==========================================
+
+    if (
+      !Array.isArray(finalItems) ||
+      finalItems.length !== supplierPO.items.length
+    ) {
+      const error = new Error(
+        "Purchase items must exactly match Supplier PO items",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const supplierPOProductIds = new Set(
+      supplierPO.items.map((item) =>
+        item.productId.toString(),
+      ),
+    );
+
+    const purchaseProductIds = new Set();
+
+    for (const purchaseItem of finalItems) {
+      if (!purchaseItem.productId) {
         const error = new Error(
-          "Supplier PO does not belong to the selected supplier",
+          "Each Purchase item must have a product",
         );
         error.statusCode = 400;
         throw error;
       }
 
-      // ==========================================
-      // SUPPLIER PO STATUS PROTECTION
-      // ==========================================
-      // Only SENT Supplier POs can be linked
-      // to a Purchase.
-      //
-      // draft     → still being prepared
-      // sent      → valid for Purchase
-      // received  → already completed
-      // cancelled → permanently cancelled
-      if (supplierPO.status !== "sent") {
+      const productId =
+        purchaseItem.productId.toString();
+
+      // Prevent duplicate product lines
+      if (purchaseProductIds.has(productId)) {
         const error = new Error(
-          `Cannot assign a ${supplierPO.status} Supplier PO to Purchase`,
+          "Duplicate product lines are not allowed in Purchase",
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      purchaseProductIds.add(productId);
+
+      // Product must exist in Supplier PO
+      if (!supplierPOProductIds.has(productId)) {
+        const error = new Error(
+          "Purchase contains a product that is not included in the Supplier PO",
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const supplierPOItem = supplierPO.items.find(
+        (poItem) =>
+          poItem.productId.toString() === productId,
+      );
+
+      const purchaseQuantity = Number(
+        purchaseItem.quantity,
+      );
+
+      const supplierPOQuantity = Number(
+        supplierPOItem.quantity,
+      );
+
+      if (
+        !Number.isFinite(purchaseQuantity) ||
+        purchaseQuantity <= 0
+      ) {
+        const error = new Error(
+          `Invalid quantity for ${supplierPOItem.description}`,
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (purchaseQuantity !== supplierPOQuantity) {
+        const error = new Error(
+          `Purchase quantity for ${supplierPOItem.description} must match Supplier PO quantity (${supplierPOQuantity})`,
         );
         error.statusCode = 400;
         throw error;
@@ -688,7 +871,6 @@ const updatePurchase = async (req, res, next) => {
       }
 
       if (
-        supplierPO &&
         supplierPO.relatedClientPOId &&
         supplierPO.relatedClientPOId.toString() !==
           nextRelatedClientPOId.toString()
@@ -702,115 +884,127 @@ const updatePurchase = async (req, res, next) => {
     }
 
     // ==========================================
-    // PRODUCTS + UOM + SUPPLIER COST
+    // PRODUCTS
     // ==========================================
-    let calculatedItemsWithUOM = null;
+    await checkReferencesExist(
+      Product,
+      finalItems.map((item) => item.productId),
+      "Product",
+    );
 
-    if (items !== undefined) {
-      await checkReferencesExist(
-        Product,
-        items.map((item) => item.productId),
-        "Product",
+    const products = await Product.find({
+      _id: {
+        $in: finalItems.map((item) => item.productId),
+      },
+    }).select("_id status");
+
+    const inactiveProduct = products.find(
+      (product) => product.status !== "active",
+    );
+
+    if (inactiveProduct) {
+      const error = new Error(
+        "Cannot add inactive product to Purchase",
       );
-
-      const products = await Product.find({
-        _id: {
-          $in: items.map((item) => item.productId),
-        },
-      }).select("_id status");
-
-      const inactiveProduct = products.find(
-        (product) => product.status !== "active",
-      );
-
-      if (inactiveProduct) {
-        const error = new Error(
-          "Cannot add inactive product to Purchase",
-        );
-        error.statusCode = 400;
-        throw error;
-      }
-
-      calculatedItemsWithUOM = [];
-
-      for (const item of items) {
-        // Resolve Product UOM server-side
-        const { unitId, unitCode } =
-          await resolveProductUnit(item.productId);
-
-        // Resolve Purchase Cost server-side
-        // Supplier Pricing → Product Cost fallback
-        const { unitCost } =
-          await resolveProductCost({
-            productId: item.productId,
-            supplierId: nextSupplierId,
-          });
-
-        calculatedItemsWithUOM.push({
-          productId: item.productId,
-          quantity: item.quantity,
-
-          // SERVER-RESOLVED COST
-          // Frontend cost is NOT trusted
-          enteredUnitCost: unitCost,
-
-          unitId,
-          unitCode,
-        });
-      }
+      error.statusCode = 400;
+      throw error;
     }
+
+    // ==========================================
+    // RESOLVE UOM + SUPPLIER COST SERVER-SIDE
+    // ==========================================
+    const calculatedItemsWithUOM = [];
+
+    for (const item of finalItems) {
+      // Resolve Product UOM
+      const { unitId, unitCode } =
+        await resolveProductUnit(item.productId);
+
+      // Resolve Purchase Cost
+      // Supplier Pricing → Product Cost fallback
+      const { unitCost } =
+        await resolveProductCost({
+          productId: item.productId,
+          supplierId: nextSupplierId,
+        });
+
+      calculatedItemsWithUOM.push({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+
+        // SERVER-RESOLVED COST
+        // Frontend value is NOT trusted
+        enteredUnitCost: unitCost,
+
+        unitId,
+        unitCode,
+      });
+    }
+
+    // ==========================================
+    // RECALCULATE TOTALS + VAT
+    // ==========================================
+    const {
+      calculatedItems,
+      netAmount,
+      taxRate,
+      taxAmount,
+      pricingMode: purchasePricingMode,
+      totalAmount,
+    } = calculatePurchaseTotals(
+      calculatedItemsWithUOM,
+      {
+        vatEnabled,
+        vatRate,
+        pricingMode,
+      },
+    );
 
     // ==========================================
     // UPDATE FIELDS
     // ==========================================
     purchase.supplierId = nextSupplierId;
-
-    if (supplierPOId !== undefined) {
-      purchase.supplierPOId = supplierPOId;
-    }
+    purchase.supplierPOId = nextSupplierPOId;
 
     if (relatedClientPOId !== undefined) {
-      purchase.relatedClientPOId = relatedClientPOId;
+      purchase.relatedClientPOId =
+        relatedClientPOId;
     }
 
     if (purchaseDate !== undefined) {
       purchase.purchaseDate = purchaseDate;
     }
 
-    // ==========================================
-    // RECALCULATE TOTALS + VAT
-    // ==========================================
-    if (items !== undefined) {
-      const {
-        calculatedItems,
-        netAmount,
-        taxRate,
-        taxAmount,
-        pricingMode: purchasePricingMode,
-        totalAmount,
-      } = calculatePurchaseTotals(
-        calculatedItemsWithUOM,
-        {
-          vatEnabled,
-          vatRate,
-          pricingMode,
-        },
-      );
-
-      purchase.items = calculatedItems;
-      purchase.netAmount = netAmount;
-      purchase.taxRate = taxRate;
-      purchase.taxAmount = taxAmount;
-      purchase.pricingMode = purchasePricingMode;
-      purchase.totalAmount = totalAmount;
-    }
+    purchase.items = calculatedItems;
+    purchase.netAmount = netAmount;
+    purchase.taxRate = taxRate;
+    purchase.taxAmount = taxAmount;
+    purchase.pricingMode = purchasePricingMode;
+    purchase.totalAmount = totalAmount;
 
     // ==========================================
     // AUDIT USER
     // ==========================================
     purchase.updatedBy = req.user._id;
 
+    // ==========================================
+    // SAVE
+    // ==========================================
     await purchase.save();
+
+    // ==========================================
+    // AUDIT TRAIL
+    // ==========================================
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "Purchase",
+      entityId: purchase._id,
+      documentNumber: purchase.purchaseNumber,
+      description: `Updated Purchase ${purchase.purchaseNumber}`,
+      before,
+      after: purchase.toObject(),
+    });
 
     // ==========================================
     // RETURN POPULATED PURCHASE
@@ -882,7 +1076,19 @@ const deletePurchase = async (req, res, next) => {
       });
     }
 
+    const before = purchase.toObject();
+
     await purchase.deleteOne();
+
+    await createAuditLog({
+  req,
+  action: "DELETE",
+  entity: "Purchase",
+  entityId: purchase._id,
+  documentNumber: purchase.purchaseNumber,
+  description: `Deleted Purchase ${purchase.purchaseNumber}`,
+  before,
+    });
 
     res.status(200).json({
       success: true,
@@ -973,50 +1179,101 @@ const receivePurchase = async (req, res, next) => {
       );
     }
 
+
     // ==========================================
-    // UPDATE LINKED SUPPLIER PO
-    // ==========================================
+// SUPPLIER PO IS REQUIRED
+// ==========================================
 
-    if (purchase.supplierPOId) {
-      const supplierPO = await SupplierPO.findById(
-        purchase.supplierPOId
-      ).session(session);
+if (!purchase.supplierPOId) {
+  await session.abortTransaction();
 
-      if (!supplierPO) {
-        await session.abortTransaction();
-
-        return res.status(404).json({
-          success: false,
-          message: "Linked Supplier PO not found",
-        });
-      }
-
-      // Supplier PO must be SENT before it can be received.
-      if (supplierPO.status !== "sent") {
-        await session.abortTransaction();
-
-        return res.status(400).json({
-          success: false,
-          message:
-            `Cannot receive Supplier PO from ${supplierPO.status} status`,
-        });
-      }
-
-      // Mark Supplier PO as received.
-      supplierPO.status = "received";
-      supplierPO.updatedBy = req.user._id;
-
-      await supplierPO.save({ session });
+  return res.status(400).json({
+    success: false,
+    message: "Purchase cannot be received without a Supplier PO",
+  });
     }
 
+// ==========================================
+// UPDATE LINKED SUPPLIER PO
+// ==========================================
+
+const supplierPO = await SupplierPO.findById(
+  purchase.supplierPOId
+).session(session);
+
+if (!supplierPO) {
+  await session.abortTransaction();
+
+  return res.status(404).json({
+    success: false,
+    message: "Linked Supplier PO not found",
+  });
+}
+
+// Supplier PO must be SENT before it can be received.
+if (supplierPO.status !== "sent") {
+  await session.abortTransaction();
+
+  return res.status(400).json({
+    success: false,
+    message:
+      `Cannot receive Supplier PO from ${supplierPO.status} status`,
+  });
+}
+
+   // ==========================================
+// MARK SUPPLIER PO AS RECEIVED
+// ==========================================
+
+const supplierPOBefore = supplierPO.toObject();
+
+supplierPO.status = "received";
+supplierPO.updatedBy = req.user._id;
+
+await supplierPO.save({ session });
+
+await createAuditLog({
+  req,
+  session,
+  action: "RECEIVE",
+  entity: "SupplierPO",
+  entityId: supplierPO._id,
+  documentNumber: supplierPO.poNumber,
+  description:
+    `Supplier PO ${supplierPO.poNumber} was automatically marked as received after Purchase ${purchase.purchaseNumber} was received.`,
+  before: supplierPOBefore,
+  after: supplierPO.toObject(),
+  metadata: {
+    source: "Purchase.receive",
+    purchaseId: purchase._id,
+    purchaseNumber: purchase.purchaseNumber,
+  },
+});
+
+  
     // ==========================================
     // MARK PURCHASE AS RECEIVED
     // ==========================================
+
+    const purchaseBefore = purchase.toObject();
 
     purchase.status = "received";
     purchase.updatedBy = req.user._id;
 
     await purchase.save({ session });
+
+    await createAuditLog({
+  req,
+  session,
+  action: "RECEIVE",
+  entity: "Purchase",
+  entityId: purchase._id,
+  documentNumber: purchase.purchaseNumber,
+  description:
+    `Purchase ${purchase.purchaseNumber} was received.`,
+  before: purchaseBefore,
+  after: purchase.toObject(),
+    });
 
     // ==========================================
     // CREATE SYSTEM ACCOUNTING ENTRY
@@ -1133,10 +1390,24 @@ const cancelPurchase = async (req, res, next) => {
       throw error;
     }
 
+    const before = purchase.toObject();
+
     purchase.status = "cancelled";
     purchase.updatedBy = req.user._id;
 
     await purchase.save();
+
+
+    await createAuditLog({
+  req,
+  action: "CANCEL",
+  entity: "Purchase",
+  entityId: purchase._id,
+  documentNumber: purchase.purchaseNumber,
+  description: `Cancelled Purchase ${purchase.purchaseNumber}`,
+  before,
+  after: purchase.toObject(),
+});
 
     // ==========================================
 // NOTIFICATION

@@ -58,17 +58,45 @@ const createSupplierPricing = async (req, res, next) => {
       status,
     } = req.body;
 
-    await checkReferenceExists(
-      Supplier,
-      supplierId,
-      "Supplier"
-    );
+    const supplier = await Supplier.findById(supplierId);
 
-    await checkReferenceExists(
-      Product,
-      productId,
-      "Product"
-    );
+    if (!supplier) {
+      const error = new Error("Supplier not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (supplier.status !== "active") {
+      const error = new Error(
+        "This supplier is inactive and cannot be assigned to pricing.",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // PRODUCT VALIDATION
+    // ==========================================
+
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      const error = new Error("Product not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (product.status !== "active") {
+      const error = new Error(
+        "This product is inactive and cannot be assigned supplier pricing.",
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // ==========================================
+    // CREATE SUPPLIER PRICING
+    // ==========================================
 
     const supplierPricing = await SupplierPricing.create({
       supplierId,
@@ -78,11 +106,14 @@ const createSupplierPricing = async (req, res, next) => {
       status,
     });
 
-    const populatedPricing = await SupplierPricing.findById(
-      supplierPricing._id
-    )
-      .populate("supplierId", "supplierCode name")
-      .populate("productId", "sku name");
+    const populatedPricing =
+      await SupplierPricing.findById(supplierPricing._id)
+        .populate("supplierId", "supplierCode name")
+        .populate("productId", "sku name");
+
+    // ==========================================
+    // AUDIT TRAIL
+    // ==========================================
 
     await createAuditLog({
       req,
@@ -99,9 +130,24 @@ const createSupplierPricing = async (req, res, next) => {
       supplierPricing: populatedPricing,
     });
   } catch (error) {
+    // ==========================================
+    // DUPLICATE SUPPLIER + PRODUCT
+    // ==========================================
+
+    if (error.code === 11000) {
+      const duplicateError = new Error(
+        "Supplier pricing already exists for this supplier and product.",
+      );
+
+      duplicateError.statusCode = 400;
+
+      return next(duplicateError);
+    }
+
     next(error);
   }
 };
+
 
 // UPDATE SUPPLIER PRICING
 const updateSupplierPricing = async (req, res, next) => {
@@ -114,9 +160,8 @@ const updateSupplierPricing = async (req, res, next) => {
       status,
     } = req.body;
 
-    const supplierPricing = await SupplierPricing.findById(
-      req.params.id
-    );
+    const supplierPricing =
+      await SupplierPricing.findById(req.params.id);
 
     if (!supplierPricing) {
       return res.status(404).json({
@@ -127,22 +172,53 @@ const updateSupplierPricing = async (req, res, next) => {
 
     const before = supplierPricing.toObject();
 
-    // Validate references if they are being updated
+    // ==========================================
+    // SUPPLIER VALIDATION
+    // ==========================================
+
     if (supplierId !== undefined) {
-      await checkReferenceExists(
-        Supplier,
-        supplierId,
-        "Supplier"
-      );
+      const supplier = await Supplier.findById(supplierId);
+
+      if (!supplier) {
+        const error = new Error("Supplier not found");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (supplier.status !== "active") {
+        const error = new Error(
+          "This supplier is inactive and cannot be assigned to pricing.",
+        );
+        error.statusCode = 400;
+        throw error;
+      }
     }
 
+    // ==========================================
+    // PRODUCT VALIDATION
+    // ==========================================
+
     if (productId !== undefined) {
-      await checkReferenceExists(
-        Product,
-        productId,
-        "Product"
-      );
+      const product = await Product.findById(productId);
+
+      if (!product) {
+        const error = new Error("Product not found");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (product.status !== "active") {
+        const error = new Error(
+          "This product is inactive and cannot be assigned supplier pricing.",
+        );
+        error.statusCode = 400;
+        throw error;
+      }
     }
+
+    // ==========================================
+    // UPDATE DATA
+    // ==========================================
 
     const updateData = {
       supplierId,
@@ -162,11 +238,18 @@ const updateSupplierPricing = async (req, res, next) => {
 
     await supplierPricing.save();
 
-    const populatedPricing = await SupplierPricing.findById(
-      supplierPricing._id
-    )
-      .populate("supplierId", "supplierCode name")
-      .populate("productId", "sku name");
+    // ==========================================
+    // POPULATE UPDATED PRICING
+    // ==========================================
+
+    const populatedPricing =
+      await SupplierPricing.findById(supplierPricing._id)
+        .populate("supplierId", "supplierCode name")
+        .populate("productId", "sku name");
+
+    // ==========================================
+    // AUDIT TRAIL
+    // ==========================================
 
     await createAuditLog({
       req,
@@ -184,16 +267,29 @@ const updateSupplierPricing = async (req, res, next) => {
       supplierPricing: populatedPricing,
     });
   } catch (error) {
+    // ==========================================
+    // DUPLICATE SUPPLIER + PRODUCT
+    // ==========================================
+
+    if (error.code === 11000) {
+      const duplicateError = new Error(
+        "Supplier pricing already exists for this supplier and product.",
+      );
+
+      duplicateError.statusCode = 400;
+
+      return next(duplicateError);
+    }
+
     next(error);
   }
 };
 
+
 // DELETE SUPPLIER PRICING
 const deleteSupplierPricing = async (req, res, next) => {
   try {
-    const supplierPricing = await SupplierPricing.findById(
-      req.params.id
-    );
+    const supplierPricing = await SupplierPricing.findById(req.params.id);
 
     if (!supplierPricing) {
       return res.status(404).json({
@@ -204,9 +300,7 @@ const deleteSupplierPricing = async (req, res, next) => {
 
     const before = supplierPricing.toObject();
 
-    const populatedPricing = await SupplierPricing.findById(
-      supplierPricing._id
-    )
+    const populatedPricing = await SupplierPricing.findById(supplierPricing._id)
       .populate("supplierId", "supplierCode name")
       .populate("productId", "sku name");
 

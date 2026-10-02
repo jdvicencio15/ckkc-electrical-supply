@@ -1,5 +1,7 @@
 const Category = require("../models/Category");
 
+const Product = require("../models/Product");
+
 const { createAuditLog } = require("../services/auditService");
 
 // GET ALL CATEGORIES
@@ -112,7 +114,22 @@ const deleteCategory = async (req, res, next) => {
       });
     }
 
+
+
+    const productExists = await Product.exists({
+  categoryId: category._id,
+});
+
+if (productExists) {
+  return res.status(400).json({
+    success: false,
+    message:
+      "Category cannot be deleted because it is assigned to existing products.",
+  });
+    }
+    
     const before = category.toObject();
+
 
     await category.deleteOne();
 

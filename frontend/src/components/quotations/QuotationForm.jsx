@@ -260,7 +260,8 @@ function QuotationForm({
         productId,
         supplierId: "",
         supplierCostAtQuotation: costInfo.cost,
-        description: selectedProduct?.name || items[index].description,
+        costSource: costInfo.source,
+        description: selectedProduct?.name || "",
       };
 
       return {
@@ -270,9 +271,18 @@ function QuotationForm({
     });
   };
 
+  const isProductAlreadySelected = (productId, currentIndex) => {
+    if (!productId) {
+      return false;
+    }
+
+    return formData.items.some(
+      (item, index) => index !== currentIndex && item.productId === productId,
+    );
+  };
+
   const handleSupplierChange = (index, supplierId) => {
     const productId = formData.items[index].productId;
-
     const costInfo = getCostInfo(productId, supplierId);
 
     setFormData((previous) => {
@@ -282,6 +292,7 @@ function QuotationForm({
         ...items[index],
         supplierId,
         supplierCostAtQuotation: costInfo.cost,
+        costSource: costInfo.source,
       };
 
       return {
@@ -291,103 +302,124 @@ function QuotationForm({
     });
   };
 
-// SUBMIT
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  // SUBMIT
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  setError("");
+    setError("");
 
-  // =========================================
-  // STATUS-ONLY UPDATE
-  // =========================================
-  if (isEditing && formData.status !== initialData.status) {
-    try {
-      await onSubmit({
-        status: formData.status,
-      });
+    // =========================================
+    // STATUS-ONLY UPDATE
+    // =========================================
+    if (isEditing && formData.status !== initialData.status) {
+      try {
+        await onSubmit({
+          status: formData.status,
+        });
 
-      return;
-    } catch (error) {
-      console.error("Failed to update quotation status:", error);
+        return;
+      } catch (error) {
+        console.error("Failed to update quotation status:", error);
 
-      setError(
-        error.response?.data?.message ||
-          "Failed to update quotation status.",
-      );
+        setError(
+          error.response?.data?.message || "Failed to update quotation status.",
+        );
 
+        return;
+      }
+    }
+
+    // =========================================
+    // NORMAL CREATE / DRAFT EDIT
+    // =========================================
+
+    if (!formData.customerId) {
+      setError("Customer is required.");
       return;
     }
-  }
 
-  // =========================================
-  // NORMAL CREATE / DRAFT EDIT
-  // =========================================
-
-  if (!formData.customerId) {
-    setError("Customer is required.");
-    return;
-  }
-
-  const hasInvalidItem = formData.items.some(
-    (item) =>
-      !item.productId ||
-      !item.description.trim() ||
-      Number(item.quantity) <= 0,
-  );
-
-  if (hasInvalidItem) {
-    setError("Please complete all quotation items.");
-    return;
-  }
-
-  const hasInvalidPrice = formData.items.some(
-    (item) =>
-      Number(item.supplierCostAtQuotation) < 0 ||
-      Number(item.quotedUnitPrice) < 0,
-  );
-
-  if (hasInvalidPrice) {
-    setError("Supplier cost and quoted price cannot be negative.");
-    return;
-  }
-
-  try {
-    await onSubmit({
-      customerId: formData.customerId,
-
-      quotationDate: formData.quotationDate,
-
-      status: formData.status,
-
-      items: formData.items.map((item) => ({
-        productId: item.productId,
-
-        supplierId: item.supplierId || undefined,
-
-        description: item.description.trim(),
-
-        quantity: Number(item.quantity),
-
-        supplierCostAtQuotation: Number(
-          item.supplierCostAtQuotation,
-        ),
-
-        quotedUnitPrice: Number(item.quotedUnitPrice),
-      })),
-
-      laborCost: Number(formData.laborCost),
-
-      otherDirectCosts: Number(formData.otherDirectCosts),
-    });
-  } catch (error) {
-    console.error("Failed to submit quotation:", error);
-
-    setError(
-      error.response?.data?.message ||
-        "Failed to save quotation.",
+    const hasInvalidItem = formData.items.some(
+      (item) =>
+        !item.productId ||
+        !item.description.trim() ||
+        Number(item.quantity) <= 0,
     );
-  }
-};
+
+    if (hasInvalidItem) {
+      setError("Please complete all quotation items.");
+      return;
+    }
+
+    const hasInvalidPrice = formData.items.some(
+      (item) =>
+        Number(item.supplierCostAtQuotation) < 0 ||
+        Number(item.quotedUnitPrice) < 0,
+    );
+
+    if (hasInvalidPrice) {
+      setError("Supplier cost and quoted price cannot be negative.");
+      return;
+    }
+
+    const hasInvalidAdditionalCosts =
+      !Number.isFinite(Number(formData.laborCost)) ||
+      Number(formData.laborCost) < 0 ||
+      !Number.isFinite(Number(formData.otherDirectCosts)) ||
+      Number(formData.otherDirectCosts) < 0;
+
+    if (hasInvalidAdditionalCosts) {
+      setError("Labor cost and other direct costs cannot be negative.");
+      return;
+    }
+
+    try {
+      await onSubmit({
+        customerId: formData.customerId,
+
+        quotationDate: formData.quotationDate,
+
+        status: formData.status,
+
+        items: formData.items.map((item) => ({
+          productId: item.productId,
+
+          supplierId: item.supplierId || undefined,
+
+          description: item.description.trim(),
+
+          quantity: Number(item.quantity),
+
+          supplierCostAtQuotation: Number(item.supplierCostAtQuotation),
+
+          quotedUnitPrice: Number(item.quotedUnitPrice),
+        })),
+
+        laborCost: Number(formData.laborCost),
+
+        otherDirectCosts: Number(formData.otherDirectCosts),
+      });
+    } catch (error) {
+      console.error("Failed to submit quotation:", error);
+
+      setError(error.response?.data?.message || "Failed to save quotation.");
+    }
+  };
+
+  const getSuppliersForProduct = (productId) => {
+    if (!productId) return [];
+
+    const supplierIds = new Set(
+      supplierPricings
+        .filter(
+          (pricing) =>
+            pricing.productId?._id === productId && pricing.status === "active",
+        )
+        .map((pricing) => pricing.supplierId?._id)
+        .filter(Boolean),
+    );
+
+    return suppliers.filter((supplier) => supplierIds.has(supplier._id));
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -501,25 +533,30 @@ const handleSubmit = async (e) => {
                 Status
               </label>
 
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                disabled={submitting}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-              >
-                <option value="draft">Draft</option>
-
-                <option value="sent">Sent</option>
-
-                <option value="accepted">Accepted</option>
-
-                <option value="rejected">Rejected</option>
-
-                <option value="expired">Expired</option>
-
-                <option value="cancelled">Cancelled</option>
-              </select>
+              {isEditing ? (
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  disabled={submitting}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="sent">Sent</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="expired">Expired</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value="Draft"
+                  readOnly
+                  disabled
+                  className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-500 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                />
+              )}
             </div>
           </div>
 
@@ -567,175 +604,197 @@ const handleSubmit = async (e) => {
                 </thead>
 
                 <tbody>
-                  {formData.items.map((item, index) => (
-                    <tr
-                      key={index}
-                      className="border-t border-slate-100 dark:border-slate-800"
-                    >
-                      {/* PRODUCT */}
-                      <td className="px-4 py-3">
-                        <select
-                          value={item.productId}
-                          onChange={(e) =>
-                            handleProductChange(index, e.target.value)
-                          }
-                          disabled={submitting || loadingReferences}
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                        >
-                          <option value="">
-                            {loadingReferences
-                              ? "Loading products..."
-                              : "Select product"}
-                          </option>
+                  {formData.items.map((item, index) => {
+                    const availableSuppliers = getSuppliersForProduct(
+                      item.productId,
+                    );
 
-                          {products.map((product) => (
-                            <option key={product._id} value={product._id}>
-                              {product.sku} - {product.name}
+                    return (
+                      <tr
+                        key={index}
+                        className="border-t border-slate-100 dark:border-slate-800"
+                      >
+                        {/* PRODUCT */}
+                        <td className="px-4 py-3">
+                          <select
+                            value={item.productId}
+                            onChange={(e) =>
+                              handleProductChange(index, e.target.value)
+                            }
+                            disabled={submitting || loadingReferences}
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                          >
+                            <option value="">
+                              {loadingReferences
+                                ? "Loading products..."
+                                : "Select product"}
                             </option>
-                          ))}
-                        </select>
-                      </td>
 
-                      {/* Supplier */}
-                      <td className="px-4 py-3">
-                        <select
-                          value={item.supplierId}
-                          onChange={(e) =>
-                            handleSupplierChange(index, e.target.value)
-                          }
-                          disabled={
-                            submitting || loadingReferences || !item.productId
-                          }
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                        >
-                          <option value="">
-                            {!item.productId
-                              ? "Select product first"
-                              : "Select supplier (optional)"}
-                          </option>
+                            {products.map((product) => {
+                              const alreadySelected = isProductAlreadySelected(
+                                product._id,
+                                index,
+                              );
 
-                          {suppliers.map((supplier) => (
-                            <option key={supplier._id} value={supplier._id}>
-                              {supplier.name}
+                              return (
+                                <option
+                                  key={product._id}
+                                  value={product._id}
+                                  disabled={alreadySelected}
+                                >
+                                  {product.sku} - {product.name}
+                                  {alreadySelected ? " — Already added" : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </td>
+
+                        {/* SUPPLIER */}
+                        <td className="px-4 py-3">
+                          <select
+                            value={item.supplierId}
+                            onChange={(e) =>
+                              handleSupplierChange(index, e.target.value)
+                            }
+                            disabled={
+                              submitting ||
+                              loadingReferences ||
+                              !item.productId ||
+                              availableSuppliers.length === 0
+                            }
+                            className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                          >
+                            <option value="">
+                              {!item.productId
+                                ? "Select product first"
+                                : availableSuppliers.length === 0
+                                  ? "No supplier pricing"
+                                  : "Select supplier (optional)"}
                             </option>
-                          ))}
-                        </select>
-                      </td>
 
-                      {/* DESCRIPTION */}
-                      <td className="px-4 py-3">
-                        <input
-                          type="text"
-                          value={item.description}
-                          onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "description",
-                              e.target.value,
-                            )
-                          }
-                          disabled={submitting}
-                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                        />
-                      </td>
+                            {availableSuppliers.map((supplier) => (
+                              <option key={supplier._id} value={supplier._id}>
+                                {supplier.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
 
-                      {/* QUANTITY */}
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            handleItemChange(index, "quantity", e.target.value)
-                          }
-                          disabled={submitting}
-                          className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                        />
-                      </td>
+                        {/* DESCRIPTION */}
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            value={item.description}
+                            readOnly
+                            disabled={submitting}
+                            className="w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                          />
+                        </td>
 
-                    {/* SUPPLIER COST */}
-<td className="px-4 py-3">
-  {(() => {
-    const costInfo = getCostInfo(
-      item.productId,
-      item.supplierId,
-    );
+                        {/* QUANTITY */}
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleItemChange(
+                                index,
+                                "quantity",
+                                e.target.value,
+                              )
+                            }
+                            disabled={submitting}
+                            className="w-24 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                          />
+                        </td>
 
-    const displaySource =
-      item.costSource || costInfo.source;
+                        {/* SUPPLIER COST */}
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const costInfo = getCostInfo(
+                              item.productId,
+                              item.supplierId,
+                            );
 
-    const displayMessage = item.costSource
-      ? item.costSource === "supplier_pricing"
-        ? "Supplier Pricing was used for this quotation."
-        : "Product Cost was used for this quotation."
-      : costInfo.message;
+                            const displaySource =
+                              item.costSource || costInfo.source;
 
-    return (
-      <div className="min-w-40">
-        <div className="w-32 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {formatCurrency(
-              item.supplierCostAtQuotation ?? costInfo.cost,
-              settings?.currency,
-            )}
-          </p>
+                            const displayMessage = item.costSource
+                              ? item.costSource === "supplier_pricing"
+                                ? "Supplier Pricing was used for this quotation."
+                                : "Product Cost was used for this quotation."
+                              : costInfo.message;
 
-          <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-            Auto-calculated
-          </p>
-        </div>
+                            return (
+                              <div className="min-w-40">
+                                <div className="w-32 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                    {formatCurrency(
+                                      item.supplierCostAtQuotation ??
+                                        costInfo.cost,
+                                      settings?.currency,
+                                    )}
+                                  </p>
 
-        {displaySource && (
-          <p className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
-            {displaySource === "supplier_pricing"
-              ? "Supplier Pricing"
-              : "Product Cost"}
-          </p>
-        )}
+                                  <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                    Auto-calculated
+                                  </p>
+                                </div>
 
-        {item.productId && (
-          <p className="mt-1 max-w-40 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
-            {displayMessage}
-          </p>
-        )}
-      </div>
-    );
-  })()}
-</td>
+                                {displaySource && (
+                                  <p className="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+                                    {displaySource === "supplier_pricing"
+                                      ? "Supplier Pricing"
+                                      : "Product Cost"}
+                                  </p>
+                                )}
 
-                      {/* QUOTED PRICE */}
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.quotedUnitPrice}
-                          onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "quotedUnitPrice",
-                              e.target.value,
-                            )
-                          }
-                          disabled={submitting}
-                          className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                        />
-                      </td>
+                                {item.productId && (
+                                  <p className="mt-1 max-w-40 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
+                                    {displayMessage}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </td>
 
-                      {/* REMOVE */}
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          disabled={submitting || formData.items.length === 1}
-                          className="text-sm font-medium text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        {/* QUOTED PRICE */}
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.quotedUnitPrice}
+                            onChange={(e) =>
+                              handleItemChange(
+                                index,
+                                "quotedUnitPrice",
+                                e.target.value,
+                              )
+                            }
+                            disabled={submitting}
+                            className="w-32 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-green-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                          />
+                        </td>
+
+                        {/* REMOVE */}
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            disabled={submitting || formData.items.length === 1}
+                            className="text-sm font-medium text-red-500 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

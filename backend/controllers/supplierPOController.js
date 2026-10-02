@@ -564,7 +564,7 @@ const releaseSupplierPO = async (req, res, next) => {
 
     await createAuditLog({
       req,
-      action: "UPDATE",
+      action: "RELEASE",
       entity: "SupplierPO",
       entityId: supplierPO._id,
       documentNumber: supplierPO.poNumber,

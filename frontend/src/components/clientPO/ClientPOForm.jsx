@@ -269,6 +269,16 @@ function ClientPOForm({
   };
 
   // =========================
+  // CHECK IF PRODUCT ALREADY SELECTED
+  // =========================
+  const isProductAlreadySelected = (productId, currentIndex) => {
+    return formData.items.some(
+      (item, index) =>
+        index !== currentIndex && String(item.productId) === String(productId),
+    );
+  };
+
+  // =========================
   // PRODUCT CHANGE
   // =========================
   const handleProductChange = (index, productId) => {
@@ -436,34 +446,34 @@ function ClientPOForm({
     setError("");
 
     const payload =
-  isEditing && initialData.status === "received"
-    ? {
-        status: formData.status,
-      }
-    : {
-        customerId: formData.customerId,
+      isEditing && initialData.status === "received"
+        ? {
+            status: formData.status,
+          }
+        : {
+            customerId: formData.customerId,
 
-        ...(formData.quotationId
-          ? {
-              quotationId: formData.quotationId,
-            }
-          : {}),
+            ...(formData.quotationId
+              ? {
+                  quotationId: formData.quotationId,
+                }
+              : {}),
 
-        poDate: formData.poDate,
+            poDate: formData.poDate,
 
-        status: formData.status,
+            status: formData.status,
 
-        items: formData.items.map((item) => ({
-          productId: item.productId,
-          description: item.description.trim(),
-          quantity: Number(item.quantity),
-          agreedUnitPrice: Number(item.agreedUnitPrice),
-        })),
+            items: formData.items.map((item) => ({
+              productId: item.productId,
+              description: item.description.trim(),
+              quantity: Number(item.quantity),
+              agreedUnitPrice: Number(item.agreedUnitPrice),
+            })),
 
-        laborCost: Number(formData.laborCost || 0),
+            laborCost: Number(formData.laborCost || 0),
 
-        otherDirectCosts: Number(formData.otherDirectCosts || 0),
-      };
+            otherDirectCosts: Number(formData.otherDirectCosts || 0),
+          };
 
     await onSubmit(payload);
   };
@@ -715,13 +725,23 @@ function ClientPOForm({
                             >
                               <option value="">Select product</option>
 
-                              {products.map((product) => (
-                                <option key={product._id} value={product._id}>
-                                  {product.sku
-                                    ? `${product.sku} — ${product.name}`
-                                    : product.name}
-                                </option>
-                              ))}
+                              {products.map((product) => {
+                                const alreadySelected =
+                                  isProductAlreadySelected(product._id, index);
+
+                                return (
+                                  <option
+                                    key={product._id}
+                                    value={product._id}
+                                    disabled={alreadySelected}
+                                  >
+                                    {product.sku
+                                      ? `${product.sku} — ${product.name}`
+                                      : product.name}
+                                    {alreadySelected ? " — Already added" : ""}
+                                  </option>
+                                );
+                              })}
                             </select>
 
                             {selectedProduct && (
@@ -948,8 +968,7 @@ function ClientPOForm({
             <button
               type="submit"
               disabled={submitting || loadingReferences || !canSubmit}
-               className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-
+              className="rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting
                 ? "Saving..."
