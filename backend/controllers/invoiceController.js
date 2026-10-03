@@ -6,9 +6,7 @@ const Product = require("../models/Product");
 const Payment = require("../models/Payment");
 const { roundMoney } = require("../utils/money");
 
-const {
-  generateInvoicePDF,
-} = require("../services/pdfService");
+const { generateInvoicePDF } = require("../services/pdfService");
 
 const Settings = require("../models/Settings");
 const {
@@ -20,14 +18,11 @@ const {
   createNotificationsForRoles,
 } = require("../services/notificationService");
 
-const {
-  generateDocumentNumber,
-} = require("../services/documentNumberService");
+const { generateDocumentNumber } = require("../services/documentNumberService");
 
-const {
-  resolveProductUnit,
-} = require("../services/unitService");
+const { resolveProductUnit } = require("../services/unitService");
 
+const { createAuditLog } = require("../services/auditService");
 
 const exportInvoicePDF = async (req, res, next) => {
   try {
@@ -80,9 +75,7 @@ const getInvoices = async (req, res, next) => {
     // --------------------------------
     // Calculate payment status
     // --------------------------------
-    const invoiceIds = invoices.map(
-      (invoice) => invoice._id,
-    );
+    const invoiceIds = invoices.map((invoice) => invoice._id);
 
     const paymentSummary = await Payment.aggregate([
       {
@@ -110,37 +103,30 @@ const getInvoices = async (req, res, next) => {
       ]),
     );
 
-    const invoicesWithPaymentStatus =
-      invoices.map((invoice) => {
-        const invoiceTotal = roundMoney(
-          invoice.totalAmount || 0,
-        );
+    const invoicesWithPaymentStatus = invoices.map((invoice) => {
+      const invoiceTotal = roundMoney(invoice.totalAmount || 0);
 
-        const totalPaid =
-          paymentMap.get(invoice._id.toString()) || 0;
+      const totalPaid = paymentMap.get(invoice._id.toString()) || 0;
 
-        const remainingBalance = roundMoney(
-          Math.max(invoiceTotal - totalPaid, 0),
-        );
+      const remainingBalance = roundMoney(
+        Math.max(invoiceTotal - totalPaid, 0),
+      );
 
-        let paymentStatus = "unpaid";
+      let paymentStatus = "unpaid";
 
-        if (
-          invoiceTotal > 0 &&
-          totalPaid >= invoiceTotal
-        ) {
-          paymentStatus = "paid";
-        } else if (totalPaid > 0) {
-          paymentStatus = "partial";
-        }
+      if (invoiceTotal > 0 && totalPaid >= invoiceTotal) {
+        paymentStatus = "paid";
+      } else if (totalPaid > 0) {
+        paymentStatus = "partial";
+      }
 
-        return {
-          ...invoice.toObject(),
-          totalPaid,
-          remainingBalance,
-          paymentStatus,
-        };
-      });
+      return {
+        ...invoice.toObject(),
+        totalPaid,
+        remainingBalance,
+        paymentStatus,
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -218,17 +204,13 @@ const createInvoice = async (req, res, next) => {
     }
 
     // CHECK CUSTOMER FROM SALE
-    await checkReferenceExists(
-      Customer,
-      sale.customerId,
-      "Customer"
-    );
+    await checkReferenceExists(Customer, sale.customerId, "Customer");
 
     // CHECK PRODUCTS FROM SALE
     await checkReferencesExist(
       Product,
       sale.items.map((item) => item.productId),
-      "Product"
+      "Product",
     );
 
     // EFFECTIVE INVOICE DATE
@@ -237,10 +219,7 @@ const createInvoice = async (req, res, next) => {
       : new Date();
 
     // DUE DATE MUST NOT BE BEFORE INVOICE DATE
-    if (
-      dueDate &&
-      new Date(dueDate) < effectiveInvoiceDate
-    ) {
+    if (dueDate && new Date(dueDate) < effectiveInvoiceDate) {
       return res.status(400).json({
         success: false,
         message: "Due date cannot be before invoice date",
@@ -254,7 +233,7 @@ const createInvoice = async (req, res, next) => {
       const resolvedUnit = await resolveProductUnit(
         item.productId,
         item.unitId,
-        item.unitCode
+        item.unitCode,
       );
 
       items.push({
@@ -272,17 +251,11 @@ const createInvoice = async (req, res, next) => {
     const taxRate = Number(sale.taxRate || 0);
     const taxAmount = Number(sale.taxAmount || 0);
     const pricingMode = sale.pricingMode || "inclusive";
-    const netAmount = Number(
-      sale.netAmount || subtotal
-    );
-    const totalAmount = Number(
-      sale.totalAmount || subtotal
-    );
+    const netAmount = Number(sale.netAmount || subtotal);
+    const totalAmount = Number(sale.totalAmount || subtotal);
 
     // GENERATE DOCUMENT NUMBER
-    const invoiceNumber = await generateDocumentNumber(
-      "invoice"
-    );
+    const invoiceNumber = await generateDocumentNumber("invoice");
 
     // CREATE INVOICE AS DRAFT
     // Status is intentionally NOT accepted from the client.
@@ -303,57 +276,47 @@ const createInvoice = async (req, res, next) => {
       createdBy: req.user._id,
     });
 
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: invoice._id,
+      documentNumber: invoice.invoiceNumber,
+      description: `Created Invoice ${invoice.invoiceNumber}`,
+      after: invoice.toObject(),
+    });
+
     // CHECK INVOICE NOTIFICATION SETTING
-    const settings = await Settings.findOne().select(
-      "invoiceNotifications"
-    );
+    const settings = await Settings.findOne().select("invoiceNotifications");
 
     // CREATE NOTIFICATION IF ENABLED
     if (settings?.invoiceNotifications !== false) {
       try {
-       await createNotificationsForRoles({
-  roles: ["owner", "admin", "accounting"],
-  excludeUserId: req.user._id,
-  type: "invoice",
-  title: "New Invoice",
-  message: `Invoice ${invoice.invoiceNumber} was created.`,
-  link: `/invoices?search=${encodeURIComponent(
-    invoice.invoiceNumber,
-  )}`,
-  entityType: "Invoice",
-  entityId: invoice._id,
-});
+        await createNotificationsForRoles({
+          roles: ["owner", "admin", "accounting"],
+          excludeUserId: req.user._id,
+          type: "invoice",
+          title: "New Invoice",
+          message: `Invoice ${invoice.invoiceNumber} was created.`,
+          link: `/invoices?search=${encodeURIComponent(invoice.invoiceNumber)}`,
+          entityType: "Invoice",
+          entityId: invoice._id,
+        });
       } catch (notificationError) {
         console.error(
           "Failed to create invoice notification:",
-          notificationError
+          notificationError,
         );
       }
     }
 
     // POPULATE RESPONSE
-    const populatedInvoice =
-      await Invoice.findById(invoice._id)
-        .populate(
-          "saleId",
-          "salesNumber saleDate status totalAmount"
-        )
-        .populate(
-          "customerId",
-          "customerCode name"
-        )
-        .populate(
-          "items.productId",
-          "sku name unit"
-        )
-        .populate(
-          "items.unitId",
-          "code name"
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName"
-        );
+    const populatedInvoice = await Invoice.findById(invoice._id)
+      .populate("saleId", "salesNumber saleDate status totalAmount")
+      .populate("customerId", "customerCode name")
+      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName");
 
     res.status(201).json({
       success: true,
@@ -376,27 +339,22 @@ const updateInvoice = async (req, res, next) => {
       });
     }
 
+    const before = invoice.toObject();
+
     // ONLY DRAFT INVOICES CAN BE UPDATED
     if (invoice.status !== "draft") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only draft invoices can be updated",
+        message: "Only draft invoices can be updated",
       });
     }
 
-    const {
-      invoiceDate,
-      dueDate,
-      status,
-    } = req.body;
+    const { invoiceDate, dueDate, status } = req.body;
 
     // ONLY ALLOW VALID DRAFT TRANSITIONS
     if (
       status !== undefined &&
-      !["draft", "issued", "cancelled"].includes(
-        status
-      )
+      !["draft", "issued", "cancelled"].includes(status)
     ) {
       return res.status(400).json({
         success: false,
@@ -406,24 +364,16 @@ const updateInvoice = async (req, res, next) => {
 
     // EFFECTIVE DATE VALUES
     const effectiveInvoiceDate =
-      invoiceDate !== undefined
-        ? new Date(invoiceDate)
-        : invoice.invoiceDate;
+      invoiceDate !== undefined ? new Date(invoiceDate) : invoice.invoiceDate;
 
     const effectiveDueDate =
-      dueDate !== undefined
-        ? new Date(dueDate)
-        : invoice.dueDate;
+      dueDate !== undefined ? new Date(dueDate) : invoice.dueDate;
 
     // DUE DATE MUST NOT BE BEFORE INVOICE DATE
-    if (
-      effectiveDueDate &&
-      effectiveDueDate < effectiveInvoiceDate
-    ) {
+    if (effectiveDueDate && effectiveDueDate < effectiveInvoiceDate) {
       return res.status(400).json({
         success: false,
-        message:
-          "Due date cannot be before invoice date",
+        message: "Due date cannot be before invoice date",
       });
     }
 
@@ -448,66 +398,75 @@ const updateInvoice = async (req, res, next) => {
 
     await invoice.save();
 
-    // =========================
-// CREATE STATUS NOTIFICATION
-// =========================
-
-if (status !== undefined && status !== "draft") {
-  try {
-    const statusMessage =
-      status === "issued"
-        ? `Invoice ${invoice.invoiceNumber} was issued.`
-        : `Invoice ${invoice.invoiceNumber} was cancelled.`;
-
-    await createNotificationsForRoles({
-      roles: ["owner", "admin", "accounting"],
-      excludeUserId: req.user._id,
-      type: "invoice",
-      title:
-        status === "issued"
-          ? "Invoice Issued"
-          : "Invoice Cancelled",
-      message: statusMessage,
-      link: `/invoices?search=${encodeURIComponent(
-        invoice.invoiceNumber,
-      )}`,
-      entityType: "Invoice",
-      entityId: invoice._id,
-    });
-  } catch (notificationError) {
-    console.error(
-      `Failed to create invoice ${status} notification:`,
-      notificationError,
-    );
-  }
+    if (status !== undefined && status !== before.status) {
+      await createAuditLog({
+        req,
+        action: "STATUS_CHANGE",
+        entity: "Invoice",
+        entityId: invoice._id,
+        documentNumber: invoice.invoiceNumber,
+        description: `Invoice ${invoice.invoiceNumber} status changed from ${before.status} to ${invoice.status}.`,
+        before: {
+          status: before.status,
+        },
+        after: {
+          status: invoice.status,
+        },
+        metadata: {
+          reason: "INVOICE_STATUS_CHANGE",
+          previousStatus: before.status,
+          newStatus: invoice.status,
+        },
+      });
+    } else {
+      await createAuditLog({
+        req,
+        action: "UPDATE",
+        entity: "Invoice",
+        entityId: invoice._id,
+        documentNumber: invoice.invoiceNumber,
+        description: `Updated Invoice ${invoice.invoiceNumber}`,
+        before,
+        after: invoice.toObject(),
+      });
     }
 
-    const populatedInvoice =
-      await Invoice.findById(invoice._id)
-        .populate(
-          "saleId",
-          "salesNumber saleDate status totalAmount"
-        )
-        .populate(
-          "customerId",
-          "customerCode name"
-        )
-        .populate(
-          "items.productId",
-          "sku name unit"
-        )
-        .populate(
-          "items.unitId",
-          "code name"
-        )
-        .populate(
-          "createdBy",
-          "firstName lastName"
-        )
-        .populate(
-          "updatedBy",
-          "firstName lastName"
+    // =========================
+    // CREATE STATUS NOTIFICATION
+    // =========================
+
+    if (status !== undefined && status !== "draft") {
+      try {
+        const statusMessage =
+          status === "issued"
+            ? `Invoice ${invoice.invoiceNumber} was issued.`
+            : `Invoice ${invoice.invoiceNumber} was cancelled.`;
+
+        await createNotificationsForRoles({
+          roles: ["owner", "admin", "accounting"],
+          excludeUserId: req.user._id,
+          type: "invoice",
+          title: status === "issued" ? "Invoice Issued" : "Invoice Cancelled",
+          message: statusMessage,
+          link: `/invoices?search=${encodeURIComponent(invoice.invoiceNumber)}`,
+          entityType: "Invoice",
+          entityId: invoice._id,
+        });
+      } catch (notificationError) {
+        console.error(
+          `Failed to create invoice ${status} notification:`,
+          notificationError,
         );
+      }
+    }
+
+    const populatedInvoice = await Invoice.findById(invoice._id)
+      .populate("saleId", "salesNumber saleDate status totalAmount")
+      .populate("customerId", "customerCode name")
+      .populate("items.productId", "sku name unit")
+      .populate("items.unitId", "code name")
+      .populate("createdBy", "firstName lastName")
+      .populate("updatedBy", "firstName lastName");
 
     res.status(200).json({
       success: true,
@@ -530,16 +489,36 @@ const deleteInvoice = async (req, res, next) => {
       });
     }
 
+    const before = invoice.toObject();
+
+
     // ONLY DRAFT INVOICES CAN BE DELETED
     if (invoice.status !== "draft") {
       return res.status(400).json({
         success: false,
-        message:
-          "Only draft invoices can be deleted",
+        message: "Only draft invoices can be deleted",
       });
     }
 
     await invoice.deleteOne();
+
+     await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "Invoice",
+      entityId: invoice._id,
+      documentNumber: invoice.invoiceNumber,
+      description: `Draft Invoice ${invoice.invoiceNumber} was deleted.`,
+      before,
+      after: null,
+      metadata: {
+        reason: "DRAFT_INVOICE_DELETED",
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: invoice.customerId,
+        saleId: invoice.saleId,
+        deletedStatus: "draft",
+      },
+    });
 
     res.status(200).json({
       success: true,

@@ -32,9 +32,7 @@ const validateJournalLines = (entries) => {
 
   for (const entry of entries) {
     if (!entry.account) {
-      const error = new Error(
-        "Each journal entry line must have an account",
-      );
+      const error = new Error("Each journal entry line must have an account");
 
       error.statusCode = 400;
       throw error;
@@ -53,9 +51,7 @@ const validateJournalLines = (entries) => {
     const credit = roundMoney(entry.credit || 0);
 
     if (debit < 0 || credit < 0) {
-      const error = new Error(
-        "Debit and credit cannot be negative",
-      );
+      const error = new Error("Debit and credit cannot be negative");
 
       error.statusCode = 400;
       throw error;
@@ -96,9 +92,7 @@ const validateJournalLines = (entries) => {
   }
 
   if (Math.abs(totalDebit - totalCredit) > 0.01) {
-    const error = new Error(
-      "Total debit and total credit must be equal",
-    );
+    const error = new Error("Total debit and total credit must be equal");
 
     error.statusCode = 400;
     throw error;
@@ -117,9 +111,7 @@ const validateJournalLines = (entries) => {
 */
 
 const validateAccounts = async (entries, session) => {
-  const accountIds = entries.map((entry) =>
-    entry.account.toString(),
-  );
+  const accountIds = entries.map((entry) => entry.account.toString());
 
   const uniqueAccountIds = [...new Set(accountIds)];
 
@@ -131,9 +123,7 @@ const validateAccounts = async (entries, session) => {
     .session(session);
 
   if (accounts.length !== uniqueAccountIds.length) {
-    const error = new Error(
-      "One or more accounts are invalid or inactive",
-    );
+    const error = new Error("One or more accounts are invalid or inactive");
 
     error.statusCode = 400;
     throw error;
@@ -209,9 +199,7 @@ const createSystemJournalEntry = async ({
   }
 
   if (!mongoose.Types.ObjectId.isValid(sourceId)) {
-    const error = new Error(
-      "Invalid accounting source ID",
-    );
+    const error = new Error("Invalid accounting source ID");
 
     error.statusCode = 400;
     throw error;
@@ -223,11 +211,7 @@ const createSystemJournalEntry = async ({
   |--------------------------------------------------------------------------
   */
 
-  await validateAccountingSource(
-    sourceType,
-    sourceId,
-    { session },
-  );
+  await validateAccountingSource(sourceType, sourceId, { session });
 
   /*
   |--------------------------------------------------------------------------
@@ -342,11 +326,7 @@ const getAccountByCode = async (accountCode, session) => {
   return account;
 };
 
-const createSaleJournalEntry = async ({
-  session,
-  sale,
-  createdBy,
-}) => {
+const createSaleJournalEntry = async ({ session, sale, createdBy }) => {
   if (!session) {
     const error = new Error(
       "A MongoDB session is required to create a sale journal entry",
@@ -408,18 +388,14 @@ const createSaleJournalEntry = async ({
   */
 
   const accounts = await Promise.all([
-  getAccountByCode("1200", session), // Accounts Receivable
-  getAccountByCode("1300", session), // Inventory
-  getAccountByCode("4100", session), // Sales Revenue
-  getAccountByCode("5010", session), // COGS
-]);
+    getAccountByCode("1200", session), // Accounts Receivable
+    getAccountByCode("1300", session), // Inventory
+    getAccountByCode("4100", session), // Sales Revenue
+    getAccountByCode("5010", session), // COGS
+  ]);
 
-  const [
-    accountsReceivable,
-    inventory,
-    salesRevenue,
-    costOfGoodsSold,
-  ] = accounts;
+  const [accountsReceivable, inventory, salesRevenue, costOfGoodsSold] =
+    accounts;
 
   /*
   |--------------------------------------------------------------------------
@@ -480,7 +456,7 @@ const createSaleJournalEntry = async ({
   */
 
   if (taxAmount > 0) {
-      const outputVat = await getAccountByCode("2200", session);
+    const outputVat = await getAccountByCode("2200", session);
 
     entries.push({
       account: outputVat._id,
@@ -519,9 +495,7 @@ const createSaleJournalEntry = async ({
   |
   */
 
-  const expectedReceivable = roundMoney(
-    netAmount + taxAmount,
-  );
+  const expectedReceivable = roundMoney(netAmount + taxAmount);
 
   if (totalAmount !== expectedReceivable) {
     const error = new Error(
@@ -544,11 +518,7 @@ const createSaleJournalEntry = async ({
   });
 };
 
-const createPurchaseJournalEntry = async ({
-  session,
-  purchase,
-  createdBy,
-}) => {
+const createPurchaseJournalEntry = async ({ session, purchase, createdBy }) => {
   if (!session) {
     const error = new Error(
       "A MongoDB session is required to create a purchase journal entry",
@@ -579,7 +549,7 @@ const createPurchaseJournalEntry = async ({
     throw error;
   }
 
-/*
+  /*
 |--------------------------------------------------------------------------
 | Resolve Accounts by Stable Account Code
 |--------------------------------------------------------------------------
@@ -651,7 +621,7 @@ const createPurchaseJournalEntry = async ({
   */
 
   if (taxAmount > 0) {
-   const inputVat = await getAccountByCode("1400", session);
+    const inputVat = await getAccountByCode("1400", session);
 
     entries.push({
       account: inputVat._id,
@@ -683,9 +653,7 @@ const createPurchaseJournalEntry = async ({
   |
   */
 
-  const expectedPayable = roundMoney(
-    netAmount + taxAmount,
-  );
+  const expectedPayable = roundMoney(netAmount + taxAmount);
 
   if (totalAmount !== expectedPayable) {
     const error = new Error(
@@ -708,11 +676,7 @@ const createPurchaseJournalEntry = async ({
   });
 };
 
-const createPaymentJournalEntry = async ({
-  session,
-  payment,
-  createdBy,
-}) => {
+const createPaymentJournalEntry = async ({ session, payment, createdBy }) => {
   if (!session) {
     const error = new Error(
       "A MongoDB session is required to create a payment journal entry",
@@ -743,7 +707,7 @@ const createPaymentJournalEntry = async ({
     throw error;
   }
 
-/*
+  /*
 |--------------------------------------------------------------------------
 | Payment Account
 |--------------------------------------------------------------------------
@@ -757,17 +721,16 @@ const createPaymentJournalEntry = async ({
 |
 */
 
-const paymentAccountCodeMap = {
-  cash: "1110",
-  bank_transfer: "1120",
-  gcash: "1130",
-  maya: "1130",
-  check: "1120",
-  other: "1110",
-};
+  const paymentAccountCodeMap = {
+    cash: "1110",
+    bank_transfer: "1120",
+    gcash: "1130",
+    maya: "1130",
+    check: "1120",
+    other: "1110",
+  };
 
-  const paymentAccountCode =
-    paymentAccountCodeMap[payment.paymentMethod];
+  const paymentAccountCode = paymentAccountCodeMap[payment.paymentMethod];
 
   if (!paymentAccountCode) {
     const error = new Error(
@@ -778,15 +741,9 @@ const paymentAccountCodeMap = {
     throw error;
   }
 
-  const paymentAccount = await getAccountByCode(
-    paymentAccountCode,
-    session,
-  );
+  const paymentAccount = await getAccountByCode(paymentAccountCode, session);
 
-  const accountsReceivable = await getAccountByCode(
-  "1200",
-  session,
-  );
+  const accountsReceivable = await getAccountByCode("1200", session);
 
   /*
   |--------------------------------------------------------------------------
@@ -805,17 +762,13 @@ const paymentAccountCodeMap = {
     throw error;
   }
 
+  const invoice = await Invoice.findById(payment.invoiceId).session(session);
 
-    const invoice = await Invoice.findById(
-  payment.invoiceId
-).session(session);
-
-if (!invoice) {
-  const error = new Error("Invoice not found for payment");
-  error.statusCode = 400;
-  throw error;
-}
-
+  if (!invoice) {
+    const error = new Error("Invoice not found for payment");
+    error.statusCode = 400;
+    throw error;
+  }
 
   /*
   |--------------------------------------------------------------------------
@@ -833,7 +786,6 @@ if (!invoice) {
   |
   */
 
-
   const entries = [
     {
       account: paymentAccount._id,
@@ -850,12 +802,10 @@ if (!invoice) {
   return createSystemJournalEntry({
     session,
     date: payment.paymentDate,
-   reference: invoice.invoiceNumber,
-description: `Payment received for Invoice ${invoice.invoiceNumber}${
-  payment.referenceNumber
-    ? ` - Ref: ${payment.referenceNumber}`
-    : ""
-}`,
+    reference: invoice.invoiceNumber,
+    description: `Payment received for Invoice ${invoice.invoiceNumber}${
+      payment.referenceNumber ? ` - Ref: ${payment.referenceNumber}` : ""
+    }`,
     sourceType: "payment",
     sourceId: payment._id,
     entries,
@@ -863,15 +813,10 @@ description: `Payment received for Invoice ${invoice.invoiceNumber}${
   });
 };
 
-
-const createExpenseJournalEntry = async ({
-  session,
-  expense,
-  createdBy,
-}) => {
+const createExpenseJournalEntry = async ({ session, expense, createdBy }) => {
   if (!session) {
     const error = new Error(
-      "A MongoDB session is required to create an expense journal entry"
+      "A MongoDB session is required to create an expense journal entry",
     );
 
     error.statusCode = 500;
@@ -886,7 +831,7 @@ const createExpenseJournalEntry = async ({
 
   if (expense.status !== "posted") {
     const error = new Error(
-      "Expense must be posted before accounting recognition"
+      "Expense must be posted before accounting recognition",
     );
 
     error.statusCode = 400;
@@ -913,14 +858,14 @@ const createExpenseJournalEntry = async ({
 
   if (!expenseAccount) {
     const error = new Error(
-      "Selected expense account is missing, inactive, or not an expense account"
+      "Selected expense account is missing, inactive, or not an expense account",
     );
 
     error.statusCode = 400;
     throw error;
   }
 
-/*
+  /*
 |--------------------------------------------------------------------------
 | Payment Account
 |--------------------------------------------------------------------------
@@ -934,33 +879,27 @@ const createExpenseJournalEntry = async ({
 |
 */
 
+  const paymentAccountCodeMap = {
+    cash: "1110",
+    bank_transfer: "1120",
+    gcash: "1130",
+    maya: "1130",
+    check: "1120",
+    other: "1110",
+  };
 
-
- const paymentAccountCodeMap = {
-  cash: "1110",
-  bank_transfer: "1120",
-  gcash: "1130",
-  maya: "1130",
-  check: "1120",
-  other: "1110",
-};
-
-  const paymentAccountCode =
-    paymentAccountCodeMap[expense.paymentMethod];
+  const paymentAccountCode = paymentAccountCodeMap[expense.paymentMethod];
 
   if (!paymentAccountCode) {
     const error = new Error(
-      `Unsupported payment method ${expense.paymentMethod}`
+      `Unsupported payment method ${expense.paymentMethod}`,
     );
 
     error.statusCode = 400;
     throw error;
   }
 
-  const paymentAccount = await getAccountByCode(
-    paymentAccountCode,
-    session
-  );
+  const paymentAccount = await getAccountByCode(paymentAccountCode, session);
 
   /*
   |--------------------------------------------------------------------------
@@ -974,7 +913,7 @@ const createExpenseJournalEntry = async ({
 
   if (totalAmount <= 0) {
     const error = new Error(
-      "Expense total amount must be greater than zero for accounting recognition"
+      "Expense total amount must be greater than zero for accounting recognition",
     );
 
     error.statusCode = 400;
@@ -983,7 +922,7 @@ const createExpenseJournalEntry = async ({
 
   if (netAmount <= 0) {
     const error = new Error(
-      "Expense net amount must be greater than zero for accounting recognition"
+      "Expense net amount must be greater than zero for accounting recognition",
     );
 
     error.statusCode = 400;
@@ -1000,7 +939,7 @@ const createExpenseJournalEntry = async ({
 
   if (totalAmount !== expectedTotal) {
     const error = new Error(
-      `Expense accounting total mismatch: total ${totalAmount} does not equal net expense ${netAmount} plus VAT ${taxAmount}`
+      `Expense accounting total mismatch: total ${totalAmount} does not equal net expense ${netAmount} plus VAT ${taxAmount}`,
     );
 
     error.statusCode = 400;
@@ -1049,16 +988,16 @@ const createExpenseJournalEntry = async ({
     credit: totalAmount,
   });
 
-  return createSystemJournalEntry({
-    session,
-    date: expense.expenseDate,
-    reference: expense._id.toString(),
-    description: `Expense recognition for ${expense.description}`,
-    sourceType: "expense",
-    sourceId: expense._id,
-    entries,
-    createdBy,
-  });
+return createSystemJournalEntry({
+  session,
+  date: expense.expenseDate,
+  reference: `EXPENSE-${expense.description}`,
+  description: `Expense recognition for ${expense.description}`,
+  sourceType: "expense",
+  sourceId: expense._id,
+  entries,
+  createdBy,
+});
 };
 
 module.exports = {

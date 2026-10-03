@@ -1,22 +1,16 @@
-
 const Payment = require("../models/Payment");
 const Invoice = require("../models/Invoice");
 const mongoose = require("mongoose");
 
-const {
-  roundMoney,
-  toCents,
-  fromCents,
-} = require("../utils/money");
+const { toCents, fromCents } = require("../utils/money");
 
 const {
   createNotificationsForRoles,
 } = require("../services/notificationService");
 
-const {
-  createPaymentJournalEntry,
-} = require("../services/accountingService");
+const { createPaymentJournalEntry } = require("../services/accountingService");
 
+const { createAuditLog } = require("../services/auditService");
 
 // ==============================
 // GET ALL PAYMENTS
@@ -26,7 +20,8 @@ const getPayments = async (req, res, next) => {
     const payments = await Payment.find()
       .populate({
         path: "invoiceId",
-        select: "invoiceNumber customerId invoiceDate dueDate status totalAmount",
+        select:
+          "invoiceNumber customerId invoiceDate dueDate status totalAmount",
         populate: {
           path: "customerId",
           select: "customerCode name",
@@ -63,7 +58,8 @@ const getPaymentById = async (req, res, next) => {
     const payment = await Payment.findById(id)
       .populate({
         path: "invoiceId",
-        select: "invoiceNumber customerId invoiceDate dueDate status totalAmount",
+        select:
+          "invoiceNumber customerId invoiceDate dueDate status totalAmount",
         populate: {
           path: "customerId",
           select: "customerCode name",
@@ -112,9 +108,8 @@ const createPayment = async (req, res, next) => {
     const invoice = await Invoice.findById(invoiceId).session(session);
 
     if (!invoice) {
-      return res.status(404).json({
-        success: false,
-        message: "Invoice not found",
+      throw Object.assign(new Error("Invoice not found"), {
+        statusCode: 404,
       });
     }
 
@@ -122,10 +117,10 @@ const createPayment = async (req, res, next) => {
     // Payment only allowed for issued invoices
     // ------------------------------
     if (invoice.status !== "issued") {
-      return res.status(400).json({
-        success: false,
-        message: "Payment can only be recorded for issued invoices",
-      });
+      throw Object.assign(
+        new Error("Payment can only be recorded for issued invoices"),
+        { statusCode: 400 },
+      );
     }
 
     // ------------------------------
@@ -148,43 +143,37 @@ const createPayment = async (req, res, next) => {
       },
     ]).session(session);
 
-const totalPaid = paymentSummary[0]?.totalPaid || 0;
+    const totalPaid = paymentSummary[0]?.totalPaid || 0;
 
-const invoiceTotalCents = toCents(invoice.totalAmount);
-const totalPaidCents = toCents(totalPaid);
-const paymentAmountCents = toCents(amount);
+    const invoiceTotalCents = toCents(invoice.totalAmount);
+    const totalPaidCents = toCents(totalPaid);
+    const paymentAmountCents = toCents(amount);
 
-const remainingBalanceCents =
-  invoiceTotalCents - totalPaidCents;
+    const remainingBalanceCents = invoiceTotalCents - totalPaidCents;
 
-if (paymentAmountCents > remainingBalanceCents) {
-  return res.status(400).json({
-    success: false,
-    message: `Payment exceeds remaining balance of ${fromCents(
-      remainingBalanceCents,
-    ).toFixed(2)}`,
-  });
-}
+    if (paymentAmountCents > remainingBalanceCents) {
+      throw Object.assign(
+        new Error(
+          `Payment exceeds remaining balance of ${fromCents(
+            remainingBalanceCents,
+          ).toFixed(2)}`,
+        ),
+        { statusCode: 400 },
+      );
+    }
 
-const newTotalPaidCents =
-  totalPaidCents + paymentAmountCents;
+    const newTotalPaidCents = totalPaidCents + paymentAmountCents;
 
-const paymentStatus =
-  newTotalPaidCents >= invoiceTotalCents
-    ? "paid"
-    : newTotalPaidCents > 0
-      ? "partial"
-      : "unpaid";
+    const paymentStatus =
+      newTotalPaidCents >= invoiceTotalCents
+        ? "paid"
+        : newTotalPaidCents > 0
+          ? "partial"
+          : "unpaid";
 
-const paymentAmount =
-  fromCents(paymentAmountCents);
+    const paymentAmount = fromCents(paymentAmountCents);
 
-const remainingBalance =
-  fromCents(
-    invoiceTotalCents - newTotalPaidCents,
-  );
-
-
+    const remainingBalance = fromCents(invoiceTotalCents - newTotalPaidCents);
 
     // ------------------------------
     // Create posted payment
@@ -205,6 +194,24 @@ const remainingBalance =
       { session },
     );
 
+    await createAuditLog({
+      req,
+      session,
+      action: "CREATE",
+      entity: "Payment",
+      entityId: payment._id,
+      description: `Payment for Invoice ${invoice.invoiceNumber} was recorded and posted.`,
+      after: payment.toObject(),
+      metadata: {
+        reason: "PAYMENT_POSTED",
+        invoiceId: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: paymentAmount,
+        paymentMethod,
+        referenceNumber: referenceNumber || null,
+      },
+    });
+
     // ------------------------------
     // Create accounting entry
     // ------------------------------
@@ -221,36 +228,30 @@ const remainingBalance =
 
     session.endSession();
 
-   // ------------------------------
-// Notification AFTER successful commit
-// ------------------------------
-try {
-  const isFullyPaid = paymentStatus === "paid";
+    // ------------------------------
+    // Notification AFTER successful commit
+    // ------------------------------
+    try {
+      const isFullyPaid = paymentStatus === "paid";
 
-  await createNotificationsForRoles({
-    roles: ["owner", "admin", "accounting"],
-    excludeUserId: req.user._id,
-    type: "payment",
-    title: isFullyPaid
-      ? "Invoice Fully Paid"
-      : "Payment Received",
- message: isFullyPaid
-  ? `Invoice ${invoice.invoiceNumber} has been fully paid.`
-  : `Payment received for Invoice ${invoice.invoiceNumber}. Remaining balance: ${fromCents(
-      invoiceTotalCents - newTotalPaidCents
-    ).toFixed(2)}.`,
-    link: `/payments?search=${encodeURIComponent(
-      invoice.invoiceNumber,
-    )}`,
-    entityType: "Payment",
-    entityId: payment._id,
-  });
-} catch (notificationError) {
-  console.error(
-    "Failed to create payment notification:",
-    notificationError,
-  );
-}
+      await createNotificationsForRoles({
+        roles: ["owner", "admin", "accounting"],
+        excludeUserId: req.user._id,
+        type: "payment",
+        title: isFullyPaid ? "Invoice Fully Paid" : "Payment Received",
+        message: isFullyPaid
+          ? `Invoice ${invoice.invoiceNumber} has been fully paid.`
+          : `Payment received for Invoice ${invoice.invoiceNumber}. Remaining balance: ${remainingBalance.toFixed(2)}.`,
+        link: `/payments?search=${encodeURIComponent(invoice.invoiceNumber)}`,
+        entityType: "Payment",
+        entityId: payment._id,
+      });
+    } catch (notificationError) {
+      console.error(
+        "Failed to create payment notification:",
+        notificationError,
+      );
+    }
     const populatedPayment = await Payment.findById(payment._id)
       .populate({
         path: "invoiceId",
@@ -367,4 +368,3 @@ module.exports = {
   updatePayment,
   deletePayment,
 };
-

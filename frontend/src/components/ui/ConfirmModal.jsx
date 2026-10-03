@@ -12,6 +12,7 @@ const ConfirmModal = ({
   confirmText = "Delete",
   cancelText = "Cancel",
   loading = false,
+  loadingText = "Processing...",
 }) => {
   if (!isOpen) {
     return null;
@@ -57,7 +58,7 @@ const ConfirmModal = ({
             onClick={onConfirm}
             disabled={loading}
           >
-            {loading ? "Deleting..." : confirmText}
+           {loading ? loadingText : confirmText}
           </Button>
         </div>
       </div>

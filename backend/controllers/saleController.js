@@ -54,6 +54,106 @@ const validateUniqueSaleItems = (items) => {
   return true;
 };
 
+const validateSaleFinancialValues = ({
+  quantity,
+  unitPrice,
+  fieldPrefix = "Sale item",
+}) => {
+  const safeQuantity = Number(quantity);
+  const safeUnitPrice = Number(unitPrice);
+
+  if (!Number.isFinite(safeQuantity) || safeQuantity <= 0) {
+    const error = new Error(`${fieldPrefix} quantity must be greater than 0`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!Number.isFinite(safeUnitPrice) || safeUnitPrice < 0) {
+    const error = new Error(`${fieldPrefix} unit price cannot be negative`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    quantity: safeQuantity,
+    unitPrice: safeUnitPrice,
+  };
+};
+
+const validateSaleItemsBasic = (items) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    const error = new Error("Sale must contain at least one item");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  for (const item of items) {
+    validateSaleFinancialValues({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      fieldPrefix: `Product ${item.productId}`,
+    });
+  }
+};
+
+const validateCustomerForSale = async (customerId) => {
+  const customer = await Customer.findById(customerId).select("status");
+
+  if (!customer) {
+    const error = new Error("Customer not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (customer.status !== "active") {
+    const error = new Error(
+      "Cannot create or update a Sale for an inactive customer",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return customer;
+};
+
+const validateProductsForSale = async (items) => {
+  validateSaleItemsBasic(items);
+
+  await checkReferencesExist(
+    Product,
+    items.map((item) => item.productId),
+    "Product",
+  );
+
+  const products = await Product.find({
+    _id: {
+      $in: items.map((item) => item.productId),
+    },
+  }).select("_id status");
+
+  const productMap = new Map(
+    products.map((product) => [String(product._id), product]),
+  );
+
+  for (const item of items) {
+    const product = productMap.get(String(item.productId));
+
+    if (!product) {
+      const error = new Error(`Product not found: ${item.productId}`);
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (product.status !== "active") {
+      const error = new Error(
+        `Cannot use inactive product ${item.productId} in a Sale`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+};
+
 const validateClientPOSource = async ({ sale, clientPO, session }) => {
   if (!clientPO) {
     const error = new Error("Client PO not found");
@@ -93,13 +193,17 @@ const validateClientPOSource = async ({ sale, clientPO, session }) => {
     poItems.set(key, item);
   }
 
-  const releasedSales = await Sale.find({
+  let releasedSalesQuery = Sale.find({
     clientPOId: clientPO._id,
     status: "released",
     _id: { $ne: sale._id },
-  })
-    .select("items")
-    .session(session);
+  }).select("items");
+
+  if (session) {
+    releasedSalesQuery = releasedSalesQuery.session(session);
+  }
+
+  const releasedSales = await releasedSalesQuery;
 
   const releasedQuantities = new Map();
 
@@ -156,7 +260,12 @@ const validateClientPOSource = async ({ sale, clientPO, session }) => {
   return true;
 };
 
-const updateClientPOFulfillmentStatus = async ({ clientPOId, session, req, sale, }) => {
+const updateClientPOFulfillmentStatus = async ({
+  clientPOId,
+  session,
+  req,
+  sale,
+}) => {
   const clientPO = await ClientPO.findById(clientPOId).session(session);
 
   if (!clientPO) {
@@ -213,31 +322,31 @@ const updateClientPOFulfillmentStatus = async ({ clientPOId, session, req, sale,
   }
 
   if (previousStatus !== clientPO.status) {
-  await createAuditLog({
-    req,
-    session,
-    action: "STATUS_CHANGE",
-    entity: "ClientPO",
-    entityId: clientPO._id,
-    documentNumber: clientPO.poNumber,
-    description:
-      clientPO.status === "fulfilled"
-        ? `Client PO ${clientPO.poNumber} was automatically fulfilled after Sale ${sale.salesNumber} released the remaining ordered quantities.`
-        : `Client PO ${clientPO.poNumber} status changed from ${previousStatus} to ${clientPO.status} after Sale ${sale.salesNumber} was released.`,
-    before: {
-      status: previousStatus,
-    },
-    after: {
-      status: clientPO.status,
-    },
-    metadata: {
-      reason: "SALE_RELEASE",
-      saleId: sale._id,
-      saleNumber: sale.salesNumber,
-      previousStatus,
-      newStatus: clientPO.status,
-    },
-  });
+    await createAuditLog({
+      req,
+      session,
+      action: "STATUS_CHANGE",
+      entity: "ClientPO",
+      entityId: clientPO._id,
+      documentNumber: clientPO.poNumber,
+      description:
+        clientPO.status === "fulfilled"
+          ? `Client PO ${clientPO.poNumber} was automatically fulfilled after Sale ${sale.salesNumber} released the remaining ordered quantities.`
+          : `Client PO ${clientPO.poNumber} status changed from ${previousStatus} to ${clientPO.status} after Sale ${sale.salesNumber} was released.`,
+      before: {
+        status: previousStatus,
+      },
+      after: {
+        status: clientPO.status,
+      },
+      metadata: {
+        reason: "SALE_RELEASE",
+        saleId: sale._id,
+        saleNumber: sale.salesNumber,
+        previousStatus,
+        newStatus: clientPO.status,
+      },
+    });
   }
 
   await clientPO.save({ session });
@@ -245,6 +354,180 @@ const updateClientPOFulfillmentStatus = async ({ clientPOId, session, req, sale,
   return clientPO;
 };
 
+const validateSaleNonNegativeAmount = (value, fieldName) => {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    const error = new Error(`${fieldName} must be a valid non-negative number`);
+
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return amount;
+};
+
+
+const validateSuppliersForSale = async (items) => {
+  const supplierIds = [
+    ...new Set(
+      items
+        .filter((item) => item.supplierId)
+        .map((item) => String(item.supplierId)),
+    ),
+  ];
+
+  if (supplierIds.length === 0) {
+    return;
+  }
+
+  const suppliers = await Supplier.find({
+    _id: { $in: supplierIds },
+  }).select("_id status");
+
+  const supplierMap = new Map(
+    suppliers.map((supplier) => [String(supplier._id), supplier]),
+  );
+
+  for (const supplierId of supplierIds) {
+    const supplier = supplierMap.get(supplierId);
+
+    if (!supplier) {
+      const error = new Error(`Supplier not found: ${supplierId}`);
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (supplier.status !== "active") {
+      const error = new Error(
+        `Inactive supplier cannot be used for a sale: ${supplierId}`,
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+};
+
+
+const prepareSaleCalculation = async ({
+  items,
+  directExpenses,
+  commission,
+  vatRate,
+  pricingMode,
+}) => {
+  validateSaleItemsBasic(items);
+  validateUniqueSaleItems(items);
+
+  await validateProductsForSale(items);
+  await validateSuppliersForSale(items);
+
+  const safeDirectExpenses = validateSaleNonNegativeAmount(
+    directExpenses,
+    "Direct expenses",
+  );
+
+  const safeCommission = validateSaleNonNegativeAmount(
+    commission,
+    "Commission",
+  );
+
+  const calculatedItems = [];
+
+  for (const item of items) {
+    const { quantity, unitPrice } = validateSaleFinancialValues({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      fieldPrefix: `Product ${item.productId}`,
+    });
+
+    const { unitCost, source } = await resolveProductCost({
+      productId: item.productId,
+      supplierId: item.supplierId,
+    });
+
+    const { unitId, unitCode } = await resolveProductUnit(item.productId);
+
+    const safeUnitCost = roundMoney(unitCost);
+    const safeUnitPrice = roundMoney(unitPrice);
+
+    const profit = roundMoney(
+      (safeUnitPrice - safeUnitCost) * quantity,
+    );
+
+    calculatedItems.push({
+      ...item,
+      quantity,
+      unitPrice: safeUnitPrice,
+      unitCost: safeUnitCost,
+      costSource: source,
+      unitId,
+      unitCode,
+      profit,
+    });
+  }
+
+  // Validate after unitCode has been resolved.
+  validateUniqueSaleItems(calculatedItems);
+
+  const subtotal = roundMoney(
+    calculatedItems.reduce(
+      (total, item) => total + item.quantity * item.unitPrice,
+      0,
+    ),
+  );
+
+  const totalCost = roundMoney(
+    calculatedItems.reduce(
+      (total, item) => total + item.quantity * item.unitCost,
+      0,
+    ),
+  );
+
+  let netAmount = subtotal;
+  let taxAmount = 0;
+
+  if (vatRate > 0) {
+    if (pricingMode === "inclusive") {
+      netAmount = subtotal / (1 + vatRate / 100);
+      taxAmount = subtotal - netAmount;
+    } else {
+      netAmount = subtotal;
+      taxAmount = subtotal * (vatRate / 100);
+    }
+  }
+
+  netAmount = roundMoney(netAmount);
+  taxAmount = roundMoney(taxAmount);
+
+  const totalAmount = roundMoney(
+    pricingMode === "inclusive"
+      ? subtotal + safeDirectExpenses + safeCommission
+      : subtotal +
+          taxAmount +
+          safeDirectExpenses +
+          safeCommission,
+  );
+
+  const totalProfit = roundMoney(
+    netAmount -
+      totalCost -
+      safeDirectExpenses -
+      safeCommission,
+  );
+
+  return {
+    calculatedItems,
+    subtotal,
+    totalCost,
+    taxAmount,
+    netAmount,
+    totalAmount,
+    totalProfit,
+    directExpenses: safeDirectExpenses,
+    commission: safeCommission,
+  };
+};
 // GET ALL SALES
 const getSales = async (req, res, next) => {
   try {
@@ -295,6 +578,7 @@ const getSaleById = async (req, res, next) => {
   }
 };
 
+
 // CREATE SALE
 const createSale = async (req, res, next) => {
   try {
@@ -307,15 +591,16 @@ const createSale = async (req, res, next) => {
       commission = 0,
     } = req.body;
 
-    await checkReferenceExists(Customer, customerId, "Customer");
+    await validateCustomerForSale(customerId);
 
     let clientPO = null;
 
     if (clientPOId) {
       await checkReferenceExists(ClientPO, clientPOId, "Client PO");
 
-      clientPO =
-        await ClientPO.findById(clientPOId).select("status customerId");
+      clientPO = await ClientPO.findById(clientPOId).select(
+        "status customerId items",
+      );
 
       if (!clientPO) {
         return res.status(404).json({
@@ -330,147 +615,89 @@ const createSale = async (req, res, next) => {
           message: `Client PO with status "${clientPO.status}" cannot be used for a sale`,
         });
       }
-    }
 
-    await checkReferencesExist(
-      Product,
-      items.map((item) => item.productId),
-      "Product",
-    );
-
-    // VALIDATE SUPPLIERS
-    for (const item of items) {
-      if (!item.supplierId) continue;
-
-      const supplier = await Supplier.findById(item.supplierId).select(
-        "status",
-      );
-
-      if (!supplier) {
-        return res.status(404).json({
-          success: false,
-          message: `Supplier not found: ${item.supplierId}`,
-        });
-      }
-
-      if (supplier.status !== "active") {
+      if (String(customerId) !== String(clientPO.customerId)) {
         return res.status(400).json({
           success: false,
-          message: "Inactive supplier cannot be used for a sale",
+          message: "Sale customer must match Client PO customer",
         });
       }
     }
 
     const settings = await Settings.findOne().select("accountingTax");
 
-    const vatEnabled = settings?.accountingTax?.vatEnabled === true;
+    const vatEnabled =
+      settings?.accountingTax?.vatEnabled === true;
 
     const vatRate = vatEnabled
       ? Number(settings?.accountingTax?.vatRate || 0)
       : 0;
 
-    const pricingMode = settings?.accountingTax?.pricingMode || "inclusive";
+    const pricingMode =
+      settings?.accountingTax?.pricingMode || "inclusive";
 
-    // CALCULATE ITEM TOTALS
-    const calculatedItems = [];
+    const calculation = await prepareSaleCalculation({
+      items,
+      directExpenses,
+      commission,
+      vatRate,
+      pricingMode,
+    });
 
-    for (const item of items) {
-      const { unitCost, source } = await resolveProductCost({
-        productId: item.productId,
-        supplierId: item.supplierId,
-      });
-
-      const { unitId, unitCode } = await resolveProductUnit(item.productId);
-
-      const profit =
-        (Number(item.unitPrice) - unitCost) * Number(item.quantity);
-
-      calculatedItems.push({
-        ...item,
-        unitCost,
-        costSource: source,
-        unitId,
-        unitCode,
-        profit,
+    // Validate Client PO against the final calculated Sale items.
+    if (clientPOId) {
+      await validateClientPOSource({
+        sale: {
+          _id: new mongoose.Types.ObjectId(),
+          customerId,
+          clientPOId,
+          items: calculation.calculatedItems,
+        },
+        clientPO,
+        session: null,
       });
     }
-
-    // VALIDATE DUPLICATE PRODUCT + UOM
-    validateUniqueSaleItems(calculatedItems);
-
-    // CALCULATE TOTALS
-    const subtotal = roundMoney(
-      calculatedItems.reduce(
-        (total, item) => total + item.quantity * item.unitPrice,
-        0,
-      ),
-    );
-
-    const totalCost = roundMoney(
-      calculatedItems.reduce(
-        (total, item) => total + item.quantity * item.unitCost,
-        0,
-      ),
-    );
-
-    // VAT CALCULATION
-    let netAmount = subtotal;
-    let taxAmount = 0;
-
-    if (vatEnabled && vatRate > 0) {
-      if (pricingMode === "inclusive") {
-        netAmount = subtotal / (1 + vatRate / 100);
-        taxAmount = subtotal - netAmount;
-      } else {
-        netAmount = subtotal;
-        taxAmount = subtotal * (vatRate / 100);
-      }
-    }
-
-    netAmount = roundMoney(netAmount);
-    taxAmount = roundMoney(taxAmount);
-
-    // TOTAL CALCULATION
-    const totalAmount = roundMoney(
-      pricingMode === "inclusive"
-        ? subtotal + directExpenses + commission
-        : subtotal + taxAmount + directExpenses + commission,
-    );
-
-    const totalProfit = roundMoney(
-      netAmount - totalCost - directExpenses - commission,
-    );
 
     const salesNumber = await generateDocumentNumber("sales");
 
-    // CREATE SALE
     const sale = await Sale.create({
       salesNumber,
       customerId,
       clientPOId,
       saleDate,
 
-      // SALES ALWAYS START AS DRAFT
+      // Sales always start as draft.
       status: "draft",
 
-      items: calculatedItems,
+      items: calculation.calculatedItems,
 
-      subtotal,
+      subtotal: calculation.subtotal,
 
       taxRate: vatRate,
-      taxAmount,
+      taxAmount: calculation.taxAmount,
       pricingMode,
-      netAmount,
+      netAmount: calculation.netAmount,
 
-      directExpenses,
-      commission,
-      totalAmount,
-      totalCost,
-      totalProfit,
+      directExpenses: calculation.directExpenses,
+      commission: calculation.commission,
+
+      totalAmount: calculation.totalAmount,
+      totalCost: calculation.totalCost,
+      totalProfit: calculation.totalProfit,
+
       createdBy: req.user._id,
     });
 
-    // CREATE NOTIFICATION
+    await createAuditLog({
+      req,
+      action: "CREATE",
+      entity: "Sale",
+      entityId: sale._id,
+      documentNumber: sale.salesNumber,
+      description: `Created Sale ${sale.salesNumber}`,
+      after: sale.toObject(),
+    });
+
     try {
       await createNotificationsForRoles({
         roles: ["owner", "admin", "sales"],
@@ -478,12 +705,17 @@ const createSale = async (req, res, next) => {
         type: "sale",
         title: "New Sale",
         message: `Sale ${sale.salesNumber} was created.`,
-        link: `/sales?search=${encodeURIComponent(sale.salesNumber)}`,
+        link: `/sales?search=${encodeURIComponent(
+          sale.salesNumber,
+        )}`,
         entityType: "Sale",
         entityId: sale._id,
       });
     } catch (notificationError) {
-      console.error("Failed to create sale notification:", notificationError);
+      console.error(
+        "Failed to create sale notification:",
+        notificationError,
+      );
     }
 
     res.status(201).json({
@@ -494,6 +726,8 @@ const createSale = async (req, res, next) => {
     next(error);
   }
 };
+
+
 
 // UPDATE SALE
 const updateSale = async (req, res, next) => {
@@ -507,19 +741,14 @@ const updateSale = async (req, res, next) => {
       });
     }
 
-    if (sale.status === "released") {
+    if (sale.status !== "draft") {
       return res.status(400).json({
         success: false,
-        message: "Released sale cannot be modified",
+        message: `Only draft sales can be modified. Current status: ${sale.status}`,
       });
     }
 
-    if (sale.status === "cancelled") {
-      return res.status(400).json({
-        success: false,
-        message: "Cancelled sale cannot be modified",
-      });
-    }
+    const before = sale.toObject();
 
     const {
       customerId,
@@ -530,199 +759,163 @@ const updateSale = async (req, res, next) => {
       commission,
     } = req.body;
 
-    // CHECK UPDATED REFERENCES
-    if (customerId !== undefined) {
-      await checkReferenceExists(Customer, customerId, "Customer");
-    }
+    const effectiveCustomerId =
+      customerId !== undefined
+        ? customerId
+        : sale.customerId;
 
-   if (clientPOId !== undefined && clientPOId) {
-  await checkReferenceExists(ClientPO, clientPOId, "Client PO");
+    const effectiveClientPOId =
+      clientPOId !== undefined
+        ? clientPOId
+        : sale.clientPOId;
 
-  const clientPO =
-    await ClientPO.findById(clientPOId).select("status customerId");
+    const effectiveItems =
+      items !== undefined
+        ? items
+        : sale.items;
 
-  if (!clientPO) {
-    return res.status(404).json({
-      success: false,
-      message: "Client PO not found",
-    });
-  }
+    const effectiveDirectExpenses =
+      directExpenses !== undefined
+        ? directExpenses
+        : sale.directExpenses;
 
-  if (!["received", "processing"].includes(clientPO.status)) {
-    return res.status(400).json({
-      success: false,
-      message: `Client PO with status "${clientPO.status}" cannot be used for a sale`,
-    });
-  }
-}
+    const effectiveCommission =
+      commission !== undefined
+        ? commission
+        : sale.commission;
 
-    if (items !== undefined) {
-      await checkReferencesExist(
-        Product,
-        items.map((item) => item.productId),
-        "Product",
+    // Validate customer.
+    await validateCustomerForSale(effectiveCustomerId);
+
+    // Validate Client PO.
+    let clientPO = null;
+
+    if (effectiveClientPOId) {
+      await checkReferenceExists(
+        ClientPO,
+        effectiveClientPOId,
+        "Client PO",
       );
 
-      for (const item of items) {
-        if (!item.supplierId) continue;
+      clientPO = await ClientPO.findById(
+        effectiveClientPOId,
+      ).select("status customerId items");
 
-        const supplier = await Supplier.findById(item.supplierId).select(
-          "status",
-        );
+      if (!clientPO) {
+        return res.status(404).json({
+          success: false,
+          message: "Client PO not found",
+        });
+      }
 
-        if (!supplier) {
-          return res.status(404).json({
-            success: false,
-            message: `Supplier not found: ${item.supplierId}`,
-          });
-        }
+      if (!["received", "processing"].includes(clientPO.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Client PO with status "${clientPO.status}" cannot be used for a sale`,
+        });
+      }
 
-        if (supplier.status !== "active") {
-          return res.status(400).json({
-            success: false,
-            message: "Inactive supplier cannot be used for a sale",
-          });
-        }
+      if (
+        String(effectiveCustomerId) !==
+        String(clientPO.customerId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Sale customer must match Client PO customer",
+        });
       }
     }
 
-    const effectiveCustomerId =
-  customerId !== undefined ? customerId : sale.customerId;
+    // Get current VAT settings only when creating/rebuilding
+    // the draft's financial values.
+    const settings = await Settings.findOne().select(
+      "accountingTax",
+    );
 
-const effectiveClientPOId =
-  clientPOId !== undefined ? clientPOId : sale.clientPOId;
+    const vatEnabled =
+      settings?.accountingTax?.vatEnabled === true;
 
-if (effectiveClientPOId) {
-  const effectiveClientPO =
-    await ClientPO.findById(effectiveClientPOId).select("customerId");
+    const currentVatRate = vatEnabled
+      ? Number(settings?.accountingTax?.vatRate || 0)
+      : 0;
 
-  if (!effectiveClientPO) {
-    return res.status(404).json({
-      success: false,
-      message: "Client PO not found",
+    const currentPricingMode =
+      settings?.accountingTax?.pricingMode || "inclusive";
+
+    /*
+     * IMPORTANT:
+     * A draft Sale is still editable, so its financial values
+     * should follow the same calculation rules as CREATE.
+     */
+    const calculation = await prepareSaleCalculation({
+      items: effectiveItems,
+      directExpenses: effectiveDirectExpenses,
+      commission: effectiveCommission,
+      vatRate: currentVatRate,
+      pricingMode: currentPricingMode,
     });
-  }
 
-  if (
-    String(effectiveCustomerId) !==
-    String(effectiveClientPO.customerId)
-  ) {
-    return res.status(400).json({
-      success: false,
-      message: "Sale customer must match Client PO customer",
-    });
-  }
-}
-
-    // UPDATE BASIC FIELDS
-    if (customerId !== undefined) {
-      sale.customerId = customerId;
+    // Validate Client PO against the final Sale items.
+    if (effectiveClientPOId) {
+      await validateClientPOSource({
+        sale: {
+          ...sale.toObject(),
+          customerId: effectiveCustomerId,
+          clientPOId: effectiveClientPOId,
+          items: calculation.calculatedItems,
+        },
+        clientPO,
+        session: null,
+      });
     }
 
-    if (clientPOId !== undefined) {
-      sale.clientPOId = clientPOId;
-    }
+    // Update basic fields.
+    sale.customerId = effectiveCustomerId;
+    sale.clientPOId =
+      effectiveClientPOId || null;
 
     if (saleDate !== undefined) {
       sale.saleDate = saleDate;
     }
 
-    // UPDATE EXPENSES ONLY WHEN EXPLICITLY PROVIDED
-    if (directExpenses !== undefined) {
-      sale.directExpenses = directExpenses;
-    }
+    // Update calculated financial values.
+    sale.items = calculation.calculatedItems;
+    sale.subtotal = calculation.subtotal;
 
-    // UPDATE COMMISSION ONLY WHEN EXPLICITLY PROVIDED
-    if (commission !== undefined) {
-      sale.commission = commission;
-    }
+    sale.taxRate = currentVatRate;
+    sale.taxAmount = calculation.taxAmount;
+    sale.pricingMode = currentPricingMode;
+    sale.netAmount = calculation.netAmount;
 
-    // RECALCULATE ITEM TOTALS WHEN ITEMS ARE PROVIDED
-    if (items !== undefined) {
-      const calculatedItems = [];
+    sale.directExpenses =
+      calculation.directExpenses;
 
-      for (const item of items) {
-        const { unitCost, source } = await resolveProductCost({
-          productId: item.productId,
-          supplierId: item.supplierId,
-        });
+    sale.commission =
+      calculation.commission;
 
-        const { unitId, unitCode } = await resolveProductUnit(item.productId);
+    sale.totalAmount =
+      calculation.totalAmount;
 
-        const profit =
-          (Number(item.unitPrice) - unitCost) * Number(item.quantity);
+    sale.totalCost =
+      calculation.totalCost;
 
-        calculatedItems.push({
-          ...item,
-          unitCost,
-          costSource: source,
-          unitId,
-          unitCode,
-          profit,
-        });
-      }
-
-      validateUniqueSaleItems(calculatedItems);
-
-      const subtotal = roundMoney(
-        calculatedItems.reduce(
-          (total, item) => total + item.quantity * item.unitPrice,
-          0,
-        ),
-      );
-
-      const totalCost = roundMoney(
-        calculatedItems.reduce(
-          (total, item) => total + item.quantity * item.unitCost,
-          0,
-        ),
-      );
-
-      sale.items = calculatedItems;
-      sale.subtotal = subtotal;
-      sale.totalCost = totalCost;
-    }
-
-    // RECALCULATE VAT USING THE SALE'S EXISTING TAX SNAPSHOT
-    let netAmount = sale.subtotal;
-    let taxAmount = 0;
-
-    if (sale.taxRate > 0) {
-      if (sale.pricingMode === "inclusive") {
-        netAmount = sale.subtotal / (1 + sale.taxRate / 100);
-
-        taxAmount = sale.subtotal - netAmount;
-      } else {
-        netAmount = sale.subtotal;
-
-        taxAmount = sale.subtotal * (sale.taxRate / 100);
-      }
-    }
-
-    sale.netAmount = roundMoney(netAmount);
-    sale.taxAmount = roundMoney(taxAmount);
-
-    // RECALCULATE TOTAL AMOUNT
-    sale.totalAmount = roundMoney(
-      sale.pricingMode === "inclusive"
-        ? sale.subtotal + sale.directExpenses + sale.commission
-        : sale.subtotal +
-            sale.taxAmount +
-            sale.directExpenses +
-            sale.commission,
-    );
-
-    // RECALCULATE PROFIT USING NET SALES
-    sale.totalProfit = roundMoney(
-      sale.netAmount - sale.totalCost - sale.directExpenses - sale.commission,
-    );
-
-    // STATUS REMAINS DRAFT
-    sale.status = "draft";
+    sale.totalProfit =
+      calculation.totalProfit;
 
     sale.updatedBy = req.user._id;
 
     await sale.save();
+
+    await createAuditLog({
+      req,
+      action: "UPDATE",
+      entity: "Sale",
+      entityId: sale._id,
+      documentNumber: sale.salesNumber,
+      description: `Updated Sale ${sale.salesNumber}`,
+      before,
+      after: sale.toObject(),
+    });
 
     res.status(200).json({
       success: true,
@@ -745,55 +938,49 @@ const deleteSale = async (req, res, next) => {
       });
     }
 
-    // ONLY DRAFT SALES CAN BE DELETED
+    // RELEASED SALES ARE IMMUTABLE.
+    // Only draft sales can be permanently deleted.
     if (sale.status !== "draft") {
       return res.status(400).json({
         success: false,
-        message: "Only draft sales can be deleted",
+        message: `Only draft sales can be deleted. Current status: ${sale.status}`,
       });
     }
 
-    // CAPTURE SNAPSHOT BEFORE DELETE
-    const deletedSaleSnapshot = {
-      salesNumber: sale.salesNumber,
-      customerId: sale.customerId,
-      clientPOId: sale.clientPOId,
-      saleDate: sale.saleDate,
-      status: sale.status,
-      items: sale.items,
-      subtotal: sale.subtotal,
-      taxRate: sale.taxRate,
-      taxAmount: sale.taxAmount,
-      pricingMode: sale.pricingMode,
-      netAmount: sale.netAmount,
-      directExpenses: sale.directExpenses,
-      commission: sale.commission,
-      totalAmount: sale.totalAmount,
-      totalCost: sale.totalCost,
-      totalProfit: sale.totalProfit,
-    };
+    /*
+     * Capture the complete business snapshot BEFORE deletion.
+     *
+     * This is important because the actual Sale document will no longer
+     * exist after deleteOne(). The audit trail becomes the historical
+     * record that the draft Sale existed and was intentionally deleted.
+     */
+    const deletedSaleSnapshot = sale.toObject();
 
     // DELETE SALE
     await sale.deleteOne();
 
-    // AUDIT DELETED SALE
-await createAuditLog({
-  req,
-  action: "DELETE",
-  entity: "Sale",
-  entityId: sale._id,
-  documentNumber: sale.salesNumber,
-  description: `Draft Sale ${sale.salesNumber} was deleted.`,
-  before: deletedSaleSnapshot,
-  after: null,
-  metadata: {
-    reason: "DRAFT_SALE_DELETED",
-  },
-});
+    // AUDIT TRAIL
+    await createAuditLog({
+      req,
+      action: "DELETE",
+      entity: "Sale",
+      entityId: sale._id,
+      documentNumber: sale.salesNumber,
+      description: `Draft Sale ${sale.salesNumber} was deleted.`,
+      before: deletedSaleSnapshot,
+      after: null,
+      metadata: {
+        reason: "DRAFT_SALE_DELETED",
+        saleNumber: sale.salesNumber,
+        customerId: sale.customerId,
+        clientPOId: sale.clientPOId || null,
+        deletedStatus: "draft",
+      },
+    });
 
     res.status(200).json({
       success: true,
-      message: "Sale deleted",
+      message: `Draft Sale ${sale.salesNumber} deleted successfully`,
     });
   } catch (error) {
     next(error);
@@ -809,12 +996,23 @@ const releaseSale = async (req, res, next) => {
 
     const lowStockChecks = [];
 
+    // ============================================================
+    // 1. LOAD INVENTORY SETTINGS
+    // ============================================================
+
     const settings = await Settings.findOne()
       .select("inventory.allowNegativeStock inventory.autoDeductStockOnSale")
       .session(session);
 
     const autoDeductStock =
       settings?.inventory?.autoDeductStockOnSale !== false;
+
+    const allowNegativeStock =
+      settings?.inventory?.allowNegativeStock === true;
+
+    // ============================================================
+    // 2. LOAD SALE
+    // ============================================================
 
     const sale = await Sale.findById(req.params.id).session(session);
 
@@ -827,30 +1025,31 @@ const releaseSale = async (req, res, next) => {
       });
     }
 
-    if (sale.status === "released") {
+    // Only draft sales can be released.
+    if (sale.status !== "draft") {
       await session.abortTransaction();
 
       return res.status(400).json({
         success: false,
-        message: "Sale is already released",
+        message: `Only draft sales can be released. Current status: ${sale.status}`,
       });
     }
 
-    // CANCELLED SALES CANNOT BE RELEASED
-    if (sale.status === "cancelled") {
-      await session.abortTransaction();
+    // ============================================================
+    // 3. BASIC SALE VALIDATION
+    // ============================================================
 
-      return res.status(400).json({
-        success: false,
-        message: "Cancelled sale cannot be released",
-      });
-    }
+    validateSaleItemsBasic(sale.items);
+    validateUniqueSaleItems(sale.items);
 
-    // VALIDATE CLIENT PO SOURCE
+    // ============================================================
+    // 4. VALIDATE CLIENT PO
+    // ============================================================
+
     if (sale.clientPOId) {
-      const clientPO = await ClientPO.findById(sale.clientPOId).session(
-        session,
-      );
+      const clientPO = await ClientPO.findById(
+        sale.clientPOId,
+      ).session(session);
 
       await validateClientPOSource({
         sale,
@@ -859,10 +1058,38 @@ const releaseSale = async (req, res, next) => {
       });
     }
 
-    // CHECK STOCK FIRST
+    // ============================================================
+    // 5. VALIDATE PRODUCTS
+    // ============================================================
+
+    await validateProductsForSale(sale.items);
+
+    // ============================================================
+    // 6. VALIDATE SUPPLIERS
+    // ============================================================
+
+    await validateSuppliersForSale(sale.items);
+
+    // ============================================================
+    // 7. CHECK STOCK
+    // ============================================================
+    //
+    // We validate ALL stock first before deducting anything.
+    //
+    // This prevents a partial operation such as:
+    //
+    // Product A -> deducted
+    // Product B -> insufficient stock
+    //
+    // The transaction would protect us anyway, but validating first
+    // makes the business flow explicit and easier to reason about.
+    // ============================================================
+
     if (autoDeductStock) {
       for (const item of sale.items) {
-        const product = await Product.findById(item.productId).session(session);
+        const product = await Product.findById(
+          item.productId,
+        ).session(session);
 
         if (!product) {
           await session.abortTransaction();
@@ -873,52 +1100,81 @@ const releaseSale = async (req, res, next) => {
           });
         }
 
-        if (
-          product.currentStock < item.quantity &&
-          settings?.inventory?.allowNegativeStock !== true
-        ) {
-          await session.abortTransaction();
+        const currentStock = Number(product.currentStock);
+        const requestedQuantity = Number(item.quantity);
 
-          return res.status(400).json({
-            success: false,
-            message: `Insufficient stock for ${product.name}. Available: ${product.currentStock}, Required: ${item.quantity}`,
-          });
+        if (
+          !Number.isFinite(currentStock) ||
+          currentStock < requestedQuantity
+        ) {
+          if (!allowNegativeStock) {
+            await session.abortTransaction();
+
+            return res.status(400).json({
+              success: false,
+              message:
+                `Insufficient stock for ${product.name}. ` +
+                `Available: ${currentStock}, ` +
+                `Required: ${requestedQuantity}`,
+            });
+          }
         }
       }
     }
 
-    // DEDUCT STOCK + CREATE INVENTORY MOVEMENTS
+    // ============================================================
+    // 8. DEDUCT STOCK + CREATE INVENTORY MOVEMENTS
+    // ============================================================
+
     if (autoDeductStock) {
       for (const item of sale.items) {
-        const product = await Product.findById(item.productId).session(session);
+        const product = await Product.findById(
+          item.productId,
+        ).session(session);
 
-        const previousStock = product.currentStock;
+        if (!product) {
+          throw new Error(
+            `Product not found during stock deduction: ${item.productId}`,
+          );
+        }
 
-        product.currentStock -= item.quantity;
+        const previousStock = Number(product.currentStock);
+        const quantity = Number(item.quantity);
 
-        const newStock = product.currentStock;
+        const newStock = previousStock - quantity;
 
+        // Record this for post-commit low-stock notification.
         lowStockChecks.push({
           productId: product._id,
           previousStock,
           newStock,
         });
 
+        // Deduct stock.
+        product.currentStock = newStock;
+
         await product.save({ session });
 
+        // Create inventory movement.
         await InventoryMovement.create(
           [
             {
               productId: item.productId,
               type: "OUT",
-              quantity: item.quantity,
+              quantity,
               unitId: item.unitId,
               unitCode: item.unitCode,
               unitCost: item.unitCost,
+
               referenceType: "SALE",
               referenceId: sale._id,
+
               date: sale.saleDate,
-              notes: `Released ${item.quantity} ${item.unitCode} of ${product.name}`,
+
+              notes:
+                `Released ${quantity} ${item.unitCode} ` +
+                `of ${product.name} for Sale ${sale.salesNumber}`,
+
               createdBy: req.user._id,
             },
           ],
@@ -926,44 +1182,67 @@ const releaseSale = async (req, res, next) => {
         );
       }
     }
+
+    // ============================================================
+    // 9. RELEASE SALE
+    // ============================================================
+
     const previousStatus = sale.status;
 
-
-    // UPDATE SALE STATUS
     sale.status = "released";
     sale.updatedBy = req.user._id;
 
     await sale.save({ session });
 
+    // ============================================================
+    // 10. AUDIT TRAIL
+    // ============================================================
+
     await createAuditLog({
-  req,
-  session,
-  action: "STATUS_CHANGE",
-  entity: "Sale",
-  entityId: sale._id,
-  documentNumber: sale.salesNumber,
-  description: `Sale ${sale.salesNumber} was released.`,
-  before: {
-    status: previousStatus,
-  },
-  after: {
-    status: sale.status,
-  },
-  metadata: {
-    reason: "SALE_RELEASE",
-    previousStatus,
-    newStatus: sale.status,
-  },
+      req,
+      session,
+      action: "STATUS_CHANGE",
+      entity: "Sale",
+      entityId: sale._id,
+      documentNumber: sale.salesNumber,
+
+      description:
+        `Sale ${sale.salesNumber} was released.`,
+
+      before: {
+        status: previousStatus,
+      },
+
+      after: {
+        status: sale.status,
+      },
+
+      metadata: {
+        reason: "SALE_RELEASE",
+        previousStatus,
+        newStatus: sale.status,
+
+        autoDeductStock,
+        allowNegativeStock,
+
+        clientPOId: sale.clientPOId || null,
+      },
     });
 
-    // CREATE SYSTEM ACCOUNTING JOURNAL ENTRY
+    // ============================================================
+    // 11. CREATE ACCOUNTING JOURNAL ENTRY
+    // ============================================================
+
     await createSaleJournalEntry({
       session,
       sale,
       createdBy: req.user._id,
     });
 
-    // UPDATE CLIENT PO FULFILLMENT STATUS
+    // ============================================================
+    // 12. UPDATE CLIENT PO FULFILLMENT
+    // ============================================================
+
     if (sale.clientPOId) {
       await updateClientPOFulfillmentStatus({
         clientPOId: sale.clientPOId,
@@ -973,18 +1252,33 @@ const releaseSale = async (req, res, next) => {
       });
     }
 
-    // COMMIT TRANSACTION
+    // ============================================================
+    // 13. COMMIT EVERYTHING
+    // ============================================================
+
     await session.commitTransaction();
 
-    // CREATE SALE RELEASE NOTIFICATION
+    // ============================================================
+    // 14. POST-COMMIT SALE NOTIFICATION
+    // ============================================================
+
     try {
       await createNotificationsForRoles({
         roles: ["owner", "admin", "sales"],
         excludeUserId: req.user._id,
+
         type: "sale",
+
         title: "Sale Released",
-        message: `Sale ${sale.salesNumber} was released successfully.`,
-        link: `/sales?search=${encodeURIComponent(sale.salesNumber)}`,
+
+        message:
+          `Sale ${sale.salesNumber} was released successfully.`,
+
+        link:
+          `/sales?search=${encodeURIComponent(
+            sale.salesNumber,
+          )}`,
+
         entityType: "Sale",
         entityId: sale._id,
       });
@@ -995,17 +1289,27 @@ const releaseSale = async (req, res, next) => {
       );
     }
 
-    // CREATE ACCOUNTING NOTIFICATION
+    // ============================================================
+    // 15. POST-COMMIT ACCOUNTING NOTIFICATION
+    // ============================================================
+
     try {
       await createNotificationsForRoles({
         roles: ["owner", "admin", "accounting"],
         excludeUserId: req.user._id,
+
         type: "accounting",
+
         title: "Sales Journal Entry Created",
-        message: `Accounting entry was created for Sale ${sale.salesNumber}.`,
-        link: `/accounting/journal-entries?search=${encodeURIComponent(
-          sale.salesNumber,
-        )}`,
+
+        message:
+          `Accounting entry was created for Sale ${sale.salesNumber}.`,
+
+        link:
+          `/accounting/journal-entries?search=${encodeURIComponent(
+            sale.salesNumber,
+          )}`,
+
         entityType: "Sale",
         entityId: sale._id,
       });
@@ -1016,7 +1320,10 @@ const releaseSale = async (req, res, next) => {
       );
     }
 
-    // POST-COMMIT: LOW STOCK NOTIFICATIONS
+    // ============================================================
+    // 16. POST-COMMIT LOW STOCK NOTIFICATIONS
+    // ============================================================
+
     for (const check of lowStockChecks) {
       try {
         await checkAndCreateLowStockNotification(check);
@@ -1028,7 +1335,10 @@ const releaseSale = async (req, res, next) => {
       }
     }
 
-    // GET UPDATED SALE
+    // ============================================================
+    // 17. RETURN UPDATED SALE
+    // ============================================================
+
     const populatedSale = await Sale.findById(sale._id)
       .populate("customerId", "customerCode name")
       .populate("clientPOId", "poNumber")
@@ -1040,10 +1350,14 @@ const releaseSale = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "Sale released successfully",
+      message: `Sale ${sale.salesNumber} released successfully`,
       sale: populatedSale,
     });
   } catch (error) {
+    // ============================================================
+    // TRANSACTION ROLLBACK
+    // ============================================================
+
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
